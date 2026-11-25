@@ -27,7 +27,14 @@ type SnapshotFs = {
   read: (path: string) => Promise<string>
 }
 
-const listStoredSnapshots = async (fs: SnapshotFs): Promise<StoredSnapshot[]> => {
+/** Only the fields the sweep reads; a file from an older or damaged write is skipped, not fatal. */
+const isSnapshotShape = (value: unknown): value is AgentSnapshot =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as Record<string, unknown>).sessionId === 'string' &&
+  typeof (value as Record<string, unknown>).closed === 'boolean'
+
+const listStoredSnapshots =async (fs: SnapshotFs): Promise<StoredSnapshot[]> => {
   try {
     const home = await fs.home()
     if (!home) return []
@@ -39,8 +46,9 @@ const listStoredSnapshots = async (fs: SnapshotFs): Promise<StoredSnapshot[]> =>
     const stored = await Promise.all(
       recent.map(async (entry): Promise<StoredSnapshot | null> => {
         try {
-          const snapshot = JSON.parse(await fs.read(`${dir}/${entry.name}`)) as AgentSnapshot
-          return { name: entry.name, mtimeMs: entry.mtimeMs, snapshot }
+          const parsed: unknown = JSON.parse(await fs.read(`${dir}/${entry.name}`))
+          if (!isSnapshotShape(parsed)) return null
+          return { name: entry.name, mtimeMs: entry.mtimeMs, snapshot: parsed }
         } catch {
           return null
         }

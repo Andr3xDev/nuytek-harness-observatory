@@ -38,6 +38,10 @@ import {
 const BASH_TOOL = 'Bash'
 const ISO_DATE_LENGTH = 10
 const NO_MODEL = ''
+/** Never matches a real `startedAt`, so a baseline built on it always takes the `computeTurnCost` reset path. */
+const NO_STARTED_AT = -1
+/** `session.end` shares one short wall-clock bound; snapshot upserts are skipped below this much remaining time. */
+const SNAPSHOT_FLUSH_MIN_REMAINING_MS = 300
 
 /**
  * What handlers read from `$` on every call. The plugin validator forbids passing `$` itself, so
@@ -68,10 +72,13 @@ export type CaptureConfig<H extends HostApi> = {
 }
 
 type Next<E, R> = (e: E) => Promise<R>
+type BudgetedNext<E, R> = Next<E, R> & { budget?: { remainingMs: number } }
 
 type Sample = {
   startedAt: number
   sessionUsd: number
+  /** False when the host reported no session cost: a missing reading, not a zero one (D14). */
+  sessionCostKnown: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]
 }
@@ -84,12 +91,18 @@ type PermissionInput = { tool_name: string; tool_use_id?: string; agent_id?: str
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
-const toReading = (sample: Sample): Reading => ({
-  startedAt: sample.startedAt,
-  sessionUsd: sample.sessionUsd,
-  hasUnknownPrice: sample.hasUnknownPrice,
-  agents: new Map(sample.agents.map((agent) => [agent.id, agent.cost?.usd ?? 0])),
-})
+// The snapshot schema needs a number per agent, so an agent without `cost` still counts as 0 here.
+const toReading = (sample: Sample): Reading | null =>
+  sample.sessionCostKnown
+    ? {
+        startedAt: sample.startedAt,
+        sessionUsd: sample.sessionUsd,
+        hasUnknownPrice: sample.hasUnknownPrice,
+        agents: new Map(sample.agents.map((agent) => [agent.id, agent.cost?.usd ?? 0])),
+      }
+    : null
+
+const ZERO_BASELINE_AGENTS: ReadonlyMap<string, number> = new Map()
 
 const skillUseOf = (tool: string, input: unknown): { skill: string; kind: SkillUseKind } | null => {
   if (!isRecord(input)) return null
@@ -105,8 +118,12 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   const { profile } = config
   const now = config.now ?? Date.now
   const lastKnownAgentUsd = new Map<string, number>()
+  // Built by the first hook that touches it, normally `session.start`. After a module reload with no
+  // `session.start` it is built in another dispatch, so that host's closures own the timer and writer.
   let runtime: Runtime | undefined
   let session: SessionState | undefined
+  // Survives `/clear`, which ends the session without a `session.start` for the next one.
+  let lastCwd = '.'
   let baseline: Reading | null = null
   let previousModel = NO_MODEL
   let lastCycleAt = 0
@@ -114,7 +131,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
   const runtimeOf = (host: H): Runtime => (runtime ??= config.runtime(host))
 
-  const startSession = (id: string): SessionState => (session = { id, tracker: createSnapshotTracker(id), cwd: '.' })
+  const startSession = (id: string): SessionState => (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
 
   const sessionOf = async (host: H): Promise<SessionState> => session ?? startSession(await host.sessionId())
 
@@ -127,10 +144,11 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   const takeSample = async (host: H): Promise<Sample | null> => {
     try {
       const [usage, agents] = await Promise.all([host.usage(), host.agents()])
-      for (const agent of agents) lastKnownAgentUsd.set(agent.id, agent.cost?.usd ?? 0)
+      for (const agent of agents) if (agent.cost) lastKnownAgentUsd.set(agent.id, agent.cost.usd)
       return {
         startedAt: usage.startedAt,
         sessionUsd: usage.cost?.usd ?? 0,
+        sessionCostKnown: usage.cost !== undefined,
         hasUnknownPrice: usage.cost?.hasUnknownPrice === true,
         agents,
       }
@@ -166,6 +184,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const rt = runtimeOf(host)
         const state = startSession(await host.sessionId())
         state.cwd = result.cwd ?? e.cwd
+        lastCwd = state.cwd
         bashCalls = createBashCallTracker(profile)
         previousModel = NO_MODEL
         await rt.branch.refresh(state.cwd)
@@ -178,18 +197,20 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         }
       }),
 
-    sessionEnd: <E extends { sessionId: string; reason: string }, R>(host: H, e: E, next: Next<E, R>) =>
+    sessionEnd: <E extends { sessionId: string; reason: string }, R>(host: H, e: E, next: BudgetedNext<E, R>) =>
       observe(e, next, async () => {
         const rt = runtimeOf(host)
         const ctx: EnvelopeContext = { sessionId: e.sessionId, branch: rt.branch.current(), now: now() }
         if (e.reason === 'clear') {
           for (const write of session?.tracker.closeAllOnReset(ctx.now) ?? []) rt.batcher.setSnapshot(write.file, write.snapshot)
           session = undefined
-          baseline = null
+          // No `session.start` follows a `/clear`: a zero baseline makes the first turn cost the new cumulative (D14 reset).
+          baseline = { startedAt: NO_STARTED_AT, sessionUsd: 0, hasUnknownPrice: false, agents: ZERO_BASELINE_AGENTS }
         }
         rt.batcher.pushEvent(buildSessionEnd({ reason: e.reason, estimates: bashCalls.estimate() }, profile, ctx))
         if (e.reason === 'clear') bashCalls = createBashCallTracker(profile)
-        await rt.batcher.flush()
+        // Events are appended first; snapshots are the part dropped when the shared bound runs low.
+        await rt.batcher.flush(() => (next.budget?.remainingMs ?? Infinity) > SNAPSHOT_FLUSH_MIN_REMAINING_MS)
       }),
 
     sessionCompact: <E, R>(host: H, e: E, next: Next<E, R>) =>

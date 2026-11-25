@@ -158,6 +158,45 @@ describe('agents and turns', () => {
     expect(Math.round((turn as { costUsd: number }).costUsd * 100)).toBe(30)
   })
 
+  test('session usage without cost gives a null costUsd, not a zero reading', async () => {
+    const { host, capture, events } = setup()
+    host.usage = async () => ({ startedAt: START })
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    const turn = (await events()).find((e) => e.type === 'turn.complete')
+    expect(turn).toMatchObject({ costUsd: null })
+  })
+
+  test('after a /clear the first turn costs the new cumulative and keeps the working directory', async () => {
+    const { world, host, capture, events } = setup()
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    world.usd = 2
+    await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'clear' }, passThrough({}))
+    world.startedAt = START + 1
+    world.usd = 0.4
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    const turn = (await events()).find((e) => e.type === 'turn.complete')
+    expect(Math.round((turn as { costUsd: number }).costUsd * 100)).toBe(40)
+  })
+
+  test('session.end skips snapshot upserts when the shared budget is nearly spent but still writes events', async () => {
+    const { host, capture, runtime } = setup()
+    const upserts: string[] = []
+    const appended: string[] = []
+    runtime.batcher = createBatcher(
+      {
+        append: async (path) => (appended.push(path), true),
+        upsert: async (path) => (upserts.push(path), true),
+      },
+      { every: () => () => {} },
+    )
+    runtime.batcher.setSnapshot('a1.json', {} as never)
+    const next = Object.assign(passThrough({}), { budget: { remainingMs: 10 } })
+    await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'other' }, next)
+    expect(appended).toEqual([`events/${SESSION_ID}.jsonl`])
+    expect(upserts).toEqual([])
+  })
+
   test('a subagent turn carries no costUsd', async () => {
     const { host, capture, events } = setup()
     await capture.turnComplete(host, { durationMs: 1, agentId: 'a1' }, passThrough({}))

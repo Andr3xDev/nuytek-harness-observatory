@@ -15,7 +15,12 @@ export type Batcher = {
   pushPrompt: (date: string, record: PromptRecord) => void
   /** `file` is the snapshot file name, for example `a1.json`; the latest call per file wins. */
   setSnapshot: (file: string, snapshot: AgentSnapshot) => void
-  flush: () => Promise<void>
+  /**
+   * Writes everything queued, including entries pushed while a write was in flight, and stops after a
+   * run that failed. Event appends always run; `canContinue` is asked before each snapshot upsert and a
+   * `false` leaves the remaining snapshots queued.
+   */
+  flush: (canContinue?: () => boolean) => Promise<void>
   /** Queued and in-flight events of one session, frozen, in append order. */
   pendingEvents: (sessionId: string) => readonly ObsEvent[]
   readonly droppedEvents: number
@@ -29,8 +34,10 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   let inflight: Entry[] = []
   let snapshots = new Map<string, string>()
   let droppedEvents = 0
-  let timerStarted = false
+  let stopTimer: (() => void) | undefined
   let flushing: Promise<void> | undefined
+  // The last run left work unwritten; size-triggered flushes pause until the timer or an explicit flush.
+  let stalled = false
 
   const dropOldestAboveCap = (): void => {
     const excess = queue.length - MAX_BUFFERED_EVENTS
@@ -42,16 +49,19 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   const queuedBytes = (): number => queue.reduce((sum, entry) => sum + encoder.encode(entry.line).length, 0)
 
   const startTimerOnce = (): void => {
-    if (timerStarted) return
-    timerStarted = true
-    clock.every(FLUSH_INTERVAL_MS, () => void flush())
+    if (stopTimer) return
+    try {
+      stopTimer = clock.every(FLUSH_INTERVAL_MS, () => void flush())
+    } catch {
+      // Retried on the next push; the entry is already queued.
+    }
   }
 
   const enqueue = (entry: Entry): void => {
-    startTimerOnce()
     queue.push(entry)
+    startTimerOnce()
     dropOldestAboveCap()
-    if (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES) void flush()
+    if (!stalled && (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES)) void flush()
   }
 
   const attempt = async (send: () => Promise<boolean>): Promise<boolean> => {
@@ -62,7 +72,8 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     }
   }
 
-  const run = async (): Promise<void> => {
+  const run = async (canContinue: () => boolean): Promise<void> => {
+    stalled = false
     const batch = queue
     const dirtySnapshots = snapshots
     queue = []
@@ -74,11 +85,17 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     const failedEntries: Entry[] = []
     for (const [path, entries] of byPath) {
       const ok = await attempt(() => sink.append(path, entries.map((entry) => entry.line).join('')))
-      if (!ok) failedEntries.push(...entries)
+      if (!ok) {
+        failedEntries.push(...entries)
+        stalled = true
+      }
     }
     for (const [file, text] of dirtySnapshots) {
-      const ok = await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text))
-      if (!ok && !snapshots.has(file)) snapshots.set(file, text)
+      const ok = canContinue() && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
+      if (!ok) {
+        stalled = true
+        if (!snapshots.has(file)) snapshots.set(file, text)
+      }
     }
 
     inflight = []
@@ -86,11 +103,13 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     dropOldestAboveCap()
   }
 
-  const flush = (): Promise<void> => {
-    flushing ??= run().finally(() => {
-      flushing = undefined
-    })
-    return flushing
+  const flush = async (canContinue: () => boolean = () => true): Promise<void> => {
+    do {
+      flushing ??= run(canContinue).finally(() => {
+        flushing = undefined
+      })
+      await flushing
+    } while (!stalled && (queue.length > 0 || snapshots.size > 0))
   }
 
   return {

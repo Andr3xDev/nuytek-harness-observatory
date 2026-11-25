@@ -144,6 +144,52 @@ describe('batcher flush', () => {
     expect(texts).toHaveLength(1)
   })
 
+  test('an awaited flush also writes entries pushed while an earlier flush was in flight', async () => {
+    const writes: string[] = []
+    let release: () => void = () => {}
+    let first = true
+    const sink: BatchSink = {
+      append: async (_path, text) => {
+        if (first) {
+          first = false
+          await new Promise<void>((resolve) => (release = resolve))
+        }
+        writes.push(text)
+        return true
+      },
+      upsert: async () => true,
+    }
+    const batcher = createBatcher(sink, fakeClock().clock)
+    batcher.pushEvent(event('s1', 'e1'))
+    void batcher.flush()
+    await settle()
+    batcher.pushEvent(event('s1', 'e2'))
+    const awaited = batcher.flush()
+    release()
+    await awaited
+    expect(writes.flatMap((text) => (linesOf(text) as ObsEvent[]).map((e) => e.id))).toEqual(['e1', 'e2'])
+  })
+
+  test('a failing sink does not loop forever and size-triggered flushes pause after the failure', async () => {
+    const { sink, calls } = recordingSink(Array(1000).fill(false))
+    const batcher = createBatcher(sink, fakeClock().clock)
+    for (let i = 0; i < MAX_BATCH_EVENTS * 3; i++) batcher.pushEvent(event('s1', `e${i}`))
+    await settle()
+    await batcher.flush()
+    expect(calls.length).toBeLessThanOrEqual(3)
+  })
+
+  test('snapshots stay queued when canContinue is false and events are still appended', async () => {
+    const { sink, calls } = recordingSink()
+    const batcher = createBatcher(sink, fakeClock().clock)
+    batcher.pushEvent(event('s1', 'e1'))
+    batcher.setSnapshot('a1.json', snapshot('a1', 1))
+    await batcher.flush(() => false)
+    expect(calls.map((c) => c.kind)).toEqual(['append'])
+    await batcher.flush()
+    expect(calls.map((c) => c.kind)).toEqual(['append', 'upsert'])
+  })
+
   test('reaching the batch event cap triggers a flush without an explicit call', async () => {
     const { sink, calls } = recordingSink()
     const batcher = createBatcher(sink, fakeClock().clock)
@@ -186,6 +232,22 @@ describe('batcher timer', () => {
     registered[0]?.fn()
     await settle()
     expect(calls).toHaveLength(1)
+  })
+
+  test('a throwing clock drops no event and the timer is retried on the next push', () => {
+    let attempts = 0
+    const clock: BatchClock = {
+      every: () => {
+        attempts++
+        if (attempts === 1) throw new Error('clock down')
+        return () => {}
+      },
+    }
+    const batcher = createBatcher(recordingSink().sink, clock)
+    batcher.pushEvent(event('s1', 'e1'))
+    batcher.pushEvent(event('s1', 'e2'))
+    expect(attempts).toBe(2)
+    expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1', 'e2'])
   })
 })
 
