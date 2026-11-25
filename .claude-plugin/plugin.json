@@ -1,0 +1,22 @@
+{
+  "name": "nuytek-harness-observatory",
+  "version": "0.1.0",
+  "description": "Captures Claude Code session, agent and cost telemetry into a local append-only store.",
+  "author": { "name": "Andr3xDev" },
+  "license": "GPL-3.0-or-later",
+  "userConfig": {
+    "retentionDays": {
+      "type": "string",
+      "title": "Retention (days)",
+      "description": "Days to keep captured files before they are pruned.",
+      "default": "30",
+      "options": ["30", "60", "90"]
+    },
+    "harnessProfile": {
+      "type": "boolean",
+      "title": "Harness profile",
+      "description": "Also capture harness-specific fields (guard, skillsInjected, status, parserVersion, estimates).",
+      "default": false
+    }
+  }
+}

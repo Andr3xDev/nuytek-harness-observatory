@@ -1,0 +1,6 @@
+{
+  "name": "nuytek-harness-observatory",
+  "owner": { "name": "Andr3xDev" },
+  "description": "Claude Code observability capture plugin.",
+  "plugins": [{ "name": "nuytek-harness-observatory", "source": "./" }]
+}
