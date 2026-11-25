@@ -176,9 +176,9 @@ const summarizeTools = (events: readonly EventRecord[], agentTypeOf: (agentId: s
         if (event.command !== undefined) bump(tools.bash, event.command.slice(0, MAX_COMMAND_CHARS))
         if (event.toolName === 'Bash') bashCalls.add(event.toolUseId)
       }
-    } else if (event.type === 'skill.use' && event.kind !== 'prompted') {
-      const skill = getOrInit(tools.skills, event.skill, (): SkillFigures => ({ read: 0, invoked: 0, byAgentType: createRecord() }))
-      const byType = getOrInit(skill.byAgentType, agentTypeOf(event.agentId), () => ({ read: 0, invoked: 0 }))
+    } else if (event.type === 'skill.use') {
+      const skill = getOrInit(tools.skills, event.skill, (): SkillFigures => ({ prompted: 0, read: 0, invoked: 0, byAgentType: createRecord() }))
+      const byType = getOrInit(skill.byAgentType, agentTypeOf(event.agentId), () => ({ prompted: 0, read: 0, invoked: 0 }))
       skill[event.kind] += 1
       byType[event.kind] += 1
     } else if (event.type === 'command.run') {

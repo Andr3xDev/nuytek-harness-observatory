@@ -34,7 +34,8 @@ export type AgentFigures = Figure & {
   durationMs: number
 }
 
-export type SkillFigures = { read: number; invoked: number; byAgentType: Record<string, { read: number; invoked: number }> }
+export type SkillCounts = { prompted: number; read: number; invoked: number }
+export type SkillFigures = SkillCounts & { byAgentType: Record<string, SkillCounts> }
 export type ToolFigures = {
   skills: Record<string, SkillFigures>
   mcp: Record<string, Record<string, number>>

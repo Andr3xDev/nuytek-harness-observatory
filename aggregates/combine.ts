@@ -39,11 +39,13 @@ const mergeTools = (sessions: readonly SessionFigures[]): ToolFigures => {
   }
   for (const { tools: part } of sessions) {
     for (const [name, skill] of Object.entries(part.skills)) {
-      const merged = getOrInit(tools.skills, name, (): SkillFigures => ({ read: 0, invoked: 0, byAgentType: createRecord() }))
+      const merged = getOrInit(tools.skills, name, (): SkillFigures => ({ prompted: 0, read: 0, invoked: 0, byAgentType: createRecord() }))
+      merged.prompted += skill.prompted
       merged.read += skill.read
       merged.invoked += skill.invoked
       for (const [type, figures] of Object.entries(skill.byAgentType)) {
-        const byType = getOrInit(merged.byAgentType, type, () => ({ read: 0, invoked: 0 }))
+        const byType = getOrInit(merged.byAgentType, type, () => ({ prompted: 0, read: 0, invoked: 0 }))
+        byType.prompted += figures.prompted
         byType.read += figures.read
         byType.invoked += figures.invoked
       }

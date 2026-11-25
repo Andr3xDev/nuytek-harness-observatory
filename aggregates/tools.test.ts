@@ -13,6 +13,13 @@ describe('summarizeSession tools', () => {
     expect(tools.skills.foo?.byAgentType.builder).toMatchObject({ read: 2, invoked: 0 })
   })
 
+  test('counts a prompted skill separately from read and invoked', () => {
+    const tools = summarize([skillUse('foo', 'prompted'), skillUse('foo', 'invoked')])
+
+    expect(tools.skills.foo).toMatchObject({ prompted: 1, read: 0, invoked: 1 })
+    expect(tools.skills.foo?.byAgentType.main).toMatchObject({ prompted: 1, invoked: 1 })
+  })
+
   test('counts allow, ask and deny per agent type by distinct toolUseId, with main for the main loop', () => {
     const tools = summarize([
       spawn('a1'),

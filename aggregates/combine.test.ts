@@ -75,12 +75,12 @@ describe('combineSessions merging', () => {
   })
 
   test('merges tools across sessions', () => {
-    const a = summarize([skillUse('foo', 'read'), commandRun('/obs')])
+    const a = summarize([skillUse('foo', 'read'), skillUse('foo', 'prompted'), commandRun('/obs')])
     const b = summarize([skillUse('foo', 'read'), skillUse('foo', 'invoked')])
 
     const tools = combineSessions([a, b]).tools
 
-    expect(tools.skills.foo).toMatchObject({ read: 2, invoked: 1 })
+    expect(tools.skills.foo).toMatchObject({ prompted: 1, read: 2, invoked: 1 })
     expect(tools.commands['/obs']).toBe(1)
   })
 

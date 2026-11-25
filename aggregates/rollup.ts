@@ -1,6 +1,7 @@
 import { SUPPORTED_SCHEMA, type SessionFigures, type SessionRollup, type SourceListing, type SourceStat } from './types'
 
-export const ROLLUP_VERSION = 1
+// 2: skill figures gained `prompted`; version 1 rollups lack it.
+export const ROLLUP_VERSION = 2
 
 export const eventsPathOf = (sessionId: string): string => `events/${sessionId}.jsonl`
 export const mainSnapshotPathOf = (sessionId: string): string => `snapshots/main-${sessionId}.json`
