@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { FLUSH_INTERVAL_MS, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../capture/constants'
+import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../capture/constants'
 import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent, type PromptRecord } from '../capture/schema'
 import { createBatcher, type BatchClock, type BatchSink } from './batcher'
 
@@ -104,8 +104,8 @@ describe('batcher flush', () => {
     await batcher.flush()
     const upserts = calls.filter((c) => c.kind === 'upsert')
     expect(upserts).toHaveLength(1)
-    expect(upserts[0].path).toBe('snapshots/a1.json')
-    expect((JSON.parse(upserts[0].text) as AgentSnapshot).tokenCount).toBe(9)
+    expect(upserts[0]?.path).toBe('snapshots/a1.json')
+    expect((JSON.parse(upserts[0]?.text ?? '{}') as AgentSnapshot).tokenCount).toBe(9)
   })
 
   test('flushing with nothing queued runs nothing', async () => {
@@ -122,7 +122,7 @@ describe('batcher flush', () => {
     batcher.pushEvent(event('s1', 'e2'))
     await batcher.flush()
     expect(calls).toHaveLength(2)
-    expect((linesOf(calls[1].text) as ObsEvent[]).map((e) => e.id)).toEqual(['e1', 'e2'])
+    expect((linesOf(calls[1]?.text ?? '') as ObsEvent[]).map((e) => e.id)).toEqual(['e1', 'e2'])
   })
 
   test('a throwing sink never throws to the caller and the batch is retried', async () => {
@@ -152,6 +152,14 @@ describe('batcher flush', () => {
     expect(calls).toHaveLength(1)
   })
 
+  test('reaching the batch byte cap triggers a flush without an explicit call', async () => {
+    const { sink, calls } = recordingSink()
+    const batcher = createBatcher(sink, fakeClock().clock)
+    batcher.pushPrompt('2026-11-25', { ...prompt, text: 'x'.repeat(MAX_BATCH_BYTES) })
+    await settle()
+    expect(calls).toHaveLength(1)
+  })
+
   test('above the buffer cap the oldest events are dropped and counted', async () => {
     const { sink, calls } = recordingSink(Array(50).fill(false))
     const batcher = createBatcher(sink, fakeClock().clock)
@@ -161,7 +169,7 @@ describe('batcher flush', () => {
     expect(batcher.droppedEvents).toBe(extra)
     const pending = batcher.pendingEvents('s1')
     expect(pending).toHaveLength(MAX_BUFFERED_EVENTS)
-    expect(pending[0].id).toBe(`e${extra}`)
+    expect(pending[0]?.id).toBe(`e${extra}`)
     expect(calls.length).toBeGreaterThan(0)
   })
 })
@@ -175,7 +183,7 @@ describe('batcher timer', () => {
     batcher.pushEvent(event('s1', 'e1'))
     batcher.pushEvent(event('s1', 'e2'))
     expect(registered.map((r) => r.ms)).toEqual([FLUSH_INTERVAL_MS])
-    registered[0].fn()
+    registered[0]?.fn()
     await settle()
     expect(calls).toHaveLength(1)
   })
@@ -203,7 +211,7 @@ describe('pendingEvents', () => {
     } catch {
       // frozen objects throw in strict mode
     }
-    expect(batcher.pendingEvents('s1')[0].id).toBe('e1')
+    expect(batcher.pendingEvents('s1')[0]?.id).toBe('e1')
   })
 
   test('never runs the sink', () => {

@@ -149,8 +149,8 @@ describe('usage reset', () => {
     const closedA1 = writes.findIndex((w) => w.file === 'a1.json')
     const closedMain = writes.findIndex((w) => w.file === 'main-s1.json' && w.snapshot.closed)
     const newMain = writes.findIndex((w) => w.file === 'main-s1.json' && !w.snapshot.closed)
-    expect(writes[closedA1].snapshot).toMatchObject({ closed: true, closedReason: 'reset', startedAt: 1_000, tokenCount: 100 })
-    expect(writes[closedMain].snapshot).toMatchObject({ closedReason: 'reset', startedAt: 1_000, usage: [MAIN_TURN] })
+    expect(writes[closedA1]?.snapshot).toMatchObject({ closed: true, closedReason: 'reset', startedAt: 1_000, tokenCount: 100 })
+    expect(writes[closedMain]?.snapshot).toMatchObject({ closedReason: 'reset', startedAt: 1_000, usage: [MAIN_TURN] })
     expect(newMain).toBeGreaterThan(closedMain)
     expect(newMain).toBeGreaterThan(closedA1)
   })
@@ -197,7 +197,7 @@ describe('resume sweep', () => {
       stored('s1', false, RESUME_SWEEP_WINDOW_MS + 1, now),
     ]
     const writes = sweepStaleSnapshots('s1', files, now)
-    expect(writes.map((w) => w.file)).toEqual([files[0].name])
-    expect(writes[0].snapshot).toMatchObject({ closed: true, closedReason: 'reset' })
+    expect(writes.map((w) => w.file)).toEqual([files[0]?.name])
+    expect(writes[0]?.snapshot).toMatchObject({ closed: true, closedReason: 'reset' })
   })
 })

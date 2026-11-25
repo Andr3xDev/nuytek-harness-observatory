@@ -1,4 +1,4 @@
-import { FLUSH_INTERVAL_MS, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../capture/constants'
+import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../capture/constants'
 import type { AgentSnapshot, ObsEvent, PromptRecord } from '../capture/schema'
 
 export type BatchSink = {
@@ -22,6 +22,7 @@ export type Batcher = {
 }
 
 const SNAPSHOT_DIR = 'snapshots'
+const encoder = new TextEncoder()
 
 export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   let queue: Entry[] = []
@@ -38,6 +39,8 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     droppedEvents += excess
   }
 
+  const queuedBytes = (): number => queue.reduce((sum, entry) => sum + encoder.encode(entry.line).length, 0)
+
   const startTimerOnce = (): void => {
     if (timerStarted) return
     timerStarted = true
@@ -48,7 +51,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     startTimerOnce()
     queue.push(entry)
     dropOldestAboveCap()
-    if (queue.length >= MAX_BATCH_EVENTS) void flush()
+    if (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES) void flush()
   }
 
   const attempt = async (send: () => Promise<boolean>): Promise<boolean> => {
