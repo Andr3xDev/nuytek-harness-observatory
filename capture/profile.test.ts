@@ -11,7 +11,12 @@ const USAGE = { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 30
 
 const runSession = async (options: PluginOptions) => {
   const hooks = new Map<string, Hook>()
-  registerHooks(((name: string, hook: Hook) => hooks.set(name, hook)) as unknown as On, options, false)
+  // A matched registration (`on(name, matcher, hook)`) is the report command, not capture: keep it under its own key.
+  registerHooks(
+    ((name: string, matcherOrHook: Hook | object, hook?: Hook) => hooks.set(hook ? `${name}:matched` : name, hook ?? (matcherOrHook as Hook))) as unknown as On,
+    options,
+    false,
+  )
 
   const world = { usd: 0, agents: [] as unknown[] }
   const events: AnyRecord[] = []

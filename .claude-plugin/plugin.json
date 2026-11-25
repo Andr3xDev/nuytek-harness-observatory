@@ -18,6 +18,24 @@
       "title": "Harness profile",
       "description": "Also capture harness-specific fields (guard, skillsInjected, status, parserVersion, estimates).",
       "default": false
+    },
+    "anomalyDelegationCostUsd": {
+      "type": "number",
+      "title": "Delegation cost anomaly (USD)",
+      "description": "Flag a delegation tree whose estimated cost exceeds this amount.",
+      "default": 1
+    },
+    "anomalyCacheRatioMin": {
+      "type": "number",
+      "title": "Cache ratio anomaly (minimum)",
+      "description": "Flag a tree or session whose cache ratio is below this value (0 to 1).",
+      "default": 0.6
+    },
+    "anomalyDeniesPerSessionMax": {
+      "type": "number",
+      "title": "Denies per session anomaly",
+      "description": "Flag a session with more tool denies than this.",
+      "default": 5
     }
   }
 }

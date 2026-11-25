@@ -5,6 +5,7 @@ import { CLASSIC_PERMISSION_HOOKS_ENABLED } from '../capture/flags'
 import { createCapture, type HostApi, type Runtime } from '../capture/handlers'
 import type { AgentSnapshot } from '../capture/schema'
 import type { StoredSnapshot } from '../capture/snapshots'
+import { handleReport, isReportCommand } from '../commands/report'
 import { createBatcher } from '../store/batcher'
 import { createWriter, WRITE_TIMEOUT_MS, type ProcessRunner } from '../store/writer'
 
@@ -18,7 +19,8 @@ type Host = HostApi & {
   detect: (path: string) => Promise<{ branch: string | null } | null>
 }
 
-const SNAPSHOTS_DIR = '.claude/observability/snapshots'
+const STORE_DIR = '.claude/observability'
+const SNAPSHOTS_DIR = `${STORE_DIR}/snapshots`
 const SNAPSHOT_EXTENSION = '.json'
 
 type SnapshotFs = {
@@ -148,6 +150,23 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       next,
     ),
   )
+  // Registered after the capture hook above: it is the outer one, so it still records `/obs` after this one answers.
+  on('command.run', { command: 'obs' }, async ($, e, next) => {
+    if (!isReportCommand(e.args)) return next(e)
+    // A missing HOME makes every read fail, which listSources turns into an empty store.
+    const root = `${(await $.env.get('HOME')) ?? ''}/${STORE_DIR}`
+    return handleReport({
+      fs: {
+        list: (path) => $.fs.list(`${root}/${path}`),
+        read: (path, range) => $.fs.read(`${root}/${path}`, range),
+        readText: (path) => $.fs.read(`${root}/${path}`),
+      },
+      writer: createWriter((argv, init) => $.process.run(argv, init)),
+      options,
+      now: Date.now(),
+      columns: e.presentation.columns,
+    })
+  })
   on('skill.prompt', ($, e, next) =>
     capture.skillPrompt(
       {
