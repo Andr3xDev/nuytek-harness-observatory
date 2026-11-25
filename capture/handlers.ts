@@ -204,6 +204,8 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         if (e.reason === 'clear') {
           for (const write of session?.tracker.closeAllOnReset(ctx.now) ?? []) rt.batcher.setSnapshot(write.file, write.snapshot)
           session = undefined
+          previousModel = NO_MODEL
+          lastKnownAgentUsd.clear()
           // No `session.start` follows a `/clear`: a zero baseline makes the first turn cost the new cumulative (D14 reset).
           baseline = { startedAt: NO_STARTED_AT, sessionUsd: 0, hasUnknownPrice: false, agents: ZERO_BASELINE_AGENTS }
         }

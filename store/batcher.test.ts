@@ -286,8 +286,10 @@ describe('pendingEvents', () => {
 
   test('events stay visible while a flush is in flight and are gone after it succeeds', async () => {
     let release: (ok: boolean) => void = () => {}
+    let appends = 0
     const sink: BatchSink = {
-      append: () => new Promise<boolean>((resolve) => (release = resolve)),
+      // Only the first append is held; flush drains e2 with a second append that succeeds at once.
+      append: () => (appends++ === 0 ? new Promise<boolean>((resolve) => (release = resolve)) : Promise.resolve(true)),
       upsert: async () => true,
     }
     const batcher = createBatcher(sink, fakeClock().clock)
@@ -298,7 +300,8 @@ describe('pendingEvents', () => {
     expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1', 'e2'])
     release(true)
     await flushing
-    expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e2'])
+    expect(appends).toBe(2)
+    expect(batcher.pendingEvents('s1')).toEqual([])
   })
 
   test('events return to the queue and stay visible after a failed flush', async () => {
