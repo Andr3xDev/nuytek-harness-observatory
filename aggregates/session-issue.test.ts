@@ -114,4 +114,24 @@ describe('review fixes', () => {
 
     expect(figures.profile?.statusMixByType).toEqual({})
   })
+
+  test('a turn sum above the snapshot cost by float noise keeps the snapshot source', () => {
+    const figures = summarizeSession(
+      {
+        events: [turn(null, { usage: TEN_TOKENS, costUsd: 0.5 + 1e-12 })],
+        snapshots: [mainSnapshot({ usage: [TEN_TOKENS], costUsd: 0.5 })],
+      },
+      CTX,
+    )
+
+    expect(figures.main.costUsd).toBe(0.5)
+  })
+
+  test('lastEventAt survives a very large event log', () => {
+    const count = 200_000
+    const events = Array.from({ length: count }, (_, index) => ({ ts: index }) as unknown as EventRecord)
+    const figures = summarizeSession({ events, snapshots: [] }, CTX)
+
+    expect(figures.lastEventAt).toBe(count - 1)
+  })
 })

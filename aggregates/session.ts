@@ -22,7 +22,9 @@ import {
 
 const MAIN_AGENT_TYPE = 'main'
 const UNKNOWN_KEY = 'unknown'
-const CODE_REVIEWER_TYPE = 'code-reviewer'
+/** Float noise below this must not flip the main figure from the snapshot to turn usage. */
+const COST_EPSILON_USD = 1e-9
+const CODE_REVIEWER_TYPE ='code-reviewer'
 const FINAL_ENGINE_STATUSES = ['completed', 'failed', 'stopped']
 
 /** Report-text markers are matched on the excerpt; changing them needs a ROLLUP_VERSION bump. */
@@ -194,7 +196,7 @@ const buildProfile = (events: readonly EventRecord[], agents: Map<string, AgentR
   const profile: ProfileFigures = { statusMixByType: createRecord(), reroutesByType: createRecord(), reviewPasses: 0, skillsInjected: createRecord(), guards }
   for (const event of events) {
     if (event.type !== 'agent.report') continue
-    const status = event.status ?? (event.parserVersion != null ?UNKNOWN_KEY : null)
+    const status = event.status ?? (event.parserVersion != null ? UNKNOWN_KEY : null)
     if (status !== null) bump(getOrInit(profile.statusMixByType, event.subagentType, () => createRecord<number>()), status)
     const rule = REROUTE_RULES.get(event.subagentType)
     if (rule && event.status === rule.status && event.reportExcerpt.includes(rule.marker)) bump(profile.reroutesByType, event.subagentType)
@@ -232,7 +234,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
   const mainTurns = events.filter((event): event is TurnCompleteEvent => event.type === 'turn.complete' && event.agentId === null)
   const turnCostOf = (turn: TurnCompleteEvent): number => Math.max(0, turn.costUsd ?? 0)
   const turnCostSum = mainTurns.reduce((sum, turn) => sum + turnCostOf(turn), 0)
-  const turnsLeadSnapshot = mainSnapshot !== undefined && turnCostSum > mainSnapshot.costUsd
+  const turnsLeadSnapshot = mainSnapshot !== undefined && turnCostSum - mainSnapshot.costUsd > COST_EPSILON_USD
   const measuredUnknownPrice = events.filter((event) => event.type === 'session.measure').at(-1)?.hasUnknownPrice === true
   const mainSource: Source =
     mainSnapshot && !turnsLeadSnapshot
@@ -296,7 +298,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
     harnessProfile,
     startedAt: sessionStart?.ts ?? events[0]?.ts ?? null,
     endedAt: sessionEnd?.ts ?? null,
-    lastEventAt: events.length === 0 ? null : Math.max(...events.map((event) => event.ts)),
+    lastEventAt: events.length === 0 ? null : events.reduce((latest, event) => Math.max(latest, event.ts), -Infinity),
     total,
     main,
     byType,
