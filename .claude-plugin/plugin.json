@@ -4,6 +4,7 @@
   "description": "Captures Claude Code session, agent and cost telemetry into a local append-only store.",
   "author": { "name": "Andr3xDev" },
   "license": "GPL-3.0-or-later",
+  "types": "./types/index.d.ts",
   "userConfig": {
     "retentionDays": {
       "type": "string",
