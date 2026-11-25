@@ -32,6 +32,8 @@ export type StoredSnapshot = { name: string; mtimeMs: number; snapshot: AgentSna
 
 export type SnapshotTracker = {
   recordMainTurn: (usage: UsageRecord) => void
+  /** Sum of the four token fields over the main-loop ledger of the current `startedAt`. */
+  mainTokens: () => number
   cycle: (input: SnapshotCycleInput) => SnapshotWrite[]
   closeAgent: (agentId: string, input: SnapshotCycleInput) => SnapshotWrite[]
   closeAllOnReset: (now: number) => SnapshotWrite[]
@@ -54,6 +56,9 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
   let tracked = new Map<string, Tracked>()
   let ledger: UsageRecord[] = []
   let startedAt: number | undefined
+
+  const ledgerTokens = (): number =>
+    ledger.reduce((sum, turn) => sum + turn.input + turn.output + turn.cacheRead + turn.cacheCreation, 0)
 
   const agentSnapshot = (agent: SnapshotAgent, input: SnapshotCycleInput): AgentSnapshot => {
     const usage = (agent.usage ?? []).map(mapUsage)
@@ -89,7 +94,7 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
     updatedAt: input.now,
     usage: [...ledger],
     costUsd: input.sessionUsd - input.agents.reduce((sum, agent) => sum + (agent.cost?.usd ?? 0), 0),
-    tokenCount: ledger.reduce((sum, turn) => sum + turn.input + turn.output + turn.cacheRead + turn.cacheCreation, 0),
+    tokenCount: ledgerTokens(),
     hasUnknownPrice: input.hasUnknownPrice,
     taskStatus: null,
     closed: false,
@@ -117,6 +122,7 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
     recordMainTurn: (usage) => {
       ledger.push(usage)
     },
+    mainTokens: ledgerTokens,
     cycle: (input) => {
       const writes = startedAt !== undefined && startedAt !== input.startedAt ? closeOpen(input.now) : []
       startedAt = input.startedAt

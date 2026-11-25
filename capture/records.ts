@@ -9,10 +9,14 @@ import {
   type AgentSpawnEvent,
   type CommandRunEvent,
   type Envelope,
+  type PermissionOutcome,
+  type PermissionOutcomeEvent,
   type PromptRecord,
+  type ReconciliationEvent,
   type SessionCompactEvent,
   type SessionEndEvent,
   type SessionEstimates,
+  type SessionMeasureEvent,
   type SessionStartEvent,
   type SkillUseEvent,
   type SkillUseKind,
@@ -209,4 +213,30 @@ export const buildSkillUse = (
 export const buildCommandRun = (input: { name: string }, ctx: EnvelopeContext): CommandRunEvent => ({
   ...createEnvelope('command.run', ctx, null),
   name: input.name,
+})
+
+export const buildSessionMeasure = (
+  input: { costUsd: number; hasUnknownPrice: boolean; context?: object; rateLimits?: object },
+  ctx: EnvelopeContext,
+): SessionMeasureEvent => ({
+  ...createEnvelope('session.measure', ctx, null),
+  costUsd: input.costUsd,
+  hasUnknownPrice: input.hasUnknownPrice,
+  context: input.context ?? null,
+  rateLimits: input.rateLimits ?? null,
+})
+
+export const buildReconciliationRecord = (
+  result: Omit<ReconciliationEvent, keyof Envelope<'reconciliation'>>,
+  ctx: EnvelopeContext,
+): ReconciliationEvent => ({ ...createEnvelope('reconciliation', ctx, null), ...result })
+
+export const buildPermissionOutcome = (
+  input: { toolName: string; outcome: PermissionOutcome; toolUseId: string | null; agentId: string | null },
+  ctx: EnvelopeContext,
+): PermissionOutcomeEvent => ({
+  ...createEnvelope('permission.outcome', ctx, input.agentId),
+  toolName: input.toolName,
+  outcome: input.outcome,
+  toolUseId: input.toolUseId,
 })
