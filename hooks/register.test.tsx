@@ -15,13 +15,14 @@ const CAPTURE_EVENTS = [
   'turn.complete',
 ]
 const REPORT_HOOK = 'command.run:{"command":"obs"}'
+const PANEL_HOOKS = ['ui.close:{"id":"observatory"}', 'ui.render:{"component":"AbovePrompt"}', 'ui.render:{"component":"Pane","requestId":"observatory"}']
 const CLASSIC_EVENTS = [
   'classic.PermissionDenied',
   'classic.PermissionRequest',
   'classic.PostToolUse',
   'classic.PostToolUseFailure',
 ]
-const FORBIDDEN_EVENTS = ['tool.call', 'tool.run', 'turn.step', 'process.spawn']
+const FORBIDDEN_EVENTS = ['tool.call', 'tool.run', 'turn.step', 'process.spawn', 'ui.render:{"component":"StatusLine"}']
 
 type Hook = (host: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) => Promise<unknown>
 
@@ -49,12 +50,12 @@ describe('registration set', () => {
   ]
 
   for (const [label, options] of profileModes) {
-    test(`classic flag off registers exactly the ten capture events plus the obs command hook (${label})`, () => {
-      expect(registered(options, false)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK].sort())
+    test(`classic flag off registers exactly the ten capture events, the obs command hook and the panel hooks (${label})`, () => {
+      expect(registered(options, false)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK, ...PANEL_HOOKS].sort())
     })
 
     test(`classic flag on adds only the four classic permission hooks (${label})`, () => {
-      expect(registered(options, true)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK, ...CLASSIC_EVENTS].sort())
+      expect(registered(options, true)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
     })
 
     test(`request and tool-loop hooks are never registered (${label})`, () => {
@@ -167,12 +168,58 @@ describe('obs report command hook', () => {
     expect(result.text).not.toContain('inner')
   })
 
-  test('/obs and /obs band are not intercepted', async () => {
+  test('unknown arguments pass through to next(e)', async () => {
     const { hooks, host } = setup()
-    for (const args of ['', 'band', 'band on']) {
+    for (const args of ['foo', 'band on extra']) {
       const result = await hooks.get(REPORT_HOOK)?.(host, obs(args), async () => ({ text: 'inner' }))
       expect(result).toEqual({ text: 'inner' })
     }
+  })
+
+  test('/obs band off answers display-only with no context and persists the setting', async () => {
+    const { hooks, host } = setup()
+    const stored: Record<string, unknown> = {}
+    const withStore = {
+      ...host,
+      ui: { panes: async () => [] },
+      store: { get: async () => undefined, set: async (key: string, value: unknown) => void (stored[key] = value) },
+      state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
+    }
+    const result = (await hooks.get(REPORT_HOOK)?.(withStore, obs('band off'), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    expect(Object.keys(result).sort()).toEqual(['isTextDisplayOnly', 'text'])
+    expect(stored.bandEnabled).toBe(false)
+  })
+
+  test('/obs opens the pane focused with Esc-to-close when it is closed', async () => {
+    const { hooks, host } = setup()
+    const opened: unknown[] = []
+    const withUi = {
+      ...host,
+      ui: { panes: async () => [], open: async (args: unknown) => (opened.push(args), { isPlaced: true }) },
+      state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
+    }
+    const result = (await hooks.get(REPORT_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    expect(opened).toEqual([{ id: 'observatory', title: 'Observatory', focus: true, closeOnEscape: true }])
+    expect(result.isTextDisplayOnly).toBe(true)
+  })
+
+  test('/obs closes an open pane', async () => {
+    const { hooks, host } = setup()
+    const closed: unknown[] = []
+    const withUi = { ...host, ui: { panes: async () => [{ id: 'observatory' }], close: async (args: unknown) => void closed.push(args) } }
+    await hooks.get(REPORT_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))
+    expect(closed).toEqual([{ id: 'observatory' }])
+  })
+
+  test('capture observers return the host result untouched and refresh only after capture records', async () => {
+    const { hooks, host } = setup()
+    const passThrough = async (e: unknown) => e
+    const verdict = { allow: true }
+    for (const name of ['agent.spawn', 'agent.report', 'session.measure', 'tool.check']) {
+      const result = await hooks.get(name)?.(host, { tool: 'Bash', input: {} }, async () => verdict)
+      expect(result).toBe(verdict)
+    }
+    await hooks.get('session.start')?.(host, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
   })
 
   test('capture still records /obs when the report hook answers beneath it', async () => {

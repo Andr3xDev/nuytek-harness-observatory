@@ -22,7 +22,7 @@ export const formatFigure = (value: number | null | undefined, mode: FigureMode)
   return String(value)
 }
 
-export const formatBandLine = (figures: SessionFigures): string => {
+export const formatBandLine = (figures: Pick<SessionFigures, 'total' | 'agents'>): string => {
   const { total, agents } = figures
   const cost = `${total.hasUnknownPrice ? '~' : ''}${formatUsd(total.costUsd)}`
   return `obs ${cost} · ${formatTokens(total.tokens)} tok · ${agents.length} ${agents.length === 1 ? 'agent' : 'agents'}`

@@ -13,7 +13,7 @@ export type RefresherDeps = {
   every: (ms: number, fn: () => void) => Cancel
   isPaneOpen: () => boolean
   isBandEnabled: () => boolean
-  getSessionId: () => string
+  getSessionId: () => string | Promise<string>
   session: { get: () => SessionAtom | null; set: (value: SessionAtom) => void }
   history: { get: () => HistoryAtom; set: (value: HistoryAtom) => void }
   bumpTick: () => void
@@ -33,13 +33,14 @@ export function createRefresher(deps: RefresherDeps) {
     inFlight = true
     lastStartedAt = deps.now()
     try {
-      const result = await deps.sources.loadSessionAggregate(deps.getSessionId())
+      const result = await deps.sources.loadSessionAggregate(await deps.getSessionId())
       const previous = deps.session.get()
       if (result.status === 'ready') {
         deps.session.set({
           sessionFigures: result.sessionFigures,
           aggregate: result.aggregate,
           liveAgentIds: result.liveAgentIds,
+          context: result.context ?? null,
           loadedAt: deps.now(),
           error: null,
         })

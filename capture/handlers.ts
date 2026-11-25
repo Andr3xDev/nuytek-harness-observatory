@@ -26,7 +26,7 @@ import {
   type VerdictResult,
 } from './records'
 import { reconcile } from './reconciliation'
-import type { PermissionOutcome, SkillUseKind } from './schema'
+import type { ObsEvent, PermissionOutcome, SkillUseKind } from './schema'
 import {
   createSnapshotTracker,
   sweepStaleSnapshots,
@@ -175,6 +175,9 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   }
 
   return {
+    /** Read-only view for the live panel: events accepted by the batcher but not yet on disk. */
+    pendingEvents: (sessionId: string): readonly ObsEvent[] => runtime?.batcher.pendingEvents(sessionId) ?? [],
+
     sessionStart: <E extends { cwd: string; isInteractive?: boolean }, R extends { cwd?: string }>(
       host: H & SnapshotLister,
       e: E,

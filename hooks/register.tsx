@@ -1,3 +1,4 @@
+import { atom, update } from 'claude-code'
 import type { On, PluginOptions, Register } from 'claude-code'
 import { createBranchProvider } from '../capture/branch'
 import { RESUME_SWEEP_WINDOW_MS } from '../capture/constants'
@@ -5,9 +6,26 @@ import { CLASSIC_PERMISSION_HOOKS_ENABLED } from '../capture/flags'
 import { createCapture, type HostApi, type Runtime } from '../capture/handlers'
 import type { AgentSnapshot } from '../capture/schema'
 import type { StoredSnapshot } from '../capture/snapshots'
+import { handleObs, parseObsArgs } from '../commands/obs'
 import { handleReport, isReportCommand } from '../commands/report'
 import { createBatcher } from '../store/batcher'
+import { loadHistory, type HistoryFs } from '../store/load-history'
 import { createWriter, WRITE_TIMEOUT_MS, type ProcessRunner } from '../store/writer'
+import { registerBand } from '../ui/band'
+import { PANE_ID, registerPane } from '../ui/pane'
+import { createRefresher, type Refresher } from '../ui/refresher'
+import { STATE_SHAPES } from '../ui/state'
+import { createLiveLoaders, createSources } from '../ui/sources'
+import type { HistoryAtom, PanelScope, SessionAtom } from '../types'
+
+// The hooks scan reads state refs only from literals or atoms declared in the reading file (see ui/pane.tsx).
+const scopeAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'scope' } as const, 'session', { shape: STATE_SHAPES.scope })
+const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })
+const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
+const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
+const bandEnabledAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'bandEnabled' } as const, true, { shape: STATE_SHAPES.bandEnabled })
+
+const BAND_STORE_KEY = 'bandEnabled'
 
 /**
  * Closures over `$`: the plugin validator rejects any use of `$` as a value, so every hook below
@@ -62,6 +80,20 @@ const listStoredSnapshots =async (fs: SnapshotFs): Promise<StoredSnapshot[]> => 
   }
 }
 
+/** Roots the store file system at `$HOME/.claude/observability`; without HOME every read fails, which yields the no-data view. */
+const historyFsOf = (home: string | undefined, fs: HistoryFs): HistoryFs => {
+  if (!home) {
+    const unreadable = (): Promise<never> => Promise.reject(new Error('HOME is not set'))
+    return { list: unreadable, read: unreadable, readText: unreadable }
+  }
+  const root = `${home}/${STORE_DIR}`
+  return {
+    list: (path) => fs.list(`${root}/${path}`),
+    read: (path, range) => fs.read(`${root}/${path}`, range),
+    readText: (path) => fs.readText(`${root}/${path}`),
+  }
+}
+
 const runtimeFrom = (host: Host): Runtime => {
   const writer = createWriter(host.run)
   return {
@@ -88,8 +120,17 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
   const retentionDays = typeof options.retentionDays === 'string' ? options.retentionDays : undefined
   const capture = createCapture<Host>({ profile, retentionDays, runtime: runtimeFrom })
 
-  on('session.start', ($, e, next) =>
-    capture.sessionStart(
+  // Live panel state. `$` cannot be a value, so the refresher is built once at `session.start` from
+  // closures over that dispatch's `$` (the same approach as capture's runtime) and shared by every hook.
+  let panel: Refresher | undefined
+  let paneOpen = false
+  let bandOn = true
+  let obsRegistered = false
+  let lastSession: SessionAtom | null = null
+  let lastHistory: HistoryAtom = { status: 'idle' }
+
+  on('session.start', async ($, e, next) => {
+    const result = await capture.sessionStart(
       {
         sessionId: () => $.session.id(),
         usage: () => $.session.usage(),
@@ -106,8 +147,81 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       e,
       next,
-    ),
-  )
+    )
+    if (!obsRegistered) {
+      obsRegistered = true
+      try {
+        await $.command.register({
+          name: 'obs',
+          description: 'Toggle the observability pane, or: band on|off, report',
+          argumentHint: '[band on|off | report]',
+          isTerminalOnly: true,
+        })
+      } catch {
+        // The command is optional: capture and the band keep working without it.
+      }
+    }
+    try {
+      bandOn = (await $.store.get(BAND_STORE_KEY)) !== false
+      await update($, bandEnabledAtom, () => bandOn)
+      const fs = historyFsOf(await $.env.get('HOME'), {
+        list: (path) => $.fs.list(path),
+        read: (path, range) => $.fs.read(path, range),
+        readText: (path) => $.fs.read(path),
+      })
+      panel ??= createRefresher({
+        sources: createSources(
+          createLiveLoaders({
+            // The panel never writes the store: rollups stay the report command's cache.
+            loadSessions: async (options) =>
+              (await loadHistory({ fs, writer: { upsert: async () => false } }, { now: Date.now(), ...options })).sessions,
+            pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
+            listAgents: () => $.agent.list(),
+            readContext: async () => {
+              const { context } = await $.session.usage()
+              return context ? { percent: context.percent ?? null, window: context.window } : null
+            },
+          }),
+        ),
+        now: () => Date.now(),
+        after: (ms, fn) => {
+          const timer = $.clock.after(ms, fn)
+          return () => timer.cancel()
+        },
+        every: (ms, fn) => {
+          // Esc closes the pane without reaching our command: probe before each tick so a closed pane stops the timer.
+          const timer = $.clock.every(ms, () => {
+            void $.ui.panes().then(
+              (panes) => void (paneOpen = panes.some((pane) => pane.id === PANE_ID)),
+              () => undefined,
+            ).then(fn)
+          })
+          return () => timer.cancel()
+        },
+        isPaneOpen: () => paneOpen,
+        isBandEnabled: () => bandOn,
+        getSessionId: () => $.session.id(),
+        session: {
+          get: () => lastSession,
+          set: (value) => {
+            lastSession = value
+            void update($, sessionAtom, () => value).catch(() => undefined)
+          },
+        },
+        history: {
+          get: () => lastHistory,
+          set: (value) => {
+            lastHistory = value
+            void update($, historyAtom, () => value).catch(() => undefined)
+          },
+        },
+        bumpTick: () => void update($, tickAtom, (tick) => tick + 1).catch(() => undefined),
+      })
+    } catch {
+      // The panel is optional: a failed setup must not change what session.start returns.
+    }
+    return result
+  })
   on('session.end', ($, e, next) =>
     capture.sessionEnd(
       {
@@ -152,24 +266,40 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
   )
   // Registered after the capture hook above: it is the outer one, so it still records `/obs` after this one answers.
   on('command.run', { command: 'obs' }, async ($, e, next) => {
-    if (!isReportCommand(e.args)) return next(e)
-    const home = await $.env.get('HOME')
-    // Without HOME the root would be `/.claude/observability`; failing every read yields the no-data report.
-    const root = `${home}/${STORE_DIR}`
-    const unreadable = (): Promise<never> => Promise.reject(new Error('HOME is not set'))
-    return handleReport({
-      fs: home
-        ? {
-            list: (path) => $.fs.list(`${root}/${path}`),
-            read: (path, range) => $.fs.read(`${root}/${path}`, range),
-            readText: (path) => $.fs.read(`${root}/${path}`),
-          }
-        : { list: unreadable, read: unreadable, readText: unreadable },
-      writer: createWriter((argv, init) => $.process.run(argv, init)),
-      options,
-      now: Date.now(),
-      columns: e.presentation.columns,
+    if (isReportCommand(e.args)) {
+      const home = await $.env.get('HOME')
+      return handleReport({
+        fs: historyFsOf(home, {
+          list: (path) => $.fs.list(path),
+          read: (path, range) => $.fs.read(path, range),
+          readText: (path) => $.fs.read(path),
+        }),
+        writer: createWriter((argv, init) => $.process.run(argv, init)),
+        options,
+        now: Date.now(),
+        columns: e.presentation.columns,
+      })
+    }
+    const result = await handleObs(parseObsArgs(e.args), {
+      isPaneOpen: async () => (await $.ui.panes()).some((pane) => pane.id === PANE_ID),
+      closePane: () => $.ui.close({ id: PANE_ID }),
+      openPane: async () => {
+        const opened = await $.ui.open({ id: PANE_ID, title: 'Observatory', focus: true, closeOnEscape: true })
+        paneOpen = opened.isPlaced
+        return opened
+      },
+      resetScope: async () => void (await update($, scopeAtom, (): PanelScope => 'session')),
+      onOpened: () => {
+        panel?.requestRefresh('obs.open')
+        panel?.startTimer()
+      },
+      setBandEnabled: async (enabled) => {
+        bandOn = enabled
+        await $.store.set(BAND_STORE_KEY, enabled)
+        await update($, bandEnabledAtom, () => enabled)
+      },
     })
+    return result ?? next(e)
   })
   on('skill.prompt', ($, e, next) =>
     capture.skillPrompt(
@@ -185,8 +315,10 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       next,
     ),
   )
-  on('agent.spawn', ($, e, next) =>
-    capture.agentSpawn(
+  // The panel observes these events inside capture's hook: a second registration of the same
+  // event would be a repeat. Refresh runs after capture records, so the new event is pending.
+  on('agent.spawn', async ($, e, next) => {
+    const result = await capture.agentSpawn(
       {
         sessionId: () => $.session.id(),
         usage: () => $.session.usage(),
@@ -197,10 +329,12 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       e,
       next,
-    ),
-  )
-  on('agent.report', ($, e, next) =>
-    capture.agentReport(
+    )
+    panel?.requestRefresh('agent.spawn')
+    return result
+  })
+  on('agent.report', async ($, e, next) => {
+    const result = await capture.agentReport(
       {
         sessionId: () => $.session.id(),
         usage: () => $.session.usage(),
@@ -211,8 +345,10 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       e,
       next,
-    ),
-  )
+    )
+    panel?.requestRefresh('agent.report')
+    return result
+  })
   on('turn.complete', ($, e, next) =>
     capture.turnComplete(
       {
@@ -227,8 +363,8 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       next,
     ),
   )
-  on('session.measure', ($, e, next) =>
-    capture.sessionMeasure(
+  on('session.measure', async ($, e, next) => {
+    const result = await capture.sessionMeasure(
       {
         sessionId: () => $.session.id(),
         usage: () => $.session.usage(),
@@ -239,10 +375,12 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       e,
       next,
-    ),
-  )
-  on('tool.check', ($, e, next) =>
-    capture.toolCheck(
+    )
+    panel?.requestRefresh('session.measure')
+    return result
+  })
+  on('tool.check', async ($, e, next) => {
+    const result = await capture.toolCheck(
       {
         sessionId: () => $.session.id(),
         usage: () => $.session.usage(),
@@ -253,8 +391,23 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       e,
       next,
-    ),
-  )
+    )
+    panel?.requestRefresh('tool.check')
+    return result
+  })
+
+  on('ui.close', { id: PANE_ID }, async (_, e, next) => {
+    const result = await next(e)
+    paneOpen = false
+    panel?.stopTimer()
+    return result
+  })
+  registerPane(on, {
+    ensureHistory: () => {
+      void panel?.ensureHistory()
+    },
+  })
+  registerBand(on)
 
   if (classicPermissionHooks) {
     on('classic.PermissionRequest', ($, e, next) =>

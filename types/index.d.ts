@@ -8,6 +8,8 @@ export type SessionAtom = {
   sessionFigures: object
   aggregate: object
   liveAgentIds: string[]
+  /** Latest context-window reading; absent or null when the host gave none. */
+  context?: { percent: number | null; window: number } | null
   loadedAt: number
   error: string | null
 }
