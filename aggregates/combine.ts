@@ -119,13 +119,13 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
 
   const totalSpawns = Object.values(types).reduce((sum, type) => sum + type.spawns, 0)
   const startedAt = sessions.flatMap((session) => (session.startedAt === null ? [] : [session.startedAt]))
-  const endedAt = sessions.flatMap((session) => (session.state === 'closed' && session.endedAt !== null ? [session.endedAt] : []))
+  const lastEventAt = sessions.flatMap((session) => session.lastEventAt ?? session.endedAt ?? [])
 
   return {
     sessions: sessions.length,
     openSessions: sessions.filter((session) => session.state === 'open').length,
     windowStart: startedAt.length === 0 ? null : Math.min(...startedAt),
-    windowEnd: endedAt.length === 0 ? null : Math.max(...endedAt),
+    windowEnd: lastEventAt.length === 0 ? null : Math.max(...lastEventAt),
     total,
     cacheRatio: cacheRatio(total),
     byType: byDescending(

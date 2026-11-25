@@ -194,7 +194,7 @@ const buildProfile = (events: readonly EventRecord[], agents: Map<string, AgentR
   const profile: ProfileFigures = { statusMixByType: createRecord(), reroutesByType: createRecord(), reviewPasses: 0, skillsInjected: createRecord(), guards }
   for (const event of events) {
     if (event.type !== 'agent.report') continue
-    const status = event.status ?? (event.parserVersion !== null ? UNKNOWN_KEY : null)
+    const status = event.status ?? (event.parserVersion != null ?UNKNOWN_KEY : null)
     if (status !== null) bump(getOrInit(profile.statusMixByType, event.subagentType, () => createRecord<number>()), status)
     const rule = REROUTE_RULES.get(event.subagentType)
     if (rule && event.status === rule.status && event.reportExcerpt.includes(rule.marker)) bump(profile.reroutesByType, event.subagentType)
@@ -232,15 +232,18 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
   const mainTurns = events.filter((event): event is TurnCompleteEvent => event.type === 'turn.complete' && event.agentId === null)
   const turnCostOf = (turn: TurnCompleteEvent): number => Math.max(0, turn.costUsd ?? 0)
   const turnCostSum = mainTurns.reduce((sum, turn) => sum + turnCostOf(turn), 0)
-  const turnsLeadSnapshot = pending.length > 0 && mainSnapshot !== undefined && turnCostSum > mainSnapshot.costUsd
+  const turnsLeadSnapshot = mainSnapshot !== undefined && turnCostSum > mainSnapshot.costUsd
+  const measuredUnknownPrice = events.filter((event) => event.type === 'session.measure').at(-1)?.hasUnknownPrice === true
   const mainSource: Source =
     mainSnapshot && !turnsLeadSnapshot
-      ? { usage: mainSnapshot.usage, costUsd: mainSnapshot.costUsd, hasUnknownPrice: mainSnapshot.hasUnknownPrice }
-      : { usage: mainTurns.map((turn) => turn.usage), costUsd: turnCostSum, hasUnknownPrice: false }
+      ? { usage: mainSnapshot.usage, costUsd: mainSnapshot.costUsd, hasUnknownPrice: mainSnapshot.hasUnknownPrice || measuredUnknownPrice }
+      : { usage: mainTurns.map((turn) => turn.usage), costUsd: turnCostSum, hasUnknownPrice: (mainSnapshot?.hasUnknownPrice ?? false) || measuredUnknownPrice }
   const main = figureOf(mainSource)
   const mainCostGapUsd = mainSnapshot && !turnsLeadSnapshot ? Math.max(0, mainSnapshot.costUsd - turnCostSum) : 0
   countModels(mainSource.usage)
-  for (const turn of mainTurns) addToIssue(issueKeyOf(turn.branch), figureOf({ usage: [turn.usage], costUsd: turnCostOf(turn), hasUnknownPrice: false }))
+  for (const turn of mainTurns) {
+    addToIssue(issueKeyOf(turn.branch), figureOf({ usage: [turn.usage], costUsd: turnCostOf(turn), hasUnknownPrice: main.hasUnknownPrice }))
+  }
   addToIssue(UNATTRIBUTED_ISSUE, { ...emptyFigure(), costUsd: mainCostGapUsd })
 
   const total = emptyFigure()
@@ -293,6 +296,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
     harnessProfile,
     startedAt: sessionStart?.ts ?? events[0]?.ts ?? null,
     endedAt: sessionEnd?.ts ?? null,
+    lastEventAt: events.length === 0 ? null : Math.max(...events.map((event) => event.ts)),
     total,
     main,
     byType,

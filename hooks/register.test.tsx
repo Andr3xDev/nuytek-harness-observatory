@@ -153,6 +153,20 @@ describe('obs report command hook', () => {
     expect(result.text).toContain('Observability report')
   })
 
+  test('answers the no-data report without touching the filesystem when HOME is missing', async () => {
+    const { hooks, host } = setup()
+    const reads: string[] = []
+    const noHome = {
+      ...host,
+      env: { get: async () => undefined },
+      fs: { list: async (path: string) => (reads.push(path), []), read: async (path: string) => (reads.push(path), '') },
+    }
+    const result = (await hooks.get(REPORT_HOOK)?.(noHome, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    expect(reads).toEqual([])
+    expect(result.isTextDisplayOnly).toBe(true)
+    expect(result.text).not.toContain('inner')
+  })
+
   test('/obs and /obs band are not intercepted', async () => {
     const { hooks, host } = setup()
     for (const args of ['', 'band', 'band on']) {

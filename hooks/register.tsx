@@ -153,14 +153,18 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
   // Registered after the capture hook above: it is the outer one, so it still records `/obs` after this one answers.
   on('command.run', { command: 'obs' }, async ($, e, next) => {
     if (!isReportCommand(e.args)) return next(e)
-    // A missing HOME makes every read fail, which listSources turns into an empty store.
-    const root = `${(await $.env.get('HOME')) ?? ''}/${STORE_DIR}`
+    const home = await $.env.get('HOME')
+    // Without HOME the root would be `/.claude/observability`; failing every read yields the no-data report.
+    const root = `${home}/${STORE_DIR}`
+    const unreadable = (): Promise<never> => Promise.reject(new Error('HOME is not set'))
     return handleReport({
-      fs: {
-        list: (path) => $.fs.list(`${root}/${path}`),
-        read: (path, range) => $.fs.read(`${root}/${path}`, range),
-        readText: (path) => $.fs.read(`${root}/${path}`),
-      },
+      fs: home
+        ? {
+            list: (path) => $.fs.list(`${root}/${path}`),
+            read: (path, range) => $.fs.read(`${root}/${path}`, range),
+            readText: (path) => $.fs.read(`${root}/${path}`),
+          }
+        : { list: unreadable, read: unreadable, readText: unreadable },
       writer: createWriter((argv, init) => $.process.run(argv, init)),
       options,
       now: Date.now(),

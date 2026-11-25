@@ -110,6 +110,14 @@ describe('combineSessions merging', () => {
   })
 })
 
+describe('combineSessions window end', () => {
+  test('uses the latest event of open sessions when nothing is closed', () => {
+    const open = summarize([sessionStart({ ts: 100 }), spawn('a1', { ts: 700 })])
+
+    expect(combineSessions([open])).toMatchObject({ windowStart: 100, windowEnd: 700 })
+  })
+})
+
 describe('combineSessions profile figures', () => {
   const profileOn = (sessionId: string, ...rest: EventRecord[]) => summarize([sessionStart({ sessionId, harnessProfile: true }), ...rest])
   const profileOff = (sessionId: string, ...rest: EventRecord[]) => summarize([sessionStart({ sessionId, harnessProfile: false }), ...rest])

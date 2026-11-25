@@ -97,6 +97,26 @@ describe('loadHistory open and live sessions', () => {
     expect(recorder.writes).toEqual([])
   })
 
+  test('an id in sessionIds with no events file and nothing live is skipped', async () => {
+    const history = await load(closedSession('s1'), { sessionIds: ['s1', 'ghost'] }).result
+
+    expect(history.sessions.map((session) => session.sessionId)).toEqual(['s1'])
+    expect(history.warnings).toBe(0)
+  })
+
+  test('a malformed record skips only its session and counts a warning', async () => {
+    const malformedTurn = { schema: 1, id: 'x', type: 'turn.complete', ts: 5, sessionId: 's2', agentId: null, branch: null, durationMs: 1 }
+    const files: FakeFiles = {
+      ...closedSession('s1'),
+      'events/s2.jsonl': { content: jsonl([sessionStart({ sessionId: 's2' }), malformedTurn as unknown as EventRecord]), mtimeMs: STALE_MTIME_MS },
+    }
+
+    const history = await load(files).result
+
+    expect(history.sessions.map((session) => session.sessionId)).toEqual(['s1'])
+    expect(history.warnings).toBe(1)
+  })
+
   test('forwards liveAgents so a running agent shows the host usage', async () => {
     const files: FakeFiles = {
       'events/s1.jsonl': { content: jsonl([sessionStart(), spawn('a1')]), mtimeMs: FRESH_MTIME_MS },

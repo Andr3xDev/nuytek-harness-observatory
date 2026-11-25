@@ -60,6 +60,8 @@ export type SessionFigures = {
   harnessProfile: boolean
   startedAt: number | null
   endedAt: number | null
+  /** Absent in rollups stored before this field existed. */
+  lastEventAt?: number | null
   total: Figure
   main: Figure
   byType: Record<string, TypeFigures>

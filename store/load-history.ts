@@ -66,11 +66,23 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
   let warnings = 0
 
   const loadSession = async (sessionId: string): Promise<Loaded | null> => {
+    try {
+      return await loadSessionOrThrow(sessionId)
+    } catch {
+      // A parseable but malformed record must not take the whole report down.
+      warnings += 1
+      return null
+    }
+  }
+
+  const loadSessionOrThrow = async (sessionId: string): Promise<Loaded | null> => {
     const pending = Object.hasOwn(pendingEvents, sessionId) ? pendingEvents[sessionId] : undefined
     const live = Object.hasOwn(liveAgents, sessionId) ? liveAgents[sessionId] : undefined
     const isLive = (pending?.length ?? 0) > 0 || (live?.length ?? 0) > 0
     const eventsPath = eventsPathOf(sessionId)
     const stat = Object.hasOwn(listing, eventsPath) ? listing[eventsPath] : undefined
+
+    if (!isLive && !stat) return null
 
     if (!isLive && stat) {
       const stored = await readRollup(fs, sessionId, listing)
