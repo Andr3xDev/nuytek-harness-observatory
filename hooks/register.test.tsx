@@ -233,3 +233,122 @@ describe('obs report command hook', () => {
     expect(appended.length).toBeGreaterThan(0)
   })
 })
+
+describe('live panel wiring', () => {
+  const OPEN_TIMER_MS = 5000
+  const startEvent = { cwd: '/w', surface: null, isInteractive: true }
+  const passThrough = async (e: unknown) => e
+  const obs = (args: string) => ({ command: 'obs', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } })
+  const HOME = '/home/tester'
+  const events =
+    [
+      { schema: 1, id: 'e1', type: 'session.start', ts: 1, sessionId: 's1', agentId: null, branch: null, cwd: '/w', harnessProfile: false },
+      { schema: 1, id: 'e2', type: 'session.end', ts: 2, sessionId: 's1', agentId: null, branch: null },
+    ]
+      .map((record) => JSON.stringify(record))
+      .join('\n') + '\n'
+
+  const setup = (stored: { bandEnabled?: boolean } = {}) => {
+    const { on, hooks } = recordingOn()
+    registerHooks(on, {}, false)
+    const timers: Array<{ ms: number; fn: () => void; cancelled: boolean }> = []
+    const writes: Array<{ ref: unknown; value: unknown }> = []
+    const calls = { agentList: 0, open: 0 }
+    let paneOpen = false
+    const addTimer = (ms: number, fn: () => void) => {
+      const timer = { ms, fn, cancelled: false }
+      timers.push(timer)
+      return { cancel: () => void (timer.cancelled = true) }
+    }
+    const host = {
+      session: { id: async () => 's1', usage: async () => ({ startedAt: 1, cost: { usd: 0 } }) },
+      agent: { list: async () => (calls.agentList++, []) },
+      env: { get: async () => HOME },
+      fs: {
+        list: async (dir: string) =>
+          dir.endsWith('/events') ? [{ name: 's1.jsonl', kind: 'file', size: events.length, mtimeMs: 1, isLink: false }] : [],
+        read: async (path: string, range?: { offset: number; length: number }) => {
+          if (!path.endsWith('events/s1.jsonl')) throw new Error('ENOENT')
+          return range ? { base64: btoa(events.slice(range.offset, range.offset + range.length)) } : events
+        },
+      },
+      vcs: { detect: async () => null },
+      clock: { every: addTimer, after: addTimer },
+      process: { run: async () => ({ exitCode: 0, stdout: '', stderr: '' }) },
+      command: { register: async () => undefined },
+      store: { get: async () => stored.bandEnabled, set: async () => undefined },
+      state: {
+        get: async () => ({ value: undefined, version: 0 }),
+        set: async (ref: unknown, value: unknown) => (writes.push({ ref, value }), { isSet: true, version: 1 }),
+      },
+      ui: {
+        panes: async () => (paneOpen ? [{ id: 'observatory' }] : []),
+        open: async () => (calls.open++, (paneOpen = true), { isPlaced: true }),
+        close: async () => void (paneOpen = false),
+      },
+    }
+    const settle = async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve()
+    }
+    const sessionStart = async () => {
+      await hooks.get('session.start')?.(host, startEvent, passThrough)
+      await settle()
+    }
+    const openTimer = () => timers.find((timer) => timer.ms === OPEN_TIMER_MS && !timer.cancelled)
+    return { hooks, host, timers, writes, calls, sessionStart, settle, openTimer, closePane: () => void (paneOpen = false) }
+  }
+
+  const writtenValues = (writes: Array<{ ref: unknown; value: unknown }>, key: string) =>
+    writes.filter((write) => (write.ref as { key: string }).key === key).map((write) => (write.value as { value: unknown }).value)
+
+  test('session.start with a stored bandEnabled false keeps the band off and opens no pane', async () => {
+    const { sessionStart, writes, calls } = setup({ bandEnabled: false })
+    await sessionStart()
+    expect(writtenValues(writes, 'bandEnabled')).toEqual([false])
+    expect(calls.open).toBe(0)
+  })
+
+  test('session.start resets the previous session figures instead of keeping them', async () => {
+    const { sessionStart, writes } = setup()
+    await sessionStart()
+    await sessionStart()
+    const sessions = writtenValues(writes, 'session')
+    expect(sessions[0]).toBeNull()
+    expect(sessions.some((value) => value !== null)).toBe(true)
+    expect(sessions.at(-1)).toBeNull()
+  })
+
+  test('/obs builds the panel on a host that never saw session.start, so the pane refreshes', async () => {
+    const { hooks, host, writes, settle } = setup()
+    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await settle()
+    expect(writtenValues(writes, 'session').some((value) => value !== null)).toBe(true)
+  })
+
+  test('closing the pane through ui.close stops the 5 s timer and later time reloads nothing', async () => {
+    const { hooks, host, calls, settle, openTimer } = setup()
+    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await settle()
+    const timer = openTimer()
+    expect(timer).toBeDefined()
+    await hooks.get('ui.close:{"id":"observatory"}')?.(host, { id: 'observatory' }, passThrough)
+    expect(timer?.cancelled).toBe(true)
+    const reloads = calls.agentList
+    timer?.fn()
+    await settle()
+    expect(calls.agentList).toBe(reloads)
+  })
+
+  test('a pane closed without ui.close is caught by the panes probe, which stops the timer', async () => {
+    const { hooks, host, calls, settle, openTimer, closePane } = setup()
+    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await settle()
+    const timer = openTimer()
+    closePane()
+    const reloads = calls.agentList
+    timer?.fn()
+    await settle()
+    expect(timer?.cancelled).toBe(true)
+    expect(calls.agentList).toBe(reloads)
+  })
+})

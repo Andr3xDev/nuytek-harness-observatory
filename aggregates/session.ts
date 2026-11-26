@@ -24,7 +24,7 @@ const MAIN_AGENT_TYPE = 'main'
 const UNKNOWN_KEY = 'unknown'
 /** Float noise below this must not flip the main figure from the snapshot to turn usage. */
 const COST_EPSILON_USD = 1e-9
-const CODE_REVIEWER_TYPE ='code-reviewer'
+const CODE_REVIEWER_TYPE = 'code-reviewer'
 const FINAL_ENGINE_STATUSES = ['completed', 'failed', 'stopped']
 
 /** Report-text markers are matched on the excerpt; changing them needs a ROLLUP_VERSION bump. */

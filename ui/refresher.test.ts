@@ -25,6 +25,7 @@ function setup(overrides: { paneOpen?: boolean; bandEnabled?: boolean } = {}) {
     }),
     historyResult: (): Loaded<HistoryLoad> => ({ status: 'ready', aggregate: { h: state.historyCalls } }),
     gate: null as Promise<void> | null,
+    sessionIdError: null as Error | null,
   }
   const sources: Sources = {
     loadSessionAggregate: async () => {
@@ -51,7 +52,7 @@ function setup(overrides: { paneOpen?: boolean; bandEnabled?: boolean } = {}) {
     every: (ms, fn) => add(ms, fn, ms),
     isPaneOpen: () => state.paneOpen,
     isBandEnabled: () => state.bandEnabled,
-    getSessionId: () => 's1',
+    getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : 's1'),
     session: { get: () => state.session, set: value => void (state.session = value) },
     history: { get: () => state.history, set: value => void (state.history = value) },
     bumpTick: () => void state.tick++,
@@ -167,6 +168,31 @@ describe('refresher', () => {
     await settle()
     expect(state.sessionCalls).toBe(2)
     expect(state.session).toEqual({ ...good, error: 'disk gone' })
+  })
+
+  test('a throwing reload is contained: previous atom kept with error, later reloads still run', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    const good = state.session
+    state.sessionIdError = new Error('no session')
+    await advance(REFRESH_MIN_INTERVAL_MS)
+    refresher.requestRefresh('session.measure')
+    await settle()
+    expect(state.session).toEqual({ ...good, error: 'no session' })
+    state.sessionIdError = null
+    await advance(REFRESH_MIN_INTERVAL_MS)
+    refresher.requestRefresh('session.measure')
+    await settle()
+    expect(state.session?.error).toBeNull()
+  })
+
+  test('a throwing first reload with no previous atom writes nothing', async () => {
+    const { refresher, state, settle } = setup()
+    state.sessionIdError = new Error('no session')
+    refresher.requestRefresh('session.measure')
+    await settle()
+    expect(state.session).toBeNull()
   })
 
   test('ensureHistory reuses a fresh result and reloads after 60 s', async () => {

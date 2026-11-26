@@ -31,8 +31,8 @@ export function createRefresher(deps: RefresherDeps) {
 
   async function reload(): Promise<void> {
     inFlight = true
-    lastStartedAt = deps.now()
     try {
+      lastStartedAt = deps.now()
       const result = await deps.sources.loadSessionAggregate(await deps.getSessionId())
       const previous = deps.session.get()
       if (result.status === 'ready') {
@@ -46,6 +46,14 @@ export function createRefresher(deps: RefresherDeps) {
         })
       } else if (previous) {
         deps.session.set({ ...previous, error: result.reason })
+      }
+    } catch (error) {
+      // Callers fire `reload` without awaiting: a throw here would be an unhandled rejection.
+      try {
+        const previous = deps.session.get()
+        if (previous) deps.session.set({ ...previous, error: error instanceof Error ? error.message : String(error) })
+      } catch {
+        // Nothing left to record the failure in.
       }
     } finally {
       inFlight = false

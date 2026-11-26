@@ -15,7 +15,7 @@ import { registerBand } from '../ui/band'
 import { PANE_ID, registerPane } from '../ui/pane'
 import { createRefresher, type Refresher } from '../ui/refresher'
 import { STATE_SHAPES } from '../ui/state'
-import { createLiveLoaders, createSources } from '../ui/sources'
+import { createLiveLoaders, createSources, type LiveAgentRow } from '../ui/sources'
 import type { HistoryAtom, PanelScope, SessionAtom } from '../types'
 
 // The hooks scan reads state refs only from literals or atoms declared in the reading file (see ui/pane.tsx).
@@ -54,7 +54,7 @@ const isSnapshotShape = (value: unknown): value is AgentSnapshot =>
   typeof (value as Record<string, unknown>).sessionId === 'string' &&
   typeof (value as Record<string, unknown>).closed === 'boolean'
 
-const listStoredSnapshots =async (fs: SnapshotFs): Promise<StoredSnapshot[]> => {
+const listStoredSnapshots = async (fs: SnapshotFs): Promise<StoredSnapshot[]> => {
   try {
     const home = await fs.home()
     if (!home) return []
@@ -114,20 +114,97 @@ const runtimeFrom = (host: Host): Runtime => {
   }
 }
 
+/** The slice of `$` the panel needs, as closures built inline by each hook that can create the panel. */
+type PanelHost = {
+  home: () => Promise<string | undefined>
+  list: HistoryFs['list']
+  read: HistoryFs['read']
+  readText: HistoryFs['readText']
+  listAgents: () => Promise<readonly LiveAgentRow[]>
+  usage: () => Promise<{ context?: { percent?: number | null; window: number } | null }>
+  sessionId: () => Promise<string>
+  after: (ms: number, fn: () => void) => { cancel: () => void }
+  every: (ms: number, fn: () => void) => { cancel: () => void }
+  panes: () => Promise<ReadonlyArray<{ id: string }>>
+  setSession: (value: SessionAtom | null) => Promise<unknown>
+  setHistory: (value: HistoryAtom) => Promise<unknown>
+  bumpTick: () => Promise<unknown>
+}
+
 /** `classicPermissionHooks` is a parameter so tests can exercise both flag states. */
 export const registerHooks = (on: On, options: PluginOptions, classicPermissionHooks: boolean): void => {
   const profile = options.harnessProfile === true
   const retentionDays = typeof options.retentionDays === 'string' ? options.retentionDays : undefined
   const capture = createCapture<Host>({ profile, retentionDays, runtime: runtimeFrom })
 
-  // Live panel state. `$` cannot be a value, so the refresher is built once at `session.start` from
-  // closures over that dispatch's `$` (the same approach as capture's runtime) and shared by every hook.
+  // Live panel state. `$` cannot be a value, so the refresher is built once, lazily, by the first hook that
+  // has a `PanelHost` (`session.start` or `/obs`; the same approach as capture's runtime) and shared by every hook.
   let panel: Refresher | undefined
   let paneOpen = false
   let bandOn = true
   let obsRegistered = false
   let lastSession: SessionAtom | null = null
   let lastHistory: HistoryAtom = { status: 'idle' }
+
+  const safeRefresh = (type: string): void => {
+    try {
+      panel?.requestRefresh(type)
+    } catch {
+      // A refresh failure must never change what the capture hook returns.
+    }
+  }
+
+  const ensurePanel = async (host: PanelHost): Promise<void> => {
+    const fs = historyFsOf(await host.home(), { list: host.list, read: host.read, readText: host.readText })
+    panel ??= createRefresher({
+      sources: createSources(
+        createLiveLoaders({
+          // The panel never writes the store: rollups stay the report command's cache.
+          loadSessions: async (options) =>
+            (await loadHistory({ fs, writer: { upsert: async () => false } }, { now: Date.now(), ...options })).sessions,
+          pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
+          listAgents: () => host.listAgents(),
+          readContext: async () => {
+            const { context } = await host.usage()
+            return context ? { percent: context.percent ?? null, window: context.window } : null
+          },
+        }),
+      ),
+      now: () => Date.now(),
+      after: (ms, fn) => {
+        const timer = host.after(ms, fn)
+        return () => timer.cancel()
+      },
+      every: (ms, fn) => {
+        // `ui.close` covers Esc; an engine-side unload close skips it, so probe the panes before each tick.
+        const timer = host.every(ms, () => {
+          void host.panes().then(
+            (panes) => void (paneOpen = panes.some((pane) => pane.id === PANE_ID)),
+            () => undefined,
+          ).then(fn)
+        })
+        return () => timer.cancel()
+      },
+      isPaneOpen: () => paneOpen,
+      isBandEnabled: () => bandOn,
+      getSessionId: () => host.sessionId(),
+      session: {
+        get: () => lastSession,
+        set: (value) => {
+          lastSession = value
+          void host.setSession(value).catch(() => undefined)
+        },
+      },
+      history: {
+        get: () => lastHistory,
+        set: (value) => {
+          lastHistory = value
+          void host.setHistory(value).catch(() => undefined)
+        },
+      },
+      bumpTick: () => void host.bumpTick().catch(() => undefined),
+    })
+  }
 
   on('session.start', async ($, e, next) => {
     const result = await capture.sessionStart(
@@ -164,59 +241,25 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
     try {
       bandOn = (await $.store.get(BAND_STORE_KEY)) !== false
       await update($, bandEnabledAtom, () => bandOn)
-      const fs = historyFsOf(await $.env.get('HOME'), {
+      // /clear and resume reuse this plugin instance: drop the previous session's figures before the first refresh.
+      lastSession = null
+      await update($, sessionAtom, () => null)
+      await ensurePanel({
+        home: () => $.env.get('HOME'),
         list: (path) => $.fs.list(path),
         read: (path, range) => $.fs.read(path, range),
         readText: (path) => $.fs.read(path),
+        listAgents: () => $.agent.list(),
+        usage: () => $.session.usage(),
+        sessionId: () => $.session.id(),
+        after: (ms, fn) => $.clock.after(ms, fn),
+        every: (ms, fn) => $.clock.every(ms, fn),
+        panes: () => $.ui.panes(),
+        setSession: (value) => update($, sessionAtom, () => value),
+        setHistory: (value) => update($, historyAtom, () => value),
+        bumpTick: () => update($, tickAtom, (tick) => tick + 1),
       })
-      panel ??= createRefresher({
-        sources: createSources(
-          createLiveLoaders({
-            // The panel never writes the store: rollups stay the report command's cache.
-            loadSessions: async (options) =>
-              (await loadHistory({ fs, writer: { upsert: async () => false } }, { now: Date.now(), ...options })).sessions,
-            pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
-            listAgents: () => $.agent.list(),
-            readContext: async () => {
-              const { context } = await $.session.usage()
-              return context ? { percent: context.percent ?? null, window: context.window } : null
-            },
-          }),
-        ),
-        now: () => Date.now(),
-        after: (ms, fn) => {
-          const timer = $.clock.after(ms, fn)
-          return () => timer.cancel()
-        },
-        every: (ms, fn) => {
-          // Esc closes the pane without reaching our command: probe before each tick so a closed pane stops the timer.
-          const timer = $.clock.every(ms, () => {
-            void $.ui.panes().then(
-              (panes) => void (paneOpen = panes.some((pane) => pane.id === PANE_ID)),
-              () => undefined,
-            ).then(fn)
-          })
-          return () => timer.cancel()
-        },
-        isPaneOpen: () => paneOpen,
-        isBandEnabled: () => bandOn,
-        getSessionId: () => $.session.id(),
-        session: {
-          get: () => lastSession,
-          set: (value) => {
-            lastSession = value
-            void update($, sessionAtom, () => value).catch(() => undefined)
-          },
-        },
-        history: {
-          get: () => lastHistory,
-          set: (value) => {
-            lastHistory = value
-            void update($, historyAtom, () => value).catch(() => undefined)
-          },
-        },
-        bumpTick: () => void update($, tickAtom, (tick) => tick + 1).catch(() => undefined),
-      })
+      safeRefresh('session.measure')
     } catch {
       // The panel is optional: a failed setup must not change what session.start returns.
     }
@@ -280,6 +323,26 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
         columns: e.presentation.columns,
       })
     }
+    try {
+      // After a plugin reload `session.start` has not run: build the panel here so the pane is not empty forever.
+      await ensurePanel({
+        home: () => $.env.get('HOME'),
+        list: (path) => $.fs.list(path),
+        read: (path, range) => $.fs.read(path, range),
+        readText: (path) => $.fs.read(path),
+        listAgents: () => $.agent.list(),
+        usage: () => $.session.usage(),
+        sessionId: () => $.session.id(),
+        after: (ms, fn) => $.clock.after(ms, fn),
+        every: (ms, fn) => $.clock.every(ms, fn),
+        panes: () => $.ui.panes(),
+        setSession: (value) => update($, sessionAtom, () => value),
+        setHistory: (value) => update($, historyAtom, () => value),
+        bumpTick: () => update($, tickAtom, (tick) => tick + 1),
+      })
+    } catch {
+      // The panel is optional: /obs still answers without it.
+    }
     const result = await handleObs(parseObsArgs(e.args), {
       isPaneOpen: async () => (await $.ui.panes()).some((pane) => pane.id === PANE_ID),
       closePane: () => $.ui.close({ id: PANE_ID }),
@@ -290,7 +353,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       },
       resetScope: async () => void (await update($, scopeAtom, (): PanelScope => 'session')),
       onOpened: () => {
-        panel?.requestRefresh('obs.open')
+        safeRefresh('obs.open')
         panel?.startTimer()
       },
       setBandEnabled: async (enabled) => {
@@ -330,7 +393,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       e,
       next,
     )
-    panel?.requestRefresh('agent.spawn')
+    safeRefresh('agent.spawn')
     return result
   })
   on('agent.report', async ($, e, next) => {
@@ -346,7 +409,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       e,
       next,
     )
-    panel?.requestRefresh('agent.report')
+    safeRefresh('agent.report')
     return result
   })
   on('turn.complete', ($, e, next) =>
@@ -376,7 +439,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       e,
       next,
     )
-    panel?.requestRefresh('session.measure')
+    safeRefresh('session.measure')
     return result
   })
   on('tool.check', async ($, e, next) => {
@@ -392,7 +455,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
       e,
       next,
     )
-    panel?.requestRefresh('tool.check')
+    safeRefresh('tool.check')
     return result
   })
 

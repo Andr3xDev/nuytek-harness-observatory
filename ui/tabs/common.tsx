@@ -83,7 +83,7 @@ export function gateOf({ scope, session, history }: TabContext): Gate {
 
 export function renderLines(kit: Kit, lines: readonly Line[], liveAgentIds: readonly string[], onViewAgent: (agentId: string) => Promise<unknown>) {
   const { Text, Button } = kit
-  return lines.map(line => {
+  return lines.map((line, index) => {
     const { agentId } = line
     if (agentId !== undefined && liveAgentIds.includes(agentId)) {
       return (
@@ -93,7 +93,7 @@ export function renderLines(kit: Kit, lines: readonly Line[], liveAgentIds: read
       )
     }
     return (
-      <Text bold={line.heading} dimColor={line.dim} wrap="wrap">
+      <Text key={`line:${index}`} bold={line.heading} dimColor={line.dim} wrap="wrap">
         {line.text}
       </Text>
     )
