@@ -28,15 +28,6 @@ test('a live agent row is a Button that views that agent; a stored-only row is n
   await ui.unmount()
 })
 
-test('the Agents tab rows follow the same rule', async ($, on) => {
-  installState(on, { tab: 2, session: seeded(['live1']), panelOpen: true })
-  const ui = await $.ui.mount(bandTarget(100))
-
-  expect(await ui.find({ key: 'agent:live1' })).toBeDefined()
-  expect(await ui.find({ key: 'agent:gone1' })).toBeUndefined()
-  await ui.unmount()
-})
-
 test('a denied view shows a toast and the panel stays drawn', async ($, on) => {
   const toasts: string[] = []
   installState(on, { session: seeded(['live1']), panelOpen: true })

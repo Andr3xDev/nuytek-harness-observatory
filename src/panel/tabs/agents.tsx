@@ -10,6 +10,7 @@ const MODEL_PREFIX = /^claude-/
 const MODEL_DATE_SUFFIX = /-\d{8}$/
 
 const NO_EFFORT = '-'
+const MAIN_SPAWNS = '—'
 // Effort is the first column to go: below wide the row keeps agent and model.
 const MODEL_COLUMN: Column = { header: 'Model', width: 12 }
 const EFFORT_COLUMN: Column = { header: 'Effort', width: 9, secondary: true, color: cell => (cell === NO_EFFORT ? undefined : PALETTE.effort) }
@@ -19,13 +20,6 @@ const TYPE_MODEL_COLUMNS: Column[] = [
   MODEL_COLUMN,
   EFFORT_COLUMN,
   { header: 'Spawns', width: 6 },
-  ...TOKEN_COLUMNS,
-  { header: 'Cost est.', width: 9, color: costColumn },
-]
-const AGENT_COLUMNS: Column[] = [
-  { header: 'Agent', width: 0 },
-  MODEL_COLUMN,
-  EFFORT_COLUMN,
   ...TOKEN_COLUMNS,
   { header: 'Cost est.', width: 9, color: costColumn },
 ]
@@ -54,16 +48,14 @@ const UTC_MINUTE_END = 16
 /** `MM-DD HH:MM` in UTC. */
 const formatStarted = (ms: number): string => new Date(ms).toISOString().slice(UTC_MINUTE_START, UTC_MINUTE_END).replace('T', ' ')
 
+const typeModelRows = (aggregate: AggregateFigures): Row[] =>
+  (aggregate.byTypeModelEffort ?? []).map(entry => ({
+    cells: [...identity(entry.type, entry.model, entry.effort), `${entry.spawns}×`, ...tokenCells(entry), formatCost(entry)],
+  }))
+
 const typeModelLines = ({ tier, columns }: TabContext, aggregate: AggregateFigures): Line[] => [
   heading('By agent type, model and effort'),
-  ...tableLines(
-    tier,
-    columns,
-    TYPE_MODEL_COLUMNS,
-    (aggregate.byTypeModelEffort ?? []).map(entry => ({
-      cells: [...identity(entry.type, entry.model, entry.effort), `${entry.spawns}×`, ...tokenCells(entry), formatCost(entry)],
-    })),
-  ),
+  ...tableLines(tier, columns, TYPE_MODEL_COLUMNS, typeModelRows(aggregate)),
 ]
 
 /** The history tab's agents section: the window's agents by type, model and effort, then its latest runs. */
@@ -78,19 +70,13 @@ export function agentHistoryLines(ctx: TabContext, aggregate: AggregateFigures):
 export function agentsLines(ctx: TabContext): Line[] {
   const gate = gateOf(ctx)
   if ('message' in gate) return [dim(gate.message)]
-  const { tier, columns } = ctx
-  const typeModel = typeModelLines(ctx, gate.aggregate)
-  if (!ctx.session) return typeModel
-  const figures = ctx.session.sessionFigures as SessionFigures
-  // No captured main-loop record carries an effort, so the main row's stays `-`.
-  const main: Row = {
-    cells: [...identity(ctx.session.mainAgent ?? MAIN_LABEL, figures.mainModel), ...tokenCells(figures.main), formatCost(figures.main)],
+  const rows = typeModelRows(gate.aggregate)
+  if (ctx.session) {
+    const figures = ctx.session.sessionFigures as SessionFigures
+    // The host does not expose the main loop's effort, so it stays `-`.
+    rows.unshift({
+      cells: [...identity(ctx.session.mainAgent ?? MAIN_LABEL, figures.mainModel), MAIN_SPAWNS, ...tokenCells(figures.main), formatCost(figures.main)],
+    })
   }
-  const agents = figures.agents.map(
-    (agent): Row => ({
-      cells: [...identity(agent.subagentType, agent.model, agent.effort), ...tokenCells(agent), formatCost(agent)],
-      agentId: agent.agentId,
-    }),
-  )
-  return [heading('Agents'), ...tableLines(tier, columns, AGENT_COLUMNS, [main, ...agents]), ...typeModel]
+  return [heading('Agents'), ...tableLines(ctx.tier, ctx.columns, TYPE_MODEL_COLUMNS, rows)]
 }

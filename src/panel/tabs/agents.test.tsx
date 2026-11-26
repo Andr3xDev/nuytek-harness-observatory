@@ -53,9 +53,12 @@ describe('agents tab', () => {
     expect(text).toMatch(cells('tech-orchestrator', '\\?', '-'))
   })
 
-  test('lists agents with their id and model', () => {
+  test('has one table: the main row then the type rows, with no per-agent list', () => {
     const lines = agentsLines(context('wide', { session: sessionWith(figures) }))
-    expect(lines.find(line => line.agentId === 'a1')?.text).toMatch(cells('explorer\\s*', 'haiku-4-5'))
+    expect(lines.filter(line => line.text === 'Agents')).toHaveLength(1)
+    expect(lines.some(line => line.agentId !== undefined)).toBe(false)
+    expect(lines[2]?.text).toMatch(cells('main\\s*', '\\?', '-', '—'))
+    expect(lines[3]?.text).toMatch(cells('explorer\\s*', 'haiku-4-5', '-', '3×'))
   })
 
   test('effort has its own column with its icon; a budget gets the diamond; none shows a dash', () => {
@@ -69,18 +72,8 @@ describe('agents tab', () => {
     expect(textOf(agentsLines(context('wide', { session: sessionWith(figures) })))).not.toMatch(/[○◔◑◕●◇]/)
   })
 
-  test('the per-agent list shows the agent effort', () => {
-    const session = sessionAtomValue(sessionFigures([agent('a1', { subagentType: 'explorer', model: 'sonnet', effort: 'high' })]), figures)
-    expect(textOf(agentsLines(context('wide', { session })))).toMatch(cells('explorer\\s*', 'sonnet', '◑ high'))
-  })
-
-  test('the per-agent list splits tokens into In (cache included), Out and Total; narrow keeps Total', () => {
-    const cached = agent('a1', { subagentType: 'explorer', model: 'sonnet', input: 100, cacheRead: 2000, cacheCreation: 300, output: 600, tokens: 3000 })
-    const session = sessionAtomValue(sessionFigures([cached]), figures)
-    const wide = agentsLines(context('wide', { session }))
-    expect(wide[1]?.text).toMatch(/In\s+│\s+Out\s+│\s+Total/)
-    expect(wide.find(line => line.agentId === 'a1')?.text).toMatch(cells('2.4k', '600', '3.0k'))
-    expect(agentsLines(context('narrow', { session })).find(line => line.agentId === 'a1')?.text).toContain('sonnet · 3.0k · $0.10')
+  test('splits tokens into In, Out and Total', () => {
+    expect(agentsLines(context('wide', { session: sessionWith(figures) }))[1]?.text).toMatch(/Spawns\s+│\s+In\s+│\s+Out\s+│\s+Total/)
   })
 
   test('the main row shows the captured main-loop model', () => {
