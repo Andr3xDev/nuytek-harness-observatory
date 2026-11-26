@@ -1,5 +1,6 @@
 import type { On, PluginOptions } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
+import { forgetPanelOpen } from '../src/panel/state'
 import { OPEN_TIMER_MS } from '../src/panel/timing'
 import { registerHooks } from './register'
 
@@ -69,6 +70,7 @@ describe('obs command hook', () => {
   const store: Record<string, string> = { 'events/s1.jsonl': fileRecords.map((record) => JSON.stringify(record)).join('\n') + '\n' }
 
   const setup = (options: PluginOptions = {}) => {
+    forgetPanelOpen()
     const { on, hooks } = recordingOn()
     registerHooks(on, options)
     const appended: string[] = []
@@ -113,7 +115,7 @@ describe('obs command hook', () => {
     const stored: Record<string, unknown> = {}
     const withStore = {
       ...host,
-      store: { get: async () => undefined, set: async (key: string, value: unknown) => void (stored[key] = value) },
+      store: { get: async (key: string) => stored[key], set: async (key: string, value: unknown) => void (stored[key] = value) },
       state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
     }
     const opened = (await hooks.get(OBS_HOOK)?.(withStore, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
@@ -160,6 +162,7 @@ describe('live panel wiring', () => {
       .join('\n') + '\n'
 
   const setup = (stored: { panelOpen?: boolean } = {}) => {
+    forgetPanelOpen()
     const { on, hooks } = recordingOn()
     registerHooks(on, {})
     const timers: Array<{ ms: number; fn: () => void; cancelled: boolean }> = []
@@ -186,7 +189,7 @@ describe('live panel wiring', () => {
       clock: { every: addTimer, after: addTimer },
       process: { run: async () => ({ exitCode: 0, stdout: '', stderr: '' }) },
       command: { register: async () => undefined },
-      store: { get: async (key: string) => stored[key as keyof typeof stored], set: async () => undefined },
+      store: { get: async (key: string) => stored[key as keyof typeof stored], set: async (key: string, value: unknown) => void Object.assign(stored, { [key]: value }) },
       state: {
         get: async () => ({ value: undefined, version: 0 }),
         set: async (ref: unknown, value: unknown) => (writes.push({ ref, value }), { isSet: true, version: 1 }),
@@ -242,6 +245,14 @@ describe('live panel wiring', () => {
     const { hooks, host } = setup({ panelOpen: true })
     const closed = await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     expect(closed).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
+  })
+
+  test('closing /obs with the atom back at false and the store true bumps the tick so the band redraws', async () => {
+    const { hooks, host, writes, settle } = setup({ panelOpen: true })
+    await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
+    await settle()
+    expect(writtenValues(writes, 'panelOpen').at(-1)).toBe(false)
+    expect(writtenValues(writes, 'tick')).toContain(1)
   })
 
   test('toggling /obs closed stops the 3 s timer and later time reloads nothing', async () => {

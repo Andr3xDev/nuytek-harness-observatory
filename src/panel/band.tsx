@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
 import type { PanelTab } from '../../types'
 import { BOX_CHROME_COLUMNS, HISTORY_TAB, PALETTE, SECTION_RULE, TAB_LABELS, tierOf } from './layout'
-import { STATE_SHAPES } from './state'
+import { PANEL_OPEN_STORE_KEY, STATE_SHAPES, isPanelOpen } from './state'
 import { renderLines, type Line, type TabContext } from './tabs/common'
 import { agentsLines } from './tabs/agents'
 import { historyLines } from './tabs/history'
@@ -34,14 +34,15 @@ export type BandDeps = {
 export function registerBand(on: On, deps: BandDeps) {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // `tick` is read only to subscribe: the open-panel timer redraws the band through it.
-    const [isOpen, storedTab, session, history] = await Promise.all([
+    const [atomOpen, storedTab, session, history] = await Promise.all([
       read($, panelOpenAtom),
       read($, tabAtom),
       read($, sessionAtom),
       read($, historyAtom),
       read($, tickAtom),
     ])
-    if (!isOpen || e.props.hasSurvey) return next(e)
+    const open = atomOpen || await isPanelOpen(atomOpen, await $.session.id(), async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true)
+    if (!open || e.props.hasSurvey) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
 
     // A tab number stored before a tab was removed falls back to Session.

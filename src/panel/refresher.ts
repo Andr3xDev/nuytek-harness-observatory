@@ -13,7 +13,7 @@ export type RefresherDeps = {
   every: (ms: number, fn: () => void) => Cancel
   isOpen: () => boolean
   getSessionId: () => string | Promise<string>
-  session: { get: () => SessionAtom | null; set: (value: SessionAtom) => void }
+  session: { get: () => SessionAtom | null; set: (value: SessionAtom | null) => void }
   history: { get: () => HistoryAtom; set: (value: HistoryAtom) => void }
   bumpTick: () => void
   readTab: () => Promise<PanelTab>
@@ -31,12 +31,25 @@ export function createRefresher(deps: RefresherDeps) {
   let cancelTimer: Cancel | null = null
   let cancelLiveWindow: Cancel | null = null
   let livePending = false
+  let knownSessionId: string | null = null
+
+  // /resume swaps the session without rebuilding the refresher: its cached figures then belong to the old one.
+  async function currentSessionId(): Promise<{ sessionId: string; switched: boolean }> {
+    const sessionId = await deps.getSessionId()
+    const switched = knownSessionId !== null && knownSessionId !== sessionId
+    if (switched) {
+      deps.session.set(null)
+      deps.history.set({ status: 'idle' })
+    }
+    knownSessionId = sessionId
+    return { sessionId, switched }
+  }
 
   async function reload(): Promise<void> {
     inFlight = true
     try {
       lastStartedAt = deps.now()
-      const result = await deps.sources.loadSessionAggregate(await deps.getSessionId())
+      const result = await deps.sources.loadSessionAggregate((await currentSessionId()).sessionId)
       const previous = deps.session.get()
       if (result.status === 'ready') {
         deps.session.set({
@@ -67,6 +80,7 @@ export function createRefresher(deps: RefresherDeps) {
   }
 
   function schedule(): void {
+    if (!deps.isOpen()) return
     if (inFlight) {
       again = true
       return
@@ -85,8 +99,10 @@ export function createRefresher(deps: RefresherDeps) {
 
   /** Recomputes the figures from in-memory events; no store read. An unseeded session waits for a store read. */
   async function applyLive(): Promise<void> {
-    const live = deps.sources.liveSession(await deps.getSessionId())
+    const { sessionId, switched } = await currentSessionId()
+    const live = deps.sources.liveSession(sessionId)
     const previous = deps.session.get()
+    if (switched) return schedule()
     if (!previous) return
     if (!live) return schedule()
     deps.session.set({ ...previous, sessionFigures: live.sessionFigures, aggregate: live.aggregate })

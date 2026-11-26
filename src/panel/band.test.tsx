@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import { PANEL_OPEN_STORE_KEY } from './state'
 import { WIDTHS, agent, aggregate, bandTarget, installState, sessionAtomValue, sessionFigures } from './tabs/test-kit'
 
 const session = sessionAtomValue(sessionFigures([agent('a1'), agent('a2'), agent('a3')]), aggregate())
@@ -9,6 +10,30 @@ test('closed: draws nothing at all', async ($, on) => {
   expect(await ui.find({ type: 'Text' })).toBeUndefined()
   expect(await ui.find({ key: 'tab:1' })).toBeUndefined()
   await ui.unmount()
+})
+
+test('draws when the stored flag says open although the per-session atom is back to its default', async ($, on) => {
+  installState(on, { session })
+  on('store.get', (_, e, next) => (e.key === PANEL_OPEN_STORE_KEY ? { value: true } : next(e)))
+  const ui = await $.ui.mount(bandTarget(100))
+  expect(await ui.find({ key: 'tab:1' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('reads the stored flag once per session, not on every render', async ($, on) => {
+  installState(on, { session })
+  let storeReads = 0
+  on('store.get', (_, e, next) => {
+    if (e.key !== PANEL_OPEN_STORE_KEY) return next(e)
+    storeReads++
+    return { value: true }
+  })
+  for (let mounts = 0; mounts < 3; mounts++) {
+    const ui = await $.ui.mount(bandTarget(100))
+    expect(await ui.find({ key: 'tab:1' })).toBeDefined()
+    await ui.unmount()
+  }
+  expect(storeReads).toBe(1)
 })
 
 test('yields to a survey and draws nothing', async ($, on) => {

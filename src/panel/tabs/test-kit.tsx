@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import type { AgentFigures, Figure, SessionFigures, ToolFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import type { HistoryAtom, PanelTab, SessionAtom } from '../../../types'
-import { STATE_SHAPES } from '../state'
+import { STATE_SHAPES, forgetPanelOpen } from '../state'
 import type { TabContext } from './common'
 
 export const PLUGIN = 'nuytek-harness-observatory'
@@ -118,6 +118,8 @@ type Seed = {
 export function installState(on: On, seed: Seed = {}) {
   const shapes: Record<string, string> = STATE_SHAPES
   const written: Record<string, unknown> = {}
+  forgetPanelOpen()
+  on('session.id', () => ({ value: 'test-session' }))
   on('state.get', async (_, e, next) => {
     const stored = await next(e)
     const seeded = (seed as Record<string, unknown>)[e.key]

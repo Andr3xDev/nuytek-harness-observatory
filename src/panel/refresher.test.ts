@@ -303,6 +303,24 @@ describe('refresher', () => {
     expect(state.historyCalls).toBe(2)
   })
 
+  test('a changed session id drops the cached session and history before the next figures', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    state.history = { status: 'ready', aggregate: { h: 0 }, loadedAt: 0 }
+    expect(state.session).not.toBeNull()
+    await advance(REFRESH_MIN_INTERVAL_MS)
+
+    // A failed read for the new session must not leave the old session's figures standing.
+    state.sessionResult = () => ({ status: 'unavailable', reason: 'no data' })
+    state.sessionId = 's2'
+    refresher.requestRefresh('tool.check')
+    await settle()
+
+    expect(state.session).toBeNull()
+    expect(state.history).toEqual({ status: 'idle' })
+  })
+
   test('other tabs never start a history load', async () => {
     const { refresher, state, settle } = setup()
     refresher.requestRefresh('obs.open')

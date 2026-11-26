@@ -9,7 +9,7 @@ import { registerBand } from './band'
 import { handleObs, type ObsDeps } from './obs-command'
 import { createRefresher, type Refresher } from './refresher'
 import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
-import { STATE_SHAPES } from './state'
+import { PANEL_OPEN_STORE_KEY, STATE_SHAPES, isPanelOpen, rememberPanelOpen } from './state'
 
 // Atoms are declared per reading file (see band.tsx).
 const tabAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tab' } as const, 1, { shape: STATE_SHAPES.tab })
@@ -17,8 +17,6 @@ const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as c
 const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
 const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
 const panelOpenAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'panelOpen' } as const, false, { shape: STATE_SHAPES.panelOpen })
-
-const PANEL_OPEN_STORE_KEY = 'panelOpen'
 
 /** The slice of `$` the panel needs, as closures built inline by each hook that can create the panel. */
 type PanelHost = {
@@ -214,11 +212,15 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
       // The panel is optional: /obs still answers without it.
     }
     const deps: ObsDeps = {
-      isOpen: () => state.open,
+      isOpen: async () =>
+        isPanelOpen((await read($, panelOpenAtom)) === true, await $.session.id(), async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true),
       setOpen: async (open) => {
         await $.store.set(PANEL_OPEN_STORE_KEY, open)
         state.open = open
+        rememberPanelOpen(await $.session.id(), open)
         await update($, panelOpenAtom, () => open)
+        // A same-value atom write may not redraw the band, and store reads do not subscribe: the tick always does.
+        await update($, tickAtom, (tick) => tick + 1)
         if (open) {
           safeRefresh('obs.open')
           state.refresher?.startTimer()

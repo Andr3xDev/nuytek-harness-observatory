@@ -24,6 +24,12 @@ describe('handleObs', () => {
     expect(calls).toEqual(['open:false'])
   })
 
+  test('an async isOpen decides the toggle', async () => {
+    const { deps, calls } = setup({ isOpen: async () => true })
+    expect(await handleObs(deps)).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
+    expect(calls).toEqual(['open:false'])
+  })
+
   test('a failing store write answers with plain text instead of throwing', async () => {
     const { deps } = setup({ setOpen: () => Promise.reject(new Error('store down')) })
     expect(await handleObs(deps)).toEqual({ text: 'Observatory toggle failed.', isTextDisplayOnly: true })
