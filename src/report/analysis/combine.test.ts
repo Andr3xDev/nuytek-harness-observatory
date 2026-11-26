@@ -49,12 +49,12 @@ describe('combineSessions by type and model', () => {
     const a = summarize(
       [spawn('a1', { sessionId: 'sa' }), spawn('a2', { sessionId: 'sa' }), spawn('a3', { sessionId: 'sa' })],
       [
-        agentSnapshot('a1', 'sa', { usage: [usage(100, 0, 0, 0, 'haiku')] }),
-        agentSnapshot('a2', 'sa', { usage: [usage(300, 0, 0, 0, 'opus')] }),
+        agentSnapshot('a1', 'sa', { model: '', usage: [usage(100, 0, 0, 0, 'haiku')] }),
+        agentSnapshot('a2', 'sa', { model: '', usage: [usage(300, 0, 0, 0, 'opus')] }),
         agentSnapshot('a3', 'sa', { model: '', usage: [usage(50, 0, 0, 0, '')] }),
       ],
     )
-    const b = summarize([spawn('a4', { sessionId: 'sb' })], [agentSnapshot('a4', 'sb', { usage: [usage(200, 0, 0, 0, 'haiku')] })])
+    const b = summarize([spawn('a4', { sessionId: 'sb' })], [agentSnapshot('a4', 'sb', { model: '', usage: [usage(200, 0, 0, 0, 'haiku')] })])
 
     expect(combineSessions([a, b]).byTypeModelEffort.map(({ type, model, spawns, tokens }) => ({ type, model, spawns, tokens }))).toEqual([
       { type: 'builder', model: 'haiku', spawns: 2, tokens: 300 },

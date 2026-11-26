@@ -24,8 +24,8 @@ describe('summarizeSession agent rows', () => {
     expect(figures.agents.find((row) => row.agentId === 'a2')?.engineStatus).toBe('unknown')
   })
 
-  test('mainModel is the model of the latest main-loop turn and null without one', () => {
-    const events = [turn(null, { usage: usage(1, 1, 0, 0, 'sonnet-x') }), turn(null, { usage: usage(1, 1, 0, 0, 'opus-x') }), turn('a1', { usage: usage(1, 1, 0, 0, 'haiku-x') })]
+  test('mainModel is the main-loop turn with the most output and null without one', () => {
+    const events = [turn(null, { usage: usage(1, 5, 0, 0, 'opus-x') }), turn(null, { usage: usage(1, 1, 0, 0, 'haiku-x') }), turn('a1', { usage: usage(1, 9, 0, 0, 'sonnet-x') })]
 
     expect(summarizeSession({ events, snapshots: [] }, CTX).mainModel).toBe('opus-x')
     expect(summarizeSession({ events: [], snapshots: [] }, CTX).mainModel).toBeNull()

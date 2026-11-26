@@ -2,6 +2,7 @@ import { emptyFigure } from '../../core/figures'
 import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord } from '../../core/schema'
 import { UNATTRIBUTED_ISSUE, issueKeyOf } from './issue'
 import { mergeLiveEvents } from './live'
+import { modelOf } from './model'
 import {
   MAX_COMMAND_CHARS,
   OPEN_SESSION_MAX_IDLE_MS,
@@ -275,7 +276,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
       agentId,
       parentAgentId: agent.spawn.parentAgentId,
       subagentType: agent.spawn.subagentType,
-      model: source.usage.at(-1)?.model || snapshot?.model || null,
+      model: modelOf(source.usage, snapshot?.model),
       effort: snapshot?.effort ?? null,
       startedAt: agent.spawn.ts,
       engineStatus: engineStatusOf(agent.report),
@@ -310,7 +311,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
     lastEventAt: events.length === 0 ? null : events.reduce((latest, event) => Math.max(latest, event.ts), -Infinity),
     total,
     main,
-    mainModel: mainSource.usage.at(-1)?.model || null,
+    mainModel: modelOf(mainSource.usage, mainSnapshot?.model),
     byType,
     byModel,
     byIssue,
