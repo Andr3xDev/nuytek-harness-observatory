@@ -1,6 +1,6 @@
 // The validator requires this contract to be self-contained (no import), so the
 // aggregate shapes cannot be named here. They are opaque objects at the atom
-// boundary; ui/ narrows them to SessionFigures / AggregateFigures at the seam.
+// boundary; panel/ narrows them to SessionFigures / AggregateFigures at the seam.
 export type PanelTab = 1 | 2 | 3 | 4 | 5
 export type PanelScope = 'session' | 'history'
 

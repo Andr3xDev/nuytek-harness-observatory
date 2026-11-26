@@ -32,6 +32,8 @@ claude plugin test /path/to/nuytek-harness-observatory
 
 `.claude-plugin/types/` is not created by `-p`, `plugin validate` or `plugin test`.
 
+Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture), `src/store` (`write/` and `read/`), `src/report` (`/obs report` and its analysis), `src/panel` (pane, band and `/obs`). `hooks/register.tsx` is the composition root; `capture` and `panel` each have a `register.ts`, and `report/run.ts` runs the report for the panel's `/obs`. Tests sit next to their sources.
+
 ## Commands
 
 | Command | Effect |
@@ -93,5 +95,5 @@ To remove the data, delete `~/.claude/observability/` yourself. The plugin never
 
 ## Code constants
 
-- `CLASSIC_PERMISSION_HOOKS_ENABLED` in `capture/flags.ts` (default `false`): registers the classic `PermissionRequest`, `PermissionDenied`, `PostToolUse` and `PostToolUseFailure` hooks and writes `permission.outcome` events. Flip it only after the manual smoke test in the change's task 9.1 passes.
-- `BASH_PROMPT_HOOK_COST_USD_PER_CALL` in `capture/estimates.ts` (default `null`): per-call cost of the Bash prompt hook. While `null`, `session.end.estimates` carries only the call count. Calibrate it with the A/B run in task 9.6.
+- `CLASSIC_PERMISSION_HOOKS_ENABLED` in `src/capture/flags.ts` (default `false`): registers the classic `PermissionRequest`, `PermissionDenied`, `PostToolUse` and `PostToolUseFailure` hooks and writes `permission.outcome` events. Flip it only after the manual smoke test in the change's task 9.1 passes.
+- `BASH_PROMPT_HOOK_COST_USD_PER_CALL` in `src/capture/cost/estimates.ts` (default `null`): per-call cost of the Bash prompt hook. While `null`, `session.end.estimates` carries only the call count. Calibrate it with the A/B run in task 9.6.
