@@ -27,9 +27,10 @@ describe('formatRow', () => {
     expect(long.endsWith('  1.2M   $12.00')).toBe(true)
   })
 
-  test('truncates only the name column', () => {
-    const row = formatRow(['a-very-long-agent-name', '1.2M', '$12.00'], widths)
+  test('truncates a cell wider than its column and keeps the row width', () => {
+    const row = formatRow(['a-very-long-agent-name', '1.2M', '$1234567.00'], widths)
 
     expect(row.startsWith('a-very-long…')).toBe(true)
+    expect(row).toHaveLength(widths.reduce((sum, width) => sum + width, 0) + widths.length - 1)
   })
 })

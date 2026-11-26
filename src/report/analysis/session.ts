@@ -1,4 +1,4 @@
-import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, zeroTokens } from '../../core/figures'
+import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, totalTokens, zeroTokens } from '../../core/figures'
 import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord } from '../../core/schema'
 import { mergeLiveEvents } from './live'
 import { modelOf } from './model'
@@ -26,7 +26,7 @@ type Source = { usage: readonly UsageRecord[]; costUsd: number; hasUnknownPrice:
 const figureOf = ({ usage, costUsd, hasUnknownPrice }: Source): Figure => {
   const figure: Figure = { ...emptyFigure(), costUsd, hasUnknownPrice }
   for (const record of usage) addTokens(figure, record)
-  figure.tokens = figure.input + figure.output + figure.cacheRead + figure.cacheCreation
+  figure.tokens = totalTokens(figure)
   return figure
 }
 
@@ -101,7 +101,7 @@ export function summarizeSession(input: SessionInput): SessionFigures {
     for (const record of usage) {
       const model = getOrInit(byModel, record.model, () => ({ ...zeroTokens(), tokens: 0 }))
       addTokens(model, record)
-      model.tokens += record.input + record.output + record.cacheRead + record.cacheCreation
+      model.tokens += totalTokens(record)
     }
   }
 
@@ -126,7 +126,7 @@ export function summarizeSession(input: SessionInput): SessionFigures {
     const snapshot = snapshotById.get(agentId)
     const live = agent.report === null ? liveById.get(agentId) : undefined
     const source: Source = live
-      ? { usage: live.usage, costUsd: live.costUsd ?? 0, hasUnknownPrice: live.costUsd === null }
+      ? { usage: live.usage, costUsd: live.costUsd ?? 0, hasUnknownPrice: live.hasUnknownPrice }
       : snapshot
         ? { usage: snapshot.usage, costUsd: snapshot.costUsd, hasUnknownPrice: snapshot.hasUnknownPrice }
         : { usage: [], costUsd: 0, hasUnknownPrice: false }

@@ -12,7 +12,9 @@ export const emptyFigure = (): Figure => ({ input: 0, output: 0, cacheRead: 0, c
 
 export const zeroTokens = (): TokenCounts => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 })
 
-export const addTokens = (target: TokenCounts, part: TokenCounts): void => {
+export const totalTokens = (counts: TokenCounts): number => counts.input + counts.output + counts.cacheRead + counts.cacheCreation
+
+export const addTokens =(target: TokenCounts, part: TokenCounts): void => {
   target.input += part.input
   target.output += part.output
   target.cacheRead += part.cacheRead
@@ -32,7 +34,7 @@ export const createRecord = <T>(): Record<string, T> => Object.create(null) as R
 export const getOrInit = <T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
 
 /** Normalized `$.agent.list()` row: the caller maps the host's snake_case usage and `cost.usd`. */
-export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null }
+export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null; hasUnknownPrice: boolean }
 
 export type TypeFigures = Figure & { spawns: number }
 export type AgentFigures = Figure & {

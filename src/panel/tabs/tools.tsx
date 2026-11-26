@@ -1,3 +1,4 @@
+import type { SkillCounts } from '../../core/figures'
 import {
   PROFILE_OFF_FOOTNOTE,
   dim,
@@ -23,6 +24,8 @@ const INJECTED_COLUMNS: Column[] = [{ header: 'Skill injected', width: 0 }, { he
 
 const byCountDesc = (left: [string, number], right: [string, number]): number => right[1] - left[1]
 
+const useCountOf = (skill: SkillCounts): number => skill.prompted + skill.read + skill.invoked
+
 export function toolsLines(ctx: TabContext): Line[] {
   const gate = gateOf(ctx)
   if ('message' in gate) return [dim(gate.message)]
@@ -30,22 +33,25 @@ export function toolsLines(ctx: TabContext): Line[] {
   const { tier, columns } = ctx
   const { tools, profile } = aggregate
 
-  const skills = Object.entries(tools.skills).map(
-    ([name, skill]): Row => ({
-      cells: [
-        name,
-        String(skill.prompted),
-        String(skill.read),
-        String(skill.invoked),
-        Object.entries(skill.byAgentType)
-          .map(([type, count]) => `${type}: prompted ${count.prompted} read ${count.read} invoked ${count.invoked}`)
-          .join('; '),
-      ],
-    }),
-  )
-  const mcp = Object.entries(tools.mcp).flatMap(([server, calls]) =>
-    Object.entries(calls).map(([tool, count]): Row => ({ cells: [`${server} / ${tool}`, String(count)] })),
-  )
+  const skills = Object.entries(tools.skills)
+    .sort(([, left], [, right]) => useCountOf(right) - useCountOf(left))
+    .map(
+      ([name, skill]): Row => ({
+        cells: [
+          name,
+          String(skill.prompted),
+          String(skill.read),
+          String(skill.invoked),
+          Object.entries(skill.byAgentType)
+            .map(([type, count]) => `${type}: prompted ${count.prompted} read ${count.read} invoked ${count.invoked}`)
+            .join('; '),
+        ],
+      }),
+    )
+  const mcp = Object.entries(tools.mcp)
+    .flatMap(([server, calls]): Array<[string, number]> => Object.entries(calls).map(([tool, count]) => [`${server} / ${tool}`, count]))
+    .sort(byCountDesc)
+    .map(([name, count]): Row => ({ cells: [name, String(count)] }))
   const commands = Object.entries(tools.commands)
     .sort(byCountDesc)
     .map(([name, count]): Row => ({ cells: [`/${name}`, String(count)] }))

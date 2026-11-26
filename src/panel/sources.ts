@@ -2,6 +2,7 @@ import { HISTORY_WINDOW_MS } from '../core/constants'
 import type { EventRecord, LiveAgent, SessionFigures } from '../core/figures'
 import { mapUsage, type HostUsage } from '../core/usage'
 import { combineSessions, mergeLiveEvents, summarizeSession, type SessionInput } from '../report/analysis'
+import type { LoadHistoryOptions } from '../report/load-history'
 
 // The aggregate is an opaque object at this seam (types/index.d.ts); tabs narrow it.
 export type SessionLoad = {
@@ -48,15 +49,9 @@ export function createSources(loaders: { loadSession: SessionLoader; loadHistory
 }
 
 /** One `$.agent.list()` row, as the host returns it (snake_case usage). */
-export type LiveAgentRow = { id: string; usage?: HostUsage[]; cost?: { usd: number } }
+export type LiveAgentRow = { id: string; usage?: HostUsage[]; cost?: { usd: number; hasUnknownPrice?: true } }
 
-export type LoadSessionsOptions = {
-  sessionIds?: string[]
-  modifiedSince?: number
-  pendingEvents?: Record<string, readonly EventRecord[]>
-  liveAgents?: Record<string, readonly LiveAgent[]>
-  onSessionInput?: (sessionId: string, input: SessionInput) => void
-}
+export type LoadSessionsOptions = LoadHistoryOptions
 
 export type LiveLoaderDeps = {
   now: () => number
@@ -68,7 +63,12 @@ export type LiveLoaderDeps = {
 }
 
 export const liveAgentsOf = (rows: readonly LiveAgentRow[]): LiveAgent[] =>
-  rows.map((row) => ({ agentId: row.id, usage: (row.usage ?? []).map(mapUsage), costUsd: row.cost?.usd ?? null }))
+  rows.map((row) => ({
+    agentId: row.id,
+    usage: (row.usage ?? []).map(mapUsage),
+    costUsd: row.cost?.usd ?? null,
+    hasUnknownPrice: row.cost === undefined || row.cost.hasUnknownPrice === true,
+  }))
 
 /** The real loaders: the session overlays unflushed events and running agents on the stored figures. */
 export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionLoader; loadHistory: HistoryLoader; liveSession: LiveSessionLoader } {

@@ -11,6 +11,7 @@ const liveAgent = (agentId: string, overrides: Partial<LiveAgent> = {}): LiveAge
   agentId,
   usage: [LIVE_USAGE],
   costUsd: 0.5,
+  hasUnknownPrice: false,
   ...overrides,
 })
 
@@ -48,6 +49,13 @@ describe('summarizeSession live agent overlay', () => {
 
     expect(figures.agents[0]).toMatchObject({ agentId: 'a1', tokens: 50, costUsd: 0.5 })
     expect(figures.total).toMatchObject({ tokens: 50, costUsd: 0.5 })
+  })
+
+  test('a live agent flagged with an unknown price keeps its known cost and the flag', () => {
+    const figures = summarizeSession({ events, snapshots: stored, liveAgents: [liveAgent('a1', { hasUnknownPrice: true })] })
+
+    expect(figures.agents[0]).toMatchObject({ costUsd: 0.5, hasUnknownPrice: true })
+    expect(figures.total.hasUnknownPrice).toBe(true)
   })
 
   test('a finished agent keeps its stored snapshot even with a stale live row', () => {

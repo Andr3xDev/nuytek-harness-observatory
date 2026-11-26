@@ -36,6 +36,7 @@ export const formatRow = (cells: readonly string[], widths: readonly number[], s
   cells
     .map((cell, index) => {
       const width = widths[index] ?? cell.length
-      return index === 0 ? truncate(cell, width).padEnd(width) : cell.padStart(width)
+      const fitted = truncate(cell, width)
+      return index === 0 ? fitted.padEnd(width) : fitted.padStart(width)
     })
     .join(separator)

@@ -29,6 +29,17 @@ describe('tools tab', () => {
     expect(text).toMatch(/^\/obs .*2$/m)
   })
 
+  test('rows sort by use count before the cap, so a late heavy skill and MCP tool show', () => {
+    const skills = Object.fromEntries(Array.from({ length: 25 }, (_, index) => [`skill-${index}`, { prompted: 0, read: 1, invoked: 0, byAgentType: {} }]))
+    skills['skill-heavy'] = { prompted: 5, read: 5, invoked: 5, byAgentType: {} }
+    const mcp = { srv: Object.fromEntries(Array.from({ length: 25 }, (_, index) => [`tool-${index}`, 1])) }
+    mcp.srv['tool-heavy'] = 9
+    const lines = toolsLines(context('wide', { session: withTools({ skills, mcp }) }))
+
+    expect(lines.findIndex((line) => line.text.startsWith('skill-heavy'))).toBeLessThan(lines.findIndex((line) => line.text.startsWith('skill-0')))
+    expect(lines.some((line) => line.text.startsWith('srv / tool-heavy'))).toBe(true)
+  })
+
   test('a null profile marks injected skills n/a with one footnote', () => {
     const text = textOf(toolsLines(context('wide', { session: withTools({}, false) })))
     expect(text).toContain('n/a')

@@ -65,7 +65,7 @@ describe('live loaders', () => {
     const load = await loaders.loadSession('s1')
     expect(calls[0]?.sessionIds).toEqual(['s1'])
     expect(calls[0]?.pendingEvents?.s1).toBe(pending)
-    expect(calls[0]?.liveAgents?.s1).toEqual([{ agentId: 'a1', usage: [], costUsd: 0.5 }])
+    expect(calls[0]?.liveAgents?.s1).toEqual([{ agentId: 'a1', usage: [], costUsd: 0.5, hasUnknownPrice: false }])
     expect(load.liveAgentIds).toEqual(['a1'])
     expect(load.mainAgent).toBe('tech-orchestrator')
   })
@@ -98,8 +98,12 @@ describe('live loaders', () => {
   test('host snake_case usage and a missing cost map to a live agent', () => {
     const usage = [{ input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4, model: 'm' }]
     expect(liveAgentsOf([{ id: 'a', usage }])).toEqual([
-      { agentId: 'a', costUsd: null, usage: [{ input: 1, output: 2, cacheRead: 3, cacheCreation: 4, model: 'm' }] },
+      { agentId: 'a', costUsd: null, hasUnknownPrice: true, usage: [{ input: 1, output: 2, cacheRead: 3, cacheCreation: 4, model: 'm' }] },
     ])
+  })
+
+  test('a cost flagged with an unknown price keeps its usd and the flag', () => {
+    expect(liveAgentsOf([{ id: 'a', cost: { usd: 0.4, hasUnknownPrice: true } }])).toMatchObject([{ costUsd: 0.4, hasUnknownPrice: true }])
   })
 })
 
