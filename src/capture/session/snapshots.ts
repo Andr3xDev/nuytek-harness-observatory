@@ -49,7 +49,7 @@ export type SnapshotTracker = {
 type Tracked = { snapshot: AgentSnapshot; signature: string }
 
 const signatureOf = (snapshot: AgentSnapshot): string =>
-  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus, snapshot.effort, snapshot.model])
+  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus, snapshot.effort, snapshot.model, snapshot.hasUnknownPrice])
 
 const closeSnapshot = (snapshot: AgentSnapshot, reason: ClosedReason, now: number): AgentSnapshot => ({
   ...snapshot,

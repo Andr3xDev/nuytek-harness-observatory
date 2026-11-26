@@ -148,6 +148,13 @@ describe('change signature', () => {
     const grown = tracker.cycle(input({ now: 7_000, agents: [agent('a1', { tokenCount: 150 })] }))
     expect(byFile(grown, 'a1.json')?.tokenCount).toBe(150)
   })
+
+  test('a change of only the unknown-price flag is written', () => {
+    const tracker = createSnapshotTracker('s1')
+    tracker.cycle(input())
+    const flagged = tracker.cycle(input({ now: 6_000, agents: [agent('a1', { cost: { usd: 0.2, hasUnknownPrice: true } })] }))
+    expect(byFile(flagged, 'a1.json')?.hasUnknownPrice).toBe(true)
+  })
 })
 
 describe('final snapshot at report', () => {

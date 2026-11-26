@@ -5,7 +5,7 @@ import { listStoredSnapshots } from './snapshot-store'
 const HOME = '/home/u'
 const DIR = `${HOME}/.claude/observability/snapshots`
 const NOW = 10 * RESUME_SWEEP_WINDOW_MS
-const open = { sessionId: 's1', closed: false }
+const open = { sessionId: 's1', closed: false, usage: [] }
 
 const fsOf = (files: Record<string, string>, ageMs = 0) => ({
   home: async (): Promise<string | undefined> => HOME,
@@ -22,7 +22,7 @@ describe('listStoredSnapshots', () => {
 
   test('skips files that are not valid JSON or lack the sweep fields', async () => {
     const stored = await listStoredSnapshots(
-      fsOf({ 'ok.json': JSON.stringify(open), 'bad.json': '{', 'old.json': JSON.stringify({ sessionId: 's1' }), 'null.json': 'null' }),
+      fsOf({ 'ok.json': JSON.stringify(open), 'bad.json': '{', 'old.json': JSON.stringify({ sessionId: 's1' }), 'no-usage.json': JSON.stringify({ sessionId: 's1', closed: false }), 'null.json': 'null' }),
       NOW,
     )
 
