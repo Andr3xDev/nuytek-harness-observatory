@@ -1,21 +1,22 @@
 # nuytek-harness-observatory
 
-Claude Code plugin that captures session, agent, tool-verdict and cost telemetry into a local, append-only store under `~/.claude/observability/`. It runs as function hooks only: no model calls, no tool-call interception, no network.
+Claude Code plugin that records session, agent, tool-verdict and cost telemetry to local files under `~/.claude/observability/` and shows it in a live panel and a text report. It runs as hooks only: no model calls, no tool-call interception, no network, zero model tokens.
+
+Read [Privacy](#privacy) before installing: prompts and Bash commands are stored unredacted.
 
 ## Install
 
-From the marketplace, with no configuration:
+From the marketplace:
 
 ```
-/plugin marketplace add Andr3xDev/nuytek-harness-observatory
-/plugin install nuytek-harness-observatory@nuytek-harness-observatory
+/plugin install nuytek-harness-observatory --marketplace Andr3xDev/nuytek-harness-observatory
 ```
 
-Without any option set, the plugin captures the generic data: tokens, cost, agent spawn and report, tool verdicts, skills, MCP usage, commands, compactions, reconciliation and git branch.
+Answer `y` to add the marketplace, then pick a scope. With no option set, the plugin captures the generic data: tokens, cost, agent spawn and report, tool verdicts, skills, MCP usage, commands, compactions, reconciliation and git branch.
 
 ## Local development
 
-Run a session with the plugin loaded from a checkout:
+Load the plugin from a checkout for one session:
 
 ```
 claude --plugin-dir /path/to/nuytek-harness-observatory
@@ -31,14 +32,29 @@ claude plugin test /path/to/nuytek-harness-observatory
 
 `.claude-plugin/types/` is not created by `-p`, `plugin validate` or `plugin test`.
 
+## Commands
+
+| Command | Effect |
+|---------|--------|
+| `/obs` | Opens or closes the observatory pane. |
+| `/obs band on\|off` | Shows or hides the one-line status band. Default: on. |
+| `/obs report` | Prints a text report of recorded sessions: agent types, models, issues and anomalies. |
+
+The pane has five tabs: Session, Agents, Tools, Permissions and History. Press `1` to `5` to switch tab once the pane has focus (click a tab, or `ctrl+x` then the tab). Close it with `Esc` or `[✕ Hide]`. The pane refreshes every 5 seconds.
+
 ## Options
 
 Set through `/config` or `pluginConfigs` in Claude Code settings.
 
 | Option | Type | Default | Effect |
 |--------|------|---------|--------|
-| `retentionDays` | string `30`, `60`, `90` | `30` | Files older than this are pruned at session start. The current session's files are kept. Other values fall back to `30`. |
+| `retentionDays` | string `30`, `60`, `90` | `30` | Files older than this are deleted at session start. The current session's files are kept. Other values fall back to `30`. |
 | `harnessProfile` | boolean | `false` | Adds harness-specific fields. The value is read once when the plugin loads. |
+| `anomalyDelegationCostUsd` | number | `1` | Flags a delegation tree whose estimated cost exceeds this amount. |
+| `anomalyCacheRatioMin` | number | `0.6` | Flags a tree or session whose cache ratio is below this value (0 to 1). |
+| `anomalyDeniesPerSessionMax` | number | `5` | Flags a session with more tool denies than this. |
+
+### Harness profile
 
 `harnessProfile` adds these fields, which are `null` (or absent for `estimates`) when it is off:
 
@@ -48,6 +64,32 @@ Set through `/config` or `pluginConfigs` in Claude Code settings.
 - `session.end.estimates`: the estimated Bash prompt-hook cost.
 
 Record shape and `schema` do not change between modes.
+
+## Stored data
+
+Everything lives under `~/.claude/observability/`. Directories are created with mode `0700` and files with `0600`.
+
+| Path | Content | Write mode |
+|------|---------|------------|
+| `events/<sessionId>.jsonl` | One event per line for the session. | Appended |
+| `snapshots/<sessionId>.json` | Latest state of the session. | Replaced in place |
+| `rollup/<sessionId>.json` | Per-session aggregates used by the panel and report. | Replaced in place |
+| `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
+
+Retention deletes regular files older than `retentionDays` from these locations at session start. It never touches the current session's files or anything outside them.
+
+## Privacy
+
+The plugin does not redact anything. By design it stores, as-is:
+
+- The full text of every subagent prompt (`prompts-*.jsonl`).
+- The full Bash command of every tool verdict (`events/`).
+- Agent report excerpts, up to 3 KB each.
+- The top Bash commands, shown in rollups and in the panel.
+
+Secrets typed into a prompt or a command (tokens, passwords, keys) end up in these files. The only protection is the file modes (`0600` files, `0700` directories). Nothing leaves your machine.
+
+To remove the data, delete `~/.claude/observability/` yourself. The plugin never deletes it as a whole, and recreates it on the next session.
 
 ## Code constants
 
