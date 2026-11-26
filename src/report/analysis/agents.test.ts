@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { summarizeSession } from './session'
-import { CTX, report, spawn, turn } from './test-fixtures'
+import { CTX, report, spawn, turn, usage } from './test-fixtures'
 
 describe('summarizeSession agent rows', () => {
   test('keeps a finished agent and marks an agent without a report as running', () => {
@@ -22,6 +22,13 @@ describe('summarizeSession agent rows', () => {
 
     expect(figures.agents.find((row) => row.agentId === 'a1')?.engineStatus).toBe('stopped')
     expect(figures.agents.find((row) => row.agentId === 'a2')?.engineStatus).toBe('unknown')
+  })
+
+  test('mainModel is the model of the latest main-loop turn and null without one', () => {
+    const events = [turn(null, { usage: usage(1, 1, 0, 0, 'sonnet-x') }), turn(null, { usage: usage(1, 1, 0, 0, 'opus-x') }), turn('a1', { usage: usage(1, 1, 0, 0, 'haiku-x') })]
+
+    expect(summarizeSession({ events, snapshots: [] }, CTX).mainModel).toBe('opus-x')
+    expect(summarizeSession({ events: [], snapshots: [] }, CTX).mainModel).toBeNull()
   })
 
   test('a repeated spawn id gives one row', () => {

@@ -61,6 +61,8 @@ export type SessionFigures = {
   lastEventAt?: number | null
   total: Figure
   main: Figure
+  /** Model of the latest main-loop usage record; absent in rollups stored before this field existed. */
+  mainModel?: string | null
   byType: Record<string, TypeFigures>
   byModel: Record<string, TokenCounts & { tokens: number }>
   byIssue: Record<string, Figure>

@@ -12,7 +12,7 @@ import type {
   TypeFigures,
 } from '../../core/figures'
 
-export type RecentAgent = Pick<Figure, 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
+export type RecentAgent = Pick<Figure, keyof TokenCounts | 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
   sessionId: string
   agentId: string
   type: string

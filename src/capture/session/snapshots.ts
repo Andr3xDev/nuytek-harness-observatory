@@ -17,6 +17,8 @@ export type SnapshotAgent = {
   cost?: { usd: number; hasUnknownPrice?: boolean }
   model?: string
   effort?: string | number
+  /** Fallback for `model` and `effort`: the row leaves `effort` out for agents that inherit the session's. */
+  lastRequest?: { model: string; effort?: string | number }
 }
 
 export type SnapshotCycleInput = {
@@ -45,7 +47,7 @@ export type SnapshotTracker = {
 type Tracked = { snapshot: AgentSnapshot; signature: string }
 
 const signatureOf = (snapshot: AgentSnapshot): string =>
-  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus])
+  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus, snapshot.effort])
 
 const closeSnapshot = (snapshot: AgentSnapshot, reason: ClosedReason, now: number): AgentSnapshot => ({
   ...snapshot,
@@ -65,14 +67,15 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
 
   const agentSnapshot = (agent: SnapshotAgent, input: SnapshotCycleInput): AgentSnapshot => {
     const usage = (agent.usage ?? []).map(mapUsage)
+    const effort = agent.effort ?? agent.lastRequest?.effort
     return {
       schema: SCHEMA_VERSION,
       sessionId,
       agentId: agent.id,
       parentAgentId: agent.parentId ?? null,
       subagentType: agent.type,
-      model: agent.model ?? usage.at(-1)?.model ?? '',
-      ...(agent.effort !== undefined && { effort: agent.effort }),
+      model: agent.model ?? agent.lastRequest?.model ?? usage.at(-1)?.model ?? '',
+      ...(effort !== undefined && { effort }),
       branch: input.branch,
       startedAt: input.startedAt,
       updatedAt: input.now,

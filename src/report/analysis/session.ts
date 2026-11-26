@@ -310,6 +310,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
     lastEventAt: events.length === 0 ? null : events.reduce((latest, event) => Math.max(latest, event.ts), -Infinity),
     total,
     main,
+    mainModel: mainSource.usage.at(-1)?.model || null,
     byType,
     byModel,
     byIssue,

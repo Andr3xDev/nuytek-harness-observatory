@@ -88,6 +88,13 @@ describe('snapshot content', () => {
     expect(byFile(writes, 'a3.json')).not.toHaveProperty('effort')
   })
 
+  test('an agent inheriting the session effort takes effort and model from its last request', () => {
+    const writes = createSnapshotTracker('s1').cycle(
+      input({ agents: [agent('a1', { usage: [], lastRequest: { model: 'claude-opus', effort: 'xhigh' } })] }),
+    )
+    expect(byFile(writes, 'a1.json')).toMatchObject({ effort: 'xhigh', model: 'claude-opus' })
+  })
+
   test('a subagent snapshot has every field, camelCase usage and closed false', () => {
     const writes = createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', { parentId: 'p1' })] }))
     const snap = byFile(writes, 'a1.json')

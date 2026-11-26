@@ -3,7 +3,8 @@ import { agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf } from '../../sto
 import { SUPPORTED_SCHEMA, type SessionFigures, type SessionRollup, type SourceListing, type SourceStat } from './types'
 
 // 2: skill figures gained `prompted`; version 1 rollups lack it.
-export const ROLLUP_VERSION = 5
+// 6: session figures gained `mainModel`.
+export const ROLLUP_VERSION = 6
 
 export function buildRollup(figures: SessionFigures, listing: SourceListing, builtAt: number): SessionRollup {
   const candidates = [eventsPathOf(figures.sessionId), mainSnapshotPathOf(figures.sessionId), ...figures.agents.map((agent) => agentSnapshotPathOf(agent.agentId))]
