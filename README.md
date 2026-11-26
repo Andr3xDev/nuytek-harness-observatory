@@ -43,9 +43,13 @@ Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture
 
 The observatory lives in the band above the prompt; there is no side pane. Closed, it draws nothing. Open (`/obs`), it is a bordered box titled `◆ obs` with four tabs: Session, Agents, Tools and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `4`. Close it with `/obs`. Figures update as events arrive, and the open panel re-reads the store every few seconds.
 
-The Agents tab starts with the main loop (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent. Below that, one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. A model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's) and is left out when the agent takes the session's. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: the host does not expose the session's.
+Tabs 1 to 3 always show the current session; the History tab shows the recorded sessions.
 
-In the History scope the Agents tab shows the same grouped totals across the window's sessions, plus a "Recent runs" list of the last 20 agent runs (newest first) with start time (UTC), agent, model and effort, tokens and cost.
+Token columns are split into `In`, `Out` and `Total`; input includes the cached prompt tokens, so `In + Out = Total`. Narrow bands keep only `Total`. The Session tab totals line reads `Tokens: in 5.0k │ out 1.2k │ total 6.2k │ Cost (est.): $0.50`.
+
+The Agents tab starts with the main loop (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent. Below that, one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. The main row's model is the one of the latest main-loop usage record; a model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's), else the one its last request carried (agents that inherit the session's effort); `-` when neither exists. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: no captured main-loop record carries it.
+
+The History tab adds, after the totals, the same grouped agent totals across the window's sessions plus a "Recent runs" list of the last 20 agent runs (newest first) with start time (UTC), agent, model and effort, tokens and cost.
 
 ## Options
 

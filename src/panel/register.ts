@@ -5,7 +5,7 @@ import { loadHistory } from '../report/load-history'
 import { runReportCommand } from '../report/run'
 import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { listStoredSnapshots } from '../store/read/snapshot-store'
-import type { HistoryAtom, PanelScope, SessionAtom } from '../../types'
+import type { HistoryAtom, SessionAtom } from '../../types'
 import { registerBand } from './band'
 import { handleObs, parseObsArgs, type ObsDeps } from './obs-command'
 import { createRefresher, type Refresher } from './refresher'
@@ -13,7 +13,6 @@ import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
 import { STATE_SHAPES } from './state'
 
 // The hooks scan reads state refs only from literals or atoms declared in the reading file (see band.tsx).
-const scopeAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'scope' } as const, 'session', { shape: STATE_SHAPES.scope })
 const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })
 const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
 const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
@@ -28,7 +27,6 @@ type PanelHost = {
   read: HistoryFs['read']
   readText: HistoryFs['readText']
   listAgents: () => Promise<readonly LiveAgentRow[]>
-  usage: () => Promise<{ context?: { percent?: number | null; window: number } | null }>
   sessionId: () => Promise<string>
   agentType: () => Promise<string | undefined>
   after: (ms: number, fn: () => void) => { cancel: () => void }
@@ -71,10 +69,6 @@ export const createPanel = (capture: Capture) => {
           loadSessions: async (options) => (await loadHistory({ fs }, { now: Date.now(), ...options })).sessions,
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
-          readContext: async () => {
-            const { context } = await host.usage()
-            return context ? { percent: context.percent ?? null, window: context.window } : null
-          },
           readMainAgent: async () => (await host.agentType()) ?? null,
         }),
       ),
@@ -168,7 +162,6 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         read: (path, range) => $.fs.read(path, range),
         readText: (path) => $.fs.read(path),
         listAgents: () => $.agent.list(),
-        usage: () => $.session.usage(),
         sessionId: () => $.session.id(),
         agentType: async () => (await $.session.info()).agentType,
         after: (ms, fn) => $.clock.after(ms, fn),
@@ -208,7 +201,6 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         read: (path, range) => $.fs.read(path, range),
         readText: (path) => $.fs.read(path),
         listAgents: () => $.agent.list(),
-        usage: () => $.session.usage(),
         sessionId: () => $.session.id(),
         agentType: async () => (await $.session.info()).agentType,
         after: (ms, fn) => $.clock.after(ms, fn),
@@ -233,7 +225,6 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
           state.refresher?.stopTimer()
         }
       },
-      resetScope: async () => void (await update($, scopeAtom, (): PanelScope => 'session')),
     }
     return handleObs(deps)
   })

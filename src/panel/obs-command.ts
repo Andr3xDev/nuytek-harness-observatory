@@ -13,7 +13,6 @@ export type ObsDeps = {
   isOpen: () => boolean
   /** Persists the open flag; opening also loads the first figures and starts the timer, closing stops it. */
   setOpen: (open: boolean) => Promise<void>
-  resetScope: () => Promise<void>
 }
 
 const display = (text: string): ObsResult => ({ text, isTextDisplayOnly: true })
@@ -24,7 +23,6 @@ export async function handleObs(deps: ObsDeps): Promise<ObsResult> {
     await deps.setOpen(false)
     return display('Observatory closed.')
   }
-  await deps.resetScope()
   await deps.setOpen(true)
   return display('Observatory opened.')
 }

@@ -2,14 +2,11 @@ import type { EventRecord, LiveAgent, SessionFigures } from '../core/figures'
 import { mapUsage, type HostUsage } from '../core/usage'
 import { combineSessions, mergeLiveEvents, summarizeSession, type SessionInput } from '../report/analysis'
 
-export type ContextReading = { percent: number | null; window: number }
-
 // The aggregate is an opaque object at this seam (types/index.d.ts); tabs narrow it.
 export type SessionLoad = {
   sessionFigures: SessionFigures
   aggregate: object
   liveAgentIds: string[]
-  context?: ContextReading | null
   /** The agent the session itself runs as (`--agent`); null when it runs as none. */
   mainAgent?: string | null
 }
@@ -65,7 +62,6 @@ export type LiveLoaderDeps = {
   loadSessions: (options: LoadSessionsOptions) => Promise<SessionFigures[]>
   pendingEvents: (sessionId: string) => readonly EventRecord[]
   listAgents: () => Promise<readonly LiveAgentRow[]>
-  readContext: () => Promise<ContextReading | null>
   readMainAgent: () => Promise<string | null>
 }
 
@@ -102,7 +98,6 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
         sessionFigures: figures,
         aggregate: combineSessions([figures]),
         liveAgentIds: rows.map(row => row.id),
-        context: await deps.readContext().catch(() => null),
         mainAgent: await deps.readMainAgent().catch(() => null),
       }
     },

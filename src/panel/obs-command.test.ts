@@ -25,16 +25,15 @@ describe('handleObs', () => {
     const deps: ObsDeps = {
       isOpen: () => false,
       setOpen: async open => void calls.push(`open:${open}`),
-      resetScope: async () => void calls.push('reset'),
       ...overrides,
     }
     return { deps, calls }
   }
 
-  test('toggle on a closed panel resets the scope and opens it', async () => {
+  test('toggle on a closed panel opens it', async () => {
     const { deps, calls } = setup()
     expect(await handleObs(deps)).toEqual({ text: 'Observatory opened.', isTextDisplayOnly: true })
-    expect(calls).toEqual(['reset', 'open:true'])
+    expect(calls).toEqual(['open:true'])
   })
 
   test('toggle on an open panel closes it and opens nothing', async () => {

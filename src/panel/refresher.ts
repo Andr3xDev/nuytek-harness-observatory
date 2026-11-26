@@ -42,7 +42,6 @@ export function createRefresher(deps: RefresherDeps) {
           sessionFigures: result.sessionFigures,
           aggregate: result.aggregate,
           liveAgentIds: result.liveAgentIds,
-          context: result.context ?? null,
           mainAgent: result.mainAgent ?? null,
           loadedAt: deps.now(),
           error: null,

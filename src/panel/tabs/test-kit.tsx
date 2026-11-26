@@ -1,6 +1,6 @@
 import type { On } from 'claude-code'
 import type { AgentFigures, AggregateFigures, Figure, SessionFigures, ToolFigures } from '../../report/analysis'
-import type { HistoryAtom, PanelScope, PanelTab, SessionAtom } from '../../../types'
+import type { HistoryAtom, PanelTab, SessionAtom } from '../../../types'
 import type { TabContext } from './common'
 
 export const PLUGIN = 'nuytek-harness-observatory'
@@ -100,7 +100,6 @@ export const WIDTHS = { wide: 100, medium: 60, narrow: 40 } as const
 export const context = (tier: keyof typeof WIDTHS, overrides: Partial<TabContext> = {}): TabContext => ({
   tier,
   columns: WIDTHS[tier],
-  scope: 'session',
   session: null,
   history: { status: 'idle' },
   ...overrides,
@@ -126,7 +125,6 @@ export const bandTarget = (bodyColumns: number, hasSurvey = false) =>
 
 type Seed = {
   tab?: PanelTab
-  scope?: PanelScope
   session?: SessionAtom | null
   history?: HistoryAtom
   panelOpen?: boolean
@@ -138,7 +136,7 @@ type Seed = {
  * press redraws the band; `written` records them for the test to read back.
  */
 export function installState(on: On, seed: Seed = {}) {
-  const shapes: Record<string, string> = { tab: 'tab-1', scope: 'scope-1', tick: 'tick-1', session: 'session-2', history: 'history-2', panelOpen: 'open-1' }
+  const shapes: Record<string, string> = { tab: 'tab-1', tick: 'tick-1', session: 'session-3', history: 'history-3', panelOpen: 'open-1' }
   const written: Record<string, unknown> = {}
   on('state.get', async (_, e, next) => {
     const stored = await next(e)

@@ -1,6 +1,6 @@
 import type { Color, Elements, RenderSurface } from 'claude-code'
-import type { HistoryAtom, PanelScope, SessionAtom } from '../../../types'
-import type { Figure } from '../../core/figures'
+import type { HistoryAtom, SessionAtom } from '../../../types'
+import type { Figure, TokenCounts } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens, formatUsd, truncate } from '../../core/format'
 import { COLUMN_SEPARATOR, LIST_ROW_CAP, PALETTE, SECTION_RULE, capRows, formatRow, type Tier } from '../layout'
@@ -13,7 +13,7 @@ export type Kit = Pick<Elements[RenderSurface], 'Box' | 'Text' | 'Button'>
  */
 export type Line = { text: string; dim?: boolean; heading?: boolean; agentId?: string; styles?: (Color | undefined)[] }
 
-export type TabContext = { tier: Tier; columns: number; scope: PanelScope; session: SessionAtom | null; history: HistoryAtom }
+export type TabContext = { tier: Tier; columns: number; session: SessionAtom | null; history: HistoryAtom }
 
 /** `secondary` columns drop below wide; `narrowHidden` ones drop on narrow only. `color` may depend on the cell. */
 export type Column = {
@@ -47,7 +47,18 @@ export const statusColumn = (cell: string): Color | undefined => (cell === 'fail
 
 const colorOf = (column: Column, cell: string): Color | undefined => (typeof column.color === 'function' ? column.color(cell) : column.color)
 
-export const formatCost = (figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
+const TOKEN_COLUMN_WIDTH = 7
+/** Input, output and total: In and Out are secondary, so narrow rows keep only the total. */
+export const TOKEN_COLUMNS: Column[] = [
+  { header: 'In', width: TOKEN_COLUMN_WIDTH, secondary: true, color: tokensColumn },
+  { header: 'Out', width: TOKEN_COLUMN_WIDTH, secondary: true, color: tokensColumn },
+  { header: 'Total', width: TOKEN_COLUMN_WIDTH, color: tokensColumn },
+]
+
+/** Input counts the cached prompt tokens too, so In + Out is the total. */
+export const promptTokensOf = (figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
+
+export const formatCost =(figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
 
 export const formatPercent = (fraction: number | null): string => (fraction === null ? '-' : `${Math.round(fraction * PERCENT)}%`)
@@ -58,6 +69,13 @@ export const formatDuration = (ms: number): string => {
 }
 
 export const formatTokenCount = (tokens: number): string => formatTokens(Math.round(tokens))
+
+/** The In, Out and Total cells matching `TOKEN_COLUMNS`. */
+export const tokenCells = (figure: TokenCounts & { tokens: number }): string[] => [
+  formatTokenCount(promptTokensOf(figure)),
+  formatTokenCount(figure.output),
+  formatTokenCount(figure.tokens),
+]
 
 export function capLines(lines: readonly Line[], cap: number): Line[] {
   const capped = capRows(lines.map(line => line.text), cap)
@@ -105,14 +123,15 @@ export function tableLines(tier: Tier, columns: number, spec: readonly Column[],
 
 export type Gate = { aggregate: AggregateFigures } | { message: string }
 
-/** The aggregate behind a tab for its scope, or the one line to show instead of it. */
-export function gateOf({ scope, session, history }: TabContext): Gate {
-  if (scope === 'history') {
-    if (history.status === 'ready' && history.aggregate) return { aggregate: history.aggregate as AggregateFigures }
-    if (history.status === 'unavailable') return { message: `History unavailable: ${history.reason ?? 'unknown reason'}` }
-    return { message: 'Loading history...' }
-  }
-  return session ? { aggregate: session.aggregate as AggregateFigures } : { message: 'Waiting for session data...' }
+/** The current session's aggregate, or the one line to show instead of it. */
+export const gateOf = ({ session }: TabContext): Gate =>
+  session ? { aggregate: session.aggregate as AggregateFigures } : { message: 'Waiting for session data...' }
+
+/** The history window's aggregate, or the one line to show instead of it. */
+export function historyGateOf({ history }: TabContext): Gate {
+  if (history.status === 'ready' && history.aggregate) return { aggregate: history.aggregate as AggregateFigures }
+  if (history.status === 'unavailable') return { message: `History unavailable: ${history.reason ?? 'unknown reason'}` }
+  return { message: 'Loading history...' }
 }
 
 export function renderLines(

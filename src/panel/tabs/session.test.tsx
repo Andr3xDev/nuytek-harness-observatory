@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
+import { historyLines } from './history'
 import { sessionLines } from './session'
 import { aggregate, agent, context, figure, sessionAtomValue, sessionFigures, textOf } from './test-kit'
 
@@ -7,12 +8,13 @@ const tree = [
   agent('a2', { subagentType: 'builder', parentAgentId: 'a1' }),
 ]
 
-describe('session tab, Session scope', () => {
+describe('session tab', () => {
   const session = sessionAtomValue(sessionFigures(tree), aggregate())
 
   test('shows totals, the main loop with both agents as a tree, and usage by model', () => {
     const text = textOf(sessionLines(context('wide', { session })))
-    expect(text).toContain('Tokens: 5.0k │ Cost (est.): $0.50')
+    expect(text).toContain('Tokens: in 5.0k │ out 0 │ total 5.0k │ Cost (est.): $0.50')
+    expect(text).not.toContain('Context')
     expect(text).toContain('Agents: 2')
     expect(text).toMatch(/^main /m)
     expect(text).toMatch(/^ {2}planner /m)
@@ -27,10 +29,9 @@ describe('session tab, Session scope', () => {
     expect(text).toContain('~ estimate')
   })
 
-  test('shows the context fill, or n/a without a reading', () => {
-    expect(textOf(sessionLines(context('wide', { session })))).toContain('Context: n/a')
-    const withContext = { ...session, context: { percent: 42, window: 200_000 } }
-    expect(textOf(sessionLines(context('wide', { session: withContext })))).toContain('Context: 42% of 200k')
+  test('the totals line counts cached prompt tokens as input', () => {
+    const cached = sessionAtomValue(sessionFigures([], { total: { ...figure(0), input: 100, cacheRead: 2000, cacheCreation: 300, output: 600, tokens: 3000 } }), aggregate())
+    expect(textOf(sessionLines(context('wide', { session: cached })))).toContain('Tokens: in 2.4k │ out 600 │ total 3.0k')
   })
 
   test('narrow gives a name line then tokens and cost', () => {
@@ -43,7 +44,7 @@ describe('session tab, Session scope', () => {
   })
 })
 
-describe('session tab, History scope', () => {
+describe('history tab overview', () => {
   test('shows window, session count, type and model figures, and no issue list', () => {
     const history = {
       status: 'ready' as const,
@@ -54,7 +55,7 @@ describe('session tab, History scope', () => {
         byIssue: [{ issue: 'IO-1', ...figure(700, 0.2) }],
       }),
     }
-    const text = textOf(sessionLines(context('wide', { scope: 'history', history })))
+    const text = textOf(historyLines(context('wide', { history })))
     expect(text).toContain('Sessions: 3')
     expect(text).toMatch(/^builder /m)
     expect(text).toMatch(/^m9 /m)

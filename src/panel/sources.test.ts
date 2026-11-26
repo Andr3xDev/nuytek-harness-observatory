@@ -54,7 +54,6 @@ describe('live loaders', () => {
       loadSessions: async options => (calls.push(options), [stored]),
       pendingEvents: () => pending,
       listAgents: async () => [{ id: 'a1', usage: [], cost: { usd: 0.5 } }],
-      readContext: async () => ({ percent: 40, window: 200_000 }),
       readMainAgent: async () => 'tech-orchestrator',
       ...overrides,
     }
@@ -68,7 +67,6 @@ describe('live loaders', () => {
     expect(calls[0]?.pendingEvents?.s1).toBe(pending)
     expect(calls[0]?.liveAgents?.s1).toEqual([{ agentId: 'a1', usage: [], costUsd: 0.5 }])
     expect(load.liveAgentIds).toEqual(['a1'])
-    expect(load.context).toEqual({ percent: 40, window: 200_000 })
     expect(load.mainAgent).toBe('tech-orchestrator')
   })
 
@@ -80,12 +78,11 @@ describe('live loaders', () => {
     expect(calls[0]?.liveAgents?.s1).toEqual([])
   })
 
-  test('a session without data and a failed context read', async () => {
+  test('a session without data and a failed main agent read', async () => {
     const empty = build({ loadSessions: async () => [] })
     await expect(empty.loaders.loadSession('s1')).rejects.toThrow('no data')
-    const noContext = build({ readContext: () => Promise.reject(new Error('x')), readMainAgent: () => Promise.reject(new Error('x')) })
-    const load = await noContext.loaders.loadSession('s1')
-    expect(load.context).toBeNull()
+    const noAgent = build({ readMainAgent: () => Promise.reject(new Error('x')) })
+    const load = await noAgent.loaders.loadSession('s1')
     expect(load.mainAgent).toBeNull()
   })
 
@@ -118,7 +115,6 @@ describe('live session overlay', () => {
       },
       pendingEvents: pendingNow,
       listAgents: async () => [],
-      readContext: async () => null,
       readMainAgent: async () => null,
     })
   }

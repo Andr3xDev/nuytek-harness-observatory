@@ -19,7 +19,7 @@ test('yields to a survey and draws nothing', async ($, on) => {
   await ui.unmount()
 })
 
-test('open: a round box with the title, tab row, scope toggle and the active tab at full width', async ($, on) => {
+test('open: a round box with the title, tab row and the active tab at full width', async ($, on) => {
   installState(on, { session, panelOpen: true })
   const ui = await $.ui.mount(bandTarget(100))
 
@@ -27,7 +27,7 @@ test('open: a round box with the title, tab row, scope toggle and the active tab
   expect(await ui.find({ type: 'Text', text: '◆ obs' })).toBeDefined()
   expect((await ui.find({ key: 'tab:1' }))?.text).toBe('Session')
   expect((await ui.find({ key: 'tab:4' }))?.text).toBe('History')
-  expect((await ui.find({ key: 'scope' }))?.text).toBe('[Session  ⇄  History]')
+  expect(await ui.find({ key: 'scope' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Agent tree/ })).toBeDefined()
   await ui.unmount()
 })
@@ -54,21 +54,11 @@ test('a tab number stored before a tab was removed falls back to Session', async
   await ui.unmount()
 })
 
-test('the scope toggle switches to History and shows the loading state', async ($, on) => {
-  const state = installState(on, { tab: 2, session, panelOpen: true })
-  const ui = await $.ui.mount(bandTarget(100))
-  await ui.press({ key: 'scope' })
-
-  expect(state.scope).toBe('history')
-  expect(await ui.find({ type: 'Text', text: /Loading history/ })).toBeDefined()
-  await ui.unmount()
-})
-
-test('the scope toggle is absent on tab 4', async ($, on) => {
+test('tab 4 shows the loading state until the history arrives', async ($, on) => {
   installState(on, { tab: 4, session, panelOpen: true })
   const ui = await $.ui.mount(bandTarget(100))
 
-  expect(await ui.find({ key: 'scope' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Loading history/ })).toBeDefined()
   await ui.unmount()
 })
 

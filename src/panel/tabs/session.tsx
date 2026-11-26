@@ -1,6 +1,5 @@
 import type { AgentFigures, Figure, SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
-import type { SessionAtom } from '../../../types'
 import { formatTokens, isoDay } from '../../core/format'
 import { COLUMN_SEPARATOR } from '../layout'
 import {
@@ -12,6 +11,7 @@ import {
   heading,
   statusColumn,
   tableLines,
+  tokenCells,
   tokensColumn,
   type Column,
   type Line,
@@ -26,10 +26,13 @@ const TYPE_COLUMNS: Column[] = [{ header: 'Type', width: 0 }, { header: 'Spawns'
 const MODEL_COLUMNS: Column[] = [{ header: 'Model', width: 0 }, TOKENS_COLUMN]
 const INDENT = '  '
 
-const totalsLine = (total: Figure): Line => ({
-  text: `Tokens: ${formatTokens(total.tokens)}${COLUMN_SEPARATOR}Cost (est.): ${formatCost(total)}`,
-  styles: [tokensColumn, costColumn],
-})
+const totalsLine = (total: Figure): Line => {
+  const [input, output, all] = tokenCells(total)
+  return {
+    text: [`Tokens: in ${input}`, `out ${output}`, `total ${all}`, `Cost (est.): ${formatCost(total)}`].join(COLUMN_SEPARATOR),
+    styles: [tokensColumn, tokensColumn, tokensColumn, costColumn],
+  }
+}
 
 const figureRow = (name: string, status: string, figure: Figure, agentId?: string): Row => ({
   cells: [name, status, formatTokens(figure.tokens), formatCost(figure)],
@@ -58,16 +61,11 @@ function treeRows(agents: readonly AgentFigures[]): Row[] {
   return rows
 }
 
-const contextLine = (context: SessionAtom['context']): Line => ({
-  text: context?.percent == null ? 'Context: n/a' : `Context: ${context.percent}% of ${formatTokens(context.window)}`,
-})
-
-function sessionScopeLines(ctx: TabContext, figures: SessionFigures, context: SessionAtom['context']): Line[] {
+function sessionScopeLines(ctx: TabContext, figures: SessionFigures): Line[] {
   const { tier, columns } = ctx
   const models = Object.entries(figures.byModel).map(([model, usage]): Row => ({ cells: [model, formatTokens(usage.tokens)] }))
   const lines: Line[] = [
     totalsLine(figures.total),
-    contextLine(context),
     { text: `Agents: ${figures.agents.length}` },
     heading('Agent tree'),
     ...tableLines(tier, columns, TREE_COLUMNS, [figureRow('main', '-', figures.main), ...treeRows(figures.agents)]),
@@ -79,7 +77,7 @@ function sessionScopeLines(ctx: TabContext, figures: SessionFigures, context: Se
 
 const formatDay = (ms: number | null): string => (ms === null ? '-' : isoDay(ms))
 
-function historyScopeLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
+export function historyOverviewLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
   const { tier, columns } = ctx
   const byType = aggregate.byType.map(
     (entry): Row => ({ cells: [entry.type, String(entry.spawns), formatTokens(entry.tokens), formatCost(entry)] }),
@@ -99,6 +97,5 @@ function historyScopeLines(ctx: TabContext, aggregate: AggregateFigures): Line[]
 export function sessionLines(ctx: TabContext): Line[] {
   const gate = gateOf(ctx)
   if ('message' in gate) return [dim(gate.message)]
-  if (ctx.scope === 'history' || !ctx.session) return historyScopeLines(ctx, gate.aggregate)
-  return sessionScopeLines(ctx, ctx.session.sessionFigures as SessionFigures, ctx.session.context)
+  return sessionScopeLines(ctx, ctx.session?.sessionFigures as SessionFigures)
 }

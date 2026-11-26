@@ -1,5 +1,9 @@
-import { sessionLines } from './session'
-import type { Line, TabContext } from './common'
+import { agentHistoryLines } from './agents'
+import { dim, historyGateOf, type Line, type TabContext } from './common'
+import { historyOverviewLines } from './session'
 
-// Tab 4 is the tab-1 History layout; the scope is forced because tab 4 has no scope toggle.
-export const historyLines = (ctx: TabContext): Line[] => sessionLines({ ...ctx, scope: 'history' })
+export function historyLines(ctx: TabContext): Line[] {
+  const gate = historyGateOf(ctx)
+  if ('message' in gate) return [dim(gate.message)]
+  return [...historyOverviewLines(ctx, gate.aggregate), ...agentHistoryLines(ctx, gate.aggregate)]
+}

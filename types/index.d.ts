@@ -2,14 +2,11 @@
 // aggregate shapes cannot be named here. They are opaque objects at the atom
 // boundary; panel/ narrows them to SessionFigures / AggregateFigures at the seam.
 export type PanelTab = 1 | 2 | 3 | 4
-export type PanelScope = 'session' | 'history'
 
 export type SessionAtom = {
   sessionFigures: object
   aggregate: object
   liveAgentIds: string[]
-  /** Latest context-window reading; absent or null when the host gave none. */
-  context?: { percent: number | null; window: number } | null
   /** The agent the session itself runs as (`--agent`); absent or null when it runs as none. */
   mainAgent?: string | null
   loadedAt: number
@@ -27,7 +24,6 @@ declare module 'claude-code' {
   interface PluginState {
     'nuytek-harness-observatory': {
       tab: Shaped<PanelTab>
-      scope: Shaped<PanelScope>
       tick: Shaped<number>
       session: Shaped<SessionAtom | null>
       history: Shaped<HistoryAtom>
