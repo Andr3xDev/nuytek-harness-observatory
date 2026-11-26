@@ -63,7 +63,7 @@ const figureOf = ({ usage, costUsd, hasUnknownPrice }: Source): Figure => {
 /** Records keyed by event text must not inherit `constructor`, `__proto__` and friends. */
 export const createRecord = <T>(): Record<string, T> => Object.create(null) as Record<string, T>
 
-const getOrInit =<T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
+const getOrInit = <T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
 const bump = (record: Record<string, number>, key: string): void => {
   record[key] = (record[key] ?? 0) + 1
 }

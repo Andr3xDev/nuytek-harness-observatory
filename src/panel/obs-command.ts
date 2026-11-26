@@ -39,8 +39,10 @@ async function toggle(deps: ObsDeps): Promise<ObsResult> {
   return display('Observatory opened.')
 }
 
-/** Resolves `null` for arguments the pane does not answer: unknown ones go to `next(e)`, `report` is run by the caller. */
-export async function handleObs(command: ObsCommand, deps: ObsDeps): Promise<ObsResult | null> {
+export type PaneCommand = Exclude<ObsCommand, 'report' | 'other'>
+
+/** Answers the pane commands; the caller routes `report` and unknown arguments. */
+export async function handleObs(command: PaneCommand, deps: ObsDeps): Promise<ObsResult> {
   switch (command) {
     case 'toggle':
       return toggle(deps)
@@ -52,8 +54,5 @@ export async function handleObs(command: ObsCommand, deps: ObsDeps): Promise<Obs
     }
     case 'band-usage':
       return display(BAND_USAGE_TEXT)
-    case 'report':
-    case 'other':
-      return null
   }
 }

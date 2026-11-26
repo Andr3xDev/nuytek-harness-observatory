@@ -1,9 +1,9 @@
 import { RESUME_SWEEP_WINDOW_MS, STORE_DIR } from '../../core/constants'
-import { isRecord } from '../../core/guards'
+import { isSnapshotShape } from '../../core/guards'
 import type { AgentSnapshot } from '../../core/schema'
+import { SNAPSHOTS_DIR, SNAPSHOT_EXTENSION } from '../layout'
 
-const SNAPSHOTS_DIR = `${STORE_DIR}/snapshots`
-const SNAPSHOT_EXTENSION = '.json'
+const SNAPSHOTS_PATH = `${STORE_DIR}/${SNAPSHOTS_DIR}`
 
 export type StoredSnapshot = { name: string; mtimeMs: number; snapshot: AgentSnapshot }
 
@@ -13,16 +13,12 @@ type SnapshotFs = {
   read: (path: string) => Promise<string>
 }
 
-/** Only the fields the sweep reads; a file from an older or damaged write is skipped, not fatal. */
-const isSnapshotShape = (value: unknown): value is AgentSnapshot =>
-  isRecord(value) && typeof value.sessionId === 'string' && typeof value.closed === 'boolean'
-
 /** Readable snapshot files inside the resume window; older files are never read. Any failure yields no snapshots. */
 export const listStoredSnapshots = async (fs: SnapshotFs, now: number): Promise<StoredSnapshot[]> => {
   try {
     const home = await fs.home()
     if (!home) return []
-    const dir = `${home}/${SNAPSHOTS_DIR}`
+    const dir = `${home}/${SNAPSHOTS_PATH}`
     const files = (await fs.list(dir)).filter(
       (entry) => entry.kind === 'file' && entry.name.endsWith(SNAPSHOT_EXTENSION) && now - entry.mtimeMs <= RESUME_SWEEP_WINDOW_MS,
     )

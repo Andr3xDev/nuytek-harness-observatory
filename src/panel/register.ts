@@ -192,6 +192,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
   })
   on('command.run', { command: 'obs' }, async ($, e, next) => {
     const command = parseObsArgs(e.args)
+    if (command === 'other') return next(e)
     if (command === 'report') {
       return runReportCommand(
         {
@@ -225,7 +226,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
     } catch {
       // The panel is optional: /obs still answers without it.
     }
-    const result = await handleObs(command, {
+    return handleObs(command, {
       isPaneOpen: async () => (await $.ui.panes()).some((pane) => pane.id === PANE_ID),
       closePane: () => $.ui.close({ id: PANE_ID }),
       openPane: async () => {
@@ -244,7 +245,6 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         await update($, bandEnabledAtom, () => enabled)
       },
     })
-    return result ?? next(e)
   })
   on('ui.close', { id: PANE_ID }, async (_, e, next) => {
     const result = await next(e)

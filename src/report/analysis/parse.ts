@@ -1,3 +1,4 @@
+import { isRecord } from '../../core/guards'
 import { SUPPORTED_SCHEMA, type EventRecord, type ParseResult } from './types'
 
 export function parseJsonl(lines: readonly string[]): ParseResult {
@@ -11,7 +12,7 @@ export function parseJsonl(lines: readonly string[]): ParseResult {
       result.skippedMalformed += 1
       continue
     }
-    const schema = typeof parsed === 'object' && parsed !== null ? (parsed as { schema?: unknown }).schema : undefined
+    const schema = isRecord(parsed) ? (parsed as { schema?: unknown }).schema : undefined
     if (typeof schema !== 'number') {
       result.skippedMalformed += 1
     } else if (schema > SUPPORTED_SCHEMA) {

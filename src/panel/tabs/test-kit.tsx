@@ -107,7 +107,7 @@ export const context = (tier: keyof typeof WIDTHS, overrides: Partial<TabContext
 
 export const textOf = (lines: ReadonlyArray<{ text: string }>): string => lines.map(line => line.text).join('\n')
 
-export const paneProps =(bodyColumns: number, isFocused = true) =>
+export const paneProps = (bodyColumns: number, isFocused = true) =>
   ({
     title: 'Observatory',
     isFocused,

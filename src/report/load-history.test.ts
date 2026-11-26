@@ -189,4 +189,14 @@ describe('loadHistory fail-open', () => {
     expect(history.sessions[0]?.coverage.agentsWithoutSnapshot).toBe(1)
     expect(history.warnings).toBe(0)
   })
+
+  test('drops a malformed snapshot alone and keeps the session', async () => {
+    const files = { ...closedSession('s1'), 'snapshots/s1a.json': { content: '{"unexpected":true}' } }
+
+    const history = await load(files).result
+
+    expect(history.sessions.map((session) => session.sessionId)).toEqual(['s1'])
+    expect(history.sessions[0]?.coverage.agentsWithoutSnapshot).toBe(1)
+    expect(history.warnings).toBe(0)
+  })
 })

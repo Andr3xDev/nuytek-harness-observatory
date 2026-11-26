@@ -1,6 +1,6 @@
 import { truncate } from '../core/format'
 
-export type Tier ='wide' | 'medium' | 'narrow'
+export type Tier = 'wide' | 'medium' | 'narrow'
 
 export const TIER_WIDE_MIN = 70
 export const TIER_MEDIUM_MIN = 45

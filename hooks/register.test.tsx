@@ -15,7 +15,7 @@ const CAPTURE_EVENTS = [
   'tool.check',
   'turn.complete',
 ]
-const REPORT_HOOK = 'command.run:{"command":"obs"}'
+const OBS_HOOK = 'command.run:{"command":"obs"}'
 const PANEL_HOOKS = ['ui.close:{"id":"observatory"}', 'ui.render:{"component":"AbovePrompt"}', 'ui.render:{"component":"Pane","requestId":"observatory"}']
 const CLASSIC_EVENTS = [
   'classic.PermissionDenied',
@@ -52,11 +52,11 @@ describe('registration set', () => {
 
   for (const [label, options] of profileModes) {
     test(`classic flag off registers exactly the ten capture events, the obs command hook and the panel hooks (${label})`, () => {
-      expect(registered(options, false)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK, ...PANEL_HOOKS].sort())
+      expect(registered(options, false)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS].sort())
     })
 
     test(`classic flag on adds only the four classic permission hooks (${label})`, () => {
-      expect(registered(options, true)).toEqual([...CAPTURE_EVENTS, REPORT_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
+      expect(registered(options, true)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
     })
 
     test(`request and tool-loop hooks are never registered (${label})`, () => {
@@ -122,7 +122,7 @@ describe('profile read once at register', () => {
   })
 })
 
-describe('obs report command hook', () => {
+describe('obs command hook', () => {
   const HOME = '/home/tester'
   const STORE = `${HOME}/.claude/observability`
   const fileRecords = [
@@ -167,7 +167,7 @@ describe('obs report command hook', () => {
 
   test('answers /obs report display-only with exactly text and isTextDisplayOnly', async () => {
     const { hooks, host } = setup()
-    const result = (await hooks.get(REPORT_HOOK)?.(host, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    const result = (await hooks.get(OBS_HOOK)?.(host, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
     expect(Object.keys(result).sort()).toEqual(['isTextDisplayOnly', 'text'])
     expect(result.text).toContain('Observability report')
   })
@@ -180,7 +180,7 @@ describe('obs report command hook', () => {
       env: { get: async () => undefined },
       fs: { list: async (path: string) => (reads.push(path), []), read: async (path: string) => (reads.push(path), '') },
     }
-    const result = (await hooks.get(REPORT_HOOK)?.(noHome, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    const result = (await hooks.get(OBS_HOOK)?.(noHome, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
     expect(reads).toEqual([])
     expect(result.isTextDisplayOnly).toBe(true)
     expect(result.text).not.toContain('inner')
@@ -189,7 +189,7 @@ describe('obs report command hook', () => {
   test('unknown arguments pass through to next(e)', async () => {
     const { hooks, host } = setup()
     for (const args of ['foo', 'band on extra']) {
-      const result = await hooks.get(REPORT_HOOK)?.(host, obs(args), async () => ({ text: 'inner' }))
+      const result = await hooks.get(OBS_HOOK)?.(host, obs(args), async () => ({ text: 'inner' }))
       expect(result).toEqual({ text: 'inner' })
     }
   })
@@ -203,7 +203,7 @@ describe('obs report command hook', () => {
       store: { get: async () => undefined, set: async (key: string, value: unknown) => void (stored[key] = value) },
       state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
     }
-    const result = (await hooks.get(REPORT_HOOK)?.(withStore, obs('band off'), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    const result = (await hooks.get(OBS_HOOK)?.(withStore, obs('band off'), async () => ({ text: 'inner' }))) as Record<string, unknown>
     expect(Object.keys(result).sort()).toEqual(['isTextDisplayOnly', 'text'])
     expect(stored.bandEnabled).toBe(false)
   })
@@ -216,7 +216,7 @@ describe('obs report command hook', () => {
       ui: { panes: async () => [], open: async (args: unknown) => (opened.push(args), { isPlaced: true }) },
       state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
     }
-    const result = (await hooks.get(REPORT_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    const result = (await hooks.get(OBS_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
     expect(opened).toEqual([{ id: 'observatory', title: 'Observatory', focus: true, closeOnEscape: true }])
     expect(result.isTextDisplayOnly).toBe(true)
   })
@@ -225,7 +225,7 @@ describe('obs report command hook', () => {
     const { hooks, host } = setup()
     const closed: unknown[] = []
     const withUi = { ...host, ui: { panes: async () => [{ id: 'observatory' }], close: async (args: unknown) => void closed.push(args) } }
-    await hooks.get(REPORT_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))
+    await hooks.get(OBS_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))
     expect(closed).toEqual([{ id: 'observatory' }])
   })
 
@@ -240,7 +240,7 @@ describe('obs report command hook', () => {
 
   test('capture still records /obs when the report hook answers beneath it', async () => {
     const { hooks, host, appended } = setup()
-    const report = hooks.get(REPORT_HOOK)
+    const report = hooks.get(OBS_HOOK)
     const passThrough = async (e: unknown) => e
     await hooks.get('session.start')?.(host, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
     const answer = (await hooks.get('command.run')?.(host, obs('report'), (e) => report!(host, e, passThrough))) as Record<string, unknown>
@@ -335,14 +335,14 @@ describe('live panel wiring', () => {
 
   test('/obs builds the panel on a host that never saw session.start, so the pane refreshes', async () => {
     const { hooks, host, writes, settle } = setup()
-    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     expect(writtenValues(writes, 'session').some((value) => value !== null)).toBe(true)
   })
 
   test('closing the pane through ui.close stops the 5 s timer and later time reloads nothing', async () => {
     const { hooks, host, calls, settle, openTimer } = setup()
-    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     const timer = openTimer()
     expect(timer).toBeDefined()
@@ -356,7 +356,7 @@ describe('live panel wiring', () => {
 
   test('a pane closed without ui.close is caught by the panes probe, which stops the timer', async () => {
     const { hooks, host, calls, settle, openTimer, closePane } = setup()
-    await hooks.get(REPORT_HOOK)?.(host, obs(''), passThrough)
+    await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     const timer = openTimer()
     closePane()

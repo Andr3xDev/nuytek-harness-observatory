@@ -100,7 +100,7 @@ export const permissionOutcome = (outcome: PermissionOutcome): PermissionOutcome
   toolUseId: null,
 })
 
-export const commandRun =(name: string): CommandRunEvent => ({ ...envelope('command.run', {}), name })
+export const commandRun = (name: string): CommandRunEvent => ({ ...envelope('command.run', {}), name })
 
 export const snapshot = (agentId: string, overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => ({
   schema: 1,

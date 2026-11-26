@@ -1,10 +1,11 @@
 import type { SourceListing } from '../../core/figures'
+import { EVENTS_DIR, EVENTS_EXTENSION, SNAPSHOTS_DIR, SNAPSHOT_EXTENSION } from '../layout'
 
 export const READ_CHUNK_BYTES = 4 * 1024 * 1024
 
 const SOURCE_DIRS = [
-  { dir: 'events', extension: '.jsonl' },
-  { dir: 'snapshots', extension: '.json' },
+  { dir: EVENTS_DIR, extension: EVENTS_EXTENSION },
+  { dir: SNAPSHOTS_DIR, extension: SNAPSHOT_EXTENSION },
 ] as const
 const NEWLINE = 0x0a
 

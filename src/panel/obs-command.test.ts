@@ -67,13 +67,6 @@ describe('handleObs', () => {
     expect(Object.keys(off ?? {}).sort()).toEqual(['isTextDisplayOnly', 'text'])
   })
 
-  test('other and report arguments return null and touch nothing', async () => {
-    const { deps, calls } = setup()
-    expect(await handleObs('other', deps)).toBeNull()
-    expect(await handleObs('report', deps)).toBeNull()
-    expect(calls).toEqual([])
-  })
-
   test('band usage is display-only text', async () => {
     const result = await handleObs('band-usage', setup().deps)
     expect(result).toEqual({ text: 'Usage: /obs band on|off', isTextDisplayOnly: true })

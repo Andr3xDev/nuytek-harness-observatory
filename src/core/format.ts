@@ -24,7 +24,7 @@ export const truncate = (text: string, width: number): string =>
 /** UTC calendar day of a timestamp, `YYYY-MM-DD`. */
 export const isoDay = (ms: number): string => new Date(ms).toISOString().slice(0, ISO_DAY_LENGTH)
 
-export const formatUsd =(usd: number): string => `$${usd.toFixed(2)}`
+export const formatUsd = (usd: number): string => `$${usd.toFixed(2)}`
 
 export const formatFigure = (value: number | null | undefined, mode: FigureMode): string => {
   if (value == null) return mode === 'scalar' ? 'n/a (harness profile off)' : 'n/a'

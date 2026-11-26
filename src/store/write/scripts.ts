@@ -1,4 +1,5 @@
 import { STORE_DIR } from '../../core/constants'
+import { EVENTS_DIR, EVENTS_EXTENSION, PROMPTS_FILE_PREFIX, ROLLUP_DIR, SNAPSHOTS_DIR } from '../layout'
 
 // Fixed scripts: no caller text is ever interpolated; paths go in as positional args (design D7).
 const SAFE_PREFIX = `umask 077; cd "$HOME/${STORE_DIR}" || exit 1`
@@ -13,8 +14,8 @@ export const UPSERT_SCRIPT = `${SAFE_PREFIX}; case "$1" in */*) mkdir -p -- "\${
 
 export const MAINTAIN_SCRIPT =
   `${SAFE_PREFIX}; chmod -R go-rwx . ; ` +
-  'find events snapshots rollup -type f -mtime +"$1" ! -name "$2" ! -name "$3" -delete 2>/dev/null; ' +
-  `find . -maxdepth 1 -type f -name 'prompts-*.jsonl' -mtime +"$1" -delete`
+  `find ${EVENTS_DIR} ${SNAPSHOTS_DIR} ${ROLLUP_DIR} -type f -mtime +"$1" ! -name "$2" ! -name "$3" -delete 2>/dev/null; ` +
+  `find . -maxdepth 1 -type f -name '${PROMPTS_FILE_PREFIX}*${EVENTS_EXTENSION}' -mtime +"$1" -delete`
 
 const shellArgv = (script: string, ...args: string[]): string[] => ['sh', '-c', script, SCRIPT_NAME, ...args]
 

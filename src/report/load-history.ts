@@ -1,3 +1,4 @@
+import { isSnapshotShape } from '../core/guards'
 import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../core/figures'
 import type { HistoryFs } from '../store/read/history-fs'
 import { listSources, readLines } from '../store/read/reader'
@@ -51,7 +52,7 @@ const readRollup = async (fs: HistoryFs, sessionId: string, listing: SourceListi
 const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing): Promise<SnapshotRecord | null> => {
   if (!Object.hasOwn(listing, path)) return null
   const snapshot = await fs.readText(path).then(parseJson, () => undefined)
-  return typeof snapshot === 'object' && snapshot !== null ? (snapshot as SnapshotRecord) : null
+  return isSnapshotShape(snapshot) ? (snapshot as SnapshotRecord) : null
 }
 
 const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | undefined): string[] => {

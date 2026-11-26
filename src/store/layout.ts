@@ -11,16 +11,23 @@ export const SESSION_ID_PATTERN = new RegExp(`^${SESSION_ID_SOURCE}$`)
 /** `YYYY-MM-DD`, the day slice of an ISO timestamp. */
 export const PROMPTS_DAY_SOURCE = '\\d{4}-\\d{2}-\\d{2}'
 
-export const eventsFileOf = (sessionId: string): string => `${sessionId}.jsonl`
-export const mainSnapshotFileOf = (sessionId: string): string => `main-${sessionId}.json`
-export const agentSnapshotFileOf = (agentId: string): string => `${agentId}.json`
+export const EVENTS_DIR = 'events'
+export const SNAPSHOTS_DIR = 'snapshots'
+export const ROLLUP_DIR = 'rollup'
+export const EVENTS_EXTENSION = '.jsonl'
+export const SNAPSHOT_EXTENSION = '.json'
+export const PROMPTS_FILE_PREFIX = 'prompts-'
 
-export const eventsPathOf = (sessionId: string): string => `events/${eventsFileOf(sessionId)}`
-const EVENTS_LISTING_PATH = /^events\/(.+)\.jsonl$/
+export const eventsFileOf = (sessionId: string): string => `${sessionId}${EVENTS_EXTENSION}`
+export const mainSnapshotFileOf = (sessionId: string): string => `main-${sessionId}${SNAPSHOT_EXTENSION}`
+export const agentSnapshotFileOf = (agentId: string): string => `${agentId}${SNAPSHOT_EXTENSION}`
+
+export const eventsPathOf = (sessionId: string): string => `${EVENTS_DIR}/${eventsFileOf(sessionId)}`
+const EVENTS_LISTING_PATH = new RegExp(`^${EVENTS_DIR}/(.+)\\${EVENTS_EXTENSION}$`)
 /** Lenient on purpose: reading must still list sessions whose id the writer would now reject. */
 export const sessionIdOfEventsPath = (path: string): string | undefined => EVENTS_LISTING_PATH.exec(path)?.[1]
-export const snapshotPathOf = (file: string): string => `snapshots/${file}`
+export const snapshotPathOf = (file: string): string => `${SNAPSHOTS_DIR}/${file}`
 export const mainSnapshotPathOf = (sessionId: string): string => snapshotPathOf(mainSnapshotFileOf(sessionId))
 export const agentSnapshotPathOf = (agentId: string): string => snapshotPathOf(agentSnapshotFileOf(agentId))
-export const rollupPathOf = (sessionId: string): string => `rollup/${sessionId}.json`
-export const promptsPathOf = (day: string): string => `prompts-${day}.jsonl`
+export const rollupPathOf = (sessionId: string): string => `${ROLLUP_DIR}/${sessionId}.json`
+export const promptsPathOf = (day: string): string => `${PROMPTS_FILE_PREFIX}${day}${EVENTS_EXTENSION}`

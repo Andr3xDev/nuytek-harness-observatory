@@ -51,7 +51,7 @@ export type LoadSessionsOptions = {
 }
 
 export type LiveLoaderDeps = {
-  /** `loadHistory` of the store, bound to the file system and writer by the caller. */
+  /** `loadHistory` of the store, bound to the file system only by the caller; the panel does not write. */
   loadSessions: (options: LoadSessionsOptions) => Promise<SessionFigures[]>
   pendingEvents: (sessionId: string) => readonly EventRecord[]
   listAgents: () => Promise<readonly LiveAgentRow[]>
