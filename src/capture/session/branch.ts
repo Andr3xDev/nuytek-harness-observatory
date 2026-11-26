@@ -10,6 +10,8 @@ export type BranchProvider = {
 
 export const createBranchProvider = (deps: { detect: VcsDetect; runGit: GitRunner }): BranchProvider => {
   let cached: string | null = null
+  // A missing git binary or a non-repo cwd fails the same way every turn, so the fallback is not respawned.
+  let gitFailedFor: string | null = null
 
   const fromDetect = async (cwd: string): Promise<string | null> => {
     try {
@@ -31,7 +33,8 @@ export const createBranchProvider = (deps: { detect: VcsDetect; runGit: GitRunne
   return {
     current: () => cached,
     refresh: async (cwd) => {
-      cached = (await fromDetect(cwd)) ?? (await fromGit())
+      cached = (await fromDetect(cwd)) ?? (gitFailedFor === cwd ? null : await fromGit())
+      gitFailedFor = cached === null ? cwd : null
       return cached
     },
   }

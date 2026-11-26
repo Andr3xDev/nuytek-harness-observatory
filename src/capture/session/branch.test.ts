@@ -58,6 +58,16 @@ describe('BranchProvider', () => {
     expect(await provider.refresh(CWD)).toBeNull()
   })
 
+  test('a failed git fallback is not respawned for the same cwd but is retried on another', async () => {
+    const { run, calls } = git('fatal: not a git repository', 128)
+    const provider = createBranchProvider({ detect: detecting(null, null, null), runGit: run })
+    await provider.refresh(CWD)
+    await provider.refresh(CWD)
+    expect(calls).toHaveLength(1)
+    await provider.refresh('/work/other')
+    expect(calls).toHaveLength(2)
+  })
+
   test('a detached head is stored as the literal HEAD', async () => {
     const { run } = git('HEAD\n')
     const provider = createBranchProvider({ detect: detecting(null), runGit: run })

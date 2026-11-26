@@ -1,7 +1,10 @@
 import { RESUME_SWEEP_WINDOW_MS, STORE_DIR } from '../../core/constants'
-import { isSnapshotShape } from '../../core/guards'
+import { isSnapshotShape, tryParseJson } from '../../core/guards'
 import type { AgentSnapshot } from '../../core/schema'
 import { SNAPSHOTS_DIR, SNAPSHOT_EXTENSION } from '../layout'
+
+/** Bounds the reads of a session start; the newest files are the ones a resume can still own. */
+export const MAX_SWEEP_SNAPSHOTS = 64
 
 const SNAPSHOTS_PATH = `${STORE_DIR}/${SNAPSHOTS_DIR}`
 
@@ -19,17 +22,14 @@ export const listStoredSnapshots = async (fs: SnapshotFs, now: number): Promise<
     const home = await fs.home()
     if (!home) return []
     const dir = `${home}/${SNAPSHOTS_PATH}`
-    const files = (await fs.list(dir)).filter(
-      (entry) => entry.kind === 'file' && entry.name.endsWith(SNAPSHOT_EXTENSION) && now - entry.mtimeMs <= RESUME_SWEEP_WINDOW_MS,
-    )
+    const files = (await fs.list(dir))
+      .filter((entry) => entry.kind === 'file' && entry.name.endsWith(SNAPSHOT_EXTENSION) && now - entry.mtimeMs <= RESUME_SWEEP_WINDOW_MS)
+      .sort((left, right) => right.mtimeMs - left.mtimeMs)
+      .slice(0, MAX_SWEEP_SNAPSHOTS)
     const stored = await Promise.all(
       files.map(async (entry): Promise<StoredSnapshot | null> => {
-        try {
-          const parsed: unknown = JSON.parse(await fs.read(`${dir}/${entry.name}`))
-          return isSnapshotShape(parsed) ? { name: entry.name, mtimeMs: entry.mtimeMs, snapshot: parsed } : null
-        } catch {
-          return null
-        }
+        const parsed = await fs.read(`${dir}/${entry.name}`).then(tryParseJson, () => undefined)
+        return isSnapshotShape(parsed) ? { name: entry.name, mtimeMs: entry.mtimeMs, snapshot: parsed } : null
       }),
     )
     return stored.filter((entry) => entry !== null)
