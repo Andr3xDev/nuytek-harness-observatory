@@ -76,7 +76,8 @@ Everything lives under `~/.claude/observability/`. Directories are created with 
 | Path | Content | Write mode |
 |------|---------|------------|
 | `events/<sessionId>.jsonl` | One event per line for the session. | Appended |
-| `snapshots/<sessionId>.json` | Latest state of the session. | Replaced in place |
+| `snapshots/main-<sessionId>.json` | Latest state of the session's main loop. | Replaced in place |
+| `snapshots/<agentId>.json` | Latest state of one subagent. | Replaced in place |
 | `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
 
 Retention deletes regular files older than `retentionDays` from these locations at session start. It never touches the current session's files or anything outside them.
