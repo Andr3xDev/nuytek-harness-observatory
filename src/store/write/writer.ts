@@ -1,4 +1,4 @@
-import { validateAppendPath, validateMaintainArgs, validateUpsertPath } from './paths'
+import { isValidAppendPath, isValidMaintainArgs, isValidUpsertPath } from './paths'
 import { appendArgv, initArgv, maintainArgv, upsertArgv } from './scripts'
 
 export const WRITE_TIMEOUT_MS = 5_000
@@ -29,11 +29,11 @@ export const createWriter = (run: ProcessRunner): Writer => {
   return {
     init: () => execute(initArgv(), { timeoutMs: WRITE_TIMEOUT_MS }),
     append: async (path, text) =>
-      validateAppendPath(path).ok ? execute(appendArgv(path), { stdin: text, timeoutMs: WRITE_TIMEOUT_MS }) : false,
+      isValidAppendPath(path) ? execute(appendArgv(path), { stdin: text, timeoutMs: WRITE_TIMEOUT_MS }) : false,
     upsert: async (path, text) =>
-      validateUpsertPath(path).ok ? execute(upsertArgv(path), { stdin: text, timeoutMs: WRITE_TIMEOUT_MS }) : false,
+      isValidUpsertPath(path) ? execute(upsertArgv(path), { stdin: text, timeoutMs: WRITE_TIMEOUT_MS }) : false,
     maintain: async (days, eventsFile, snapshotFile) =>
-      validateMaintainArgs(days, eventsFile, snapshotFile).ok
+      isValidMaintainArgs(days, eventsFile, snapshotFile)
         ? execute(maintainArgv(days, eventsFile, snapshotFile), { timeoutMs: MAINTAIN_TIMEOUT_MS })
         : false,
   }

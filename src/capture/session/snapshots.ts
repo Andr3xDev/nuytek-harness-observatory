@@ -1,4 +1,5 @@
 import { RESUME_SWEEP_WINDOW_MS } from '../../core/constants'
+import { totalTokens } from '../../core/figures'
 import { SCHEMA_VERSION, type AgentSnapshot, type ClosedReason, type UsageRecord } from '../../core/schema'
 import { mapUsage, type HostUsage } from '../../core/usage'
 import { agentSnapshotFileOf, mainSnapshotFileOf } from '../../store/layout'
@@ -65,7 +66,7 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
   let startedAt: number | undefined
 
   const ledgerTokens = (): number =>
-    ledger.reduce((sum, turn) => sum + turn.input + turn.output + turn.cacheRead + turn.cacheCreation, 0)
+    ledger.reduce((sum, turn) => sum + totalTokens(turn), 0)
 
   const agentSnapshot = (agent: SnapshotAgent, input: SnapshotCycleInput): AgentSnapshot => {
     const usage = (agent.usage ?? []).map(mapUsage)

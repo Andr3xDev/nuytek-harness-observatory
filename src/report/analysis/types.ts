@@ -8,6 +8,7 @@ import type {
   ToolFigures,
   TypeFigures,
 } from '../../core/figures'
+import { SCHEMA_VERSION } from '../../core/schema'
 
 export type RecentAgent = Pick<Figure, keyof TokenCounts | 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
   type: string
@@ -29,7 +30,8 @@ export type {
   TypeFigures,
 } from '../../core/figures'
 
-export const SUPPORTED_SCHEMA = 1
+/** The reader accepts every record up to the schema this build writes. */
+export const SUPPORTED_SCHEMA = SCHEMA_VERSION
 
 export type SessionInput = {
   events: EventRecord[]

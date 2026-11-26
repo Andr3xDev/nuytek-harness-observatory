@@ -25,6 +25,13 @@ describe('parseJsonl', () => {
     expect(parseJsonl([JSON.stringify(newer), JSON.stringify({ id: 'x' }), JSON.stringify(supported)])).toEqual([supported])
   })
 
+  test('skips a line without a string type or numeric ts and keeps the session', () => {
+    const supported = sessionStart()
+    const lines = [{ ...supported, type: undefined }, { ...supported, ts: 'x' }, supported].map((record) => JSON.stringify(record))
+
+    expect(parseJsonl(lines)).toEqual([supported])
+  })
+
   test('returns an empty result for empty input', () => {
     expect(parseJsonl([])).toEqual([])
   })

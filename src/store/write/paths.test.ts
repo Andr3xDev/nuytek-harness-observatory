@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { validateAppendPath, validateMaintainArgs, validateUpsertPath } from './paths'
+import { isValidAppendPath, isValidMaintainArgs, isValidUpsertPath } from './paths'
 
 const REJECTED_PATHS = [
   '../etc/passwd',
@@ -26,63 +26,60 @@ const REJECTED_PATHS = [
   'events/a.jsonl\n',
 ]
 
-describe('validateAppendPath', () => {
+describe('isValidAppendPath', () => {
   test('accepts an events file', () => {
-    expect(validateAppendPath('events/abc-123.jsonl')).toEqual({ ok: true, path: 'events/abc-123.jsonl' })
+    expect(isValidAppendPath('events/abc-123.jsonl')).toBe(true)
   })
 
   test('accepts a dated prompts file', () => {
-    expect(validateAppendPath('prompts-2026-11-25.jsonl').ok).toBe(true)
+    expect(isValidAppendPath('prompts-2026-11-25.jsonl')).toBe(true)
   })
 
   test('rejects snapshots/ targets', () => {
-    expect(validateAppendPath('snapshots/a1.json').ok).toBe(false)
+    expect(isValidAppendPath('snapshots/a1.json')).toBe(false)
   })
 
   test('rejects traversal, absolute, malformed and unknown paths without throwing', () => {
-    expect(REJECTED_PATHS.filter((path) => validateAppendPath(path).ok)).toEqual([])
+    expect(REJECTED_PATHS.filter(isValidAppendPath)).toEqual([])
   })
 })
 
-describe('validateUpsertPath', () => {
+describe('isValidUpsertPath', () => {
   test('accepts a snapshot file', () => {
-    expect(validateUpsertPath('snapshots/a_1-b.json')).toEqual({ ok: true, path: 'snapshots/a_1-b.json' })
+    expect(isValidUpsertPath('snapshots/a_1-b.json')).toBe(true)
   })
 
   test('accepts the main snapshot file name', () => {
-    expect(validateUpsertPath('snapshots/main-s1.json').ok).toBe(true)
+    expect(isValidUpsertPath('snapshots/main-s1.json')).toBe(true)
   })
 
   test('rejects events/ and prompts targets', () => {
-    expect(validateUpsertPath('events/a.jsonl').ok).toBe(false)
-    expect(validateUpsertPath('prompts-2026-11-25.jsonl').ok).toBe(false)
+    expect(isValidUpsertPath('events/a.jsonl')).toBe(false)
+    expect(isValidUpsertPath('prompts-2026-11-25.jsonl')).toBe(false)
   })
 
   test('rejects traversal, leading dash, extra segments and absolute paths', () => {
     for (const path of ['snapshots/../a.json', 'snapshots/-a.json', 'unknown/x/y.json', '/snapshots/a.json', 'snapshots/.a.json']) {
-      expect(validateUpsertPath(path).ok).toBe(false)
+      expect(isValidUpsertPath(path)).toBe(false)
     }
   })
 })
 
-describe('validateMaintainArgs', () => {
+describe('isValidMaintainArgs', () => {
   test('accepts digit days and the two current file names', () => {
-    expect(validateMaintainArgs('30', 'abc-1.jsonl', 'main-abc-1.json')).toEqual({
-      ok: true,
-      args: ['30', 'abc-1.jsonl', 'main-abc-1.json'],
-    })
+    expect(isValidMaintainArgs('30', 'abc-1.jsonl', 'main-abc-1.json')).toBe(true)
   })
 
   test('rejects non-digit or empty days', () => {
     for (const days of ['', '3 0', '-1', '30; rm', '$(x)', '3.5']) {
-      expect(validateMaintainArgs(days, 'a.jsonl', 'main-a.json').ok).toBe(false)
+      expect(isValidMaintainArgs(days, 'a.jsonl', 'main-a.json')).toBe(false)
     }
   })
 
   test('rejects file names that are not plain store names', () => {
-    expect(validateMaintainArgs('30', '../a.jsonl', 'main-a.json').ok).toBe(false)
-    expect(validateMaintainArgs('30', 'a.jsonl', 'x/main-a.json').ok).toBe(false)
-    expect(validateMaintainArgs('30', '-a.jsonl', 'main-a.json').ok).toBe(false)
-    expect(validateMaintainArgs('30', 'a.jsonl', 'main-a.jsonl').ok).toBe(false)
+    expect(isValidMaintainArgs('30', '../a.jsonl', 'main-a.json')).toBe(false)
+    expect(isValidMaintainArgs('30', 'a.jsonl', 'x/main-a.json')).toBe(false)
+    expect(isValidMaintainArgs('30', '-a.jsonl', 'main-a.json')).toBe(false)
+    expect(isValidMaintainArgs('30', 'a.jsonl', 'main-a.jsonl')).toBe(false)
   })
 })
