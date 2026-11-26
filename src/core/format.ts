@@ -2,12 +2,14 @@ const THOUSAND = 1000
 const MILLION = 1_000_000
 const COMPACT_DECIMALS_LIMIT = 10
 
+// The unit and the decimal form are chosen on the rounded value, so 9_999 is "10k" and 999_999 is "1.0M".
 const compact = (value: number, suffix: string): string =>
-  value < COMPACT_DECIMALS_LIMIT ? `${value.toFixed(1)}${suffix}` : `${Math.round(value)}${suffix}`
+  Math.round(value * 10) / 10 < COMPACT_DECIMALS_LIMIT ? `${value.toFixed(1)}${suffix}` : `${Math.round(value)}${suffix}`
 
 export const formatTokens = (tokens: number): string => {
-  if (tokens >= MILLION) return compact(tokens / MILLION, 'M')
-  if (tokens >= THOUSAND) return compact(tokens / THOUSAND, 'k')
+  const thousands = tokens / THOUSAND
+  if (tokens >= MILLION || Math.round(thousands) >= THOUSAND) return compact(tokens / MILLION, 'M')
+  if (tokens >= THOUSAND) return compact(thousands, 'k')
   return String(tokens)
 }
 
