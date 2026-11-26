@@ -38,13 +38,12 @@ Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture
 
 | Command | Effect |
 |---------|--------|
-| `/obs` | Opens or closes the observatory panel (also shows the band if it was hidden). |
-| `/obs band on\|off` | Shows or hides the whole band above the prompt, panel included. Default: on. |
+| `/obs` | Opens or closes the observatory panel. |
 | `/obs report` | Prints a text report of recorded sessions: agent types, models, issues and anomalies. |
 
-The observatory lives in the band above the prompt; there is no side pane. Closed, the band is one line: `◆ obs  $2.41 · ◈ 412k tok · ▸ 4 agents`. Open (`/obs`), it shows five tabs at full band width: Session, Agents, Tools, Permissions and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `5`. Close it with `/obs`. The open panel refreshes every 5 seconds.
+The observatory lives in the band above the prompt; there is no side pane. Closed, it draws nothing. Open (`/obs`), it is a bordered box titled `◆ obs` with four tabs: Session, Agents, Tools and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `4`. Close it with `/obs`. Figures update as events arrive, and the open panel re-reads the store every few seconds.
 
-The Agents tab lists one row per agent type and model with spawns, tokens and estimated cost, for example `explorer · haiku-4-5   3×   42k   $0.08`. A model that was not recorded shows as `?`.
+The Agents tab starts with the main loop (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent. Below that, one row per agent type and model with spawns, tokens and estimated cost, for example `explorer · haiku-4-5   3×   42k   $0.08`. A model that was not recorded shows as `?`.
 
 ## Options
 

@@ -4,6 +4,6 @@ import { STATE_SHAPES } from './state'
 describe('panel state shapes', () => {
   // A tag is bumped together with a state migration; an accidental edit must fail here.
   test('shape tags are pinned', () => {
-    expect(Object.values(STATE_SHAPES)).toEqual(['tab-1', 'scope-1', 'tick-1', 'session-1', 'history-1', 'band-1', 'open-1'])
+    expect(Object.values(STATE_SHAPES)).toEqual(['tab-1', 'scope-1', 'tick-1', 'session-1', 'history-1', 'open-1'])
   })
 })

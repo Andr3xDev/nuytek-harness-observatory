@@ -12,18 +12,15 @@ export type RefresherDeps = {
   after: (ms: number, fn: () => void) => Cancel
   every: (ms: number, fn: () => void) => Cancel
   isOpen: () => boolean
-  isBandEnabled: () => boolean
   getSessionId: () => string | Promise<string>
   session: { get: () => SessionAtom | null; set: (value: SessionAtom) => void }
   history: { get: () => HistoryAtom; set: (value: HistoryAtom) => void }
   bumpTick: () => void
 }
 
-// Events that read the store (floored to one read per interval), also while the panel is closed for the
-// always-on band line. Any other event only updates the figures in memory.
-const STORE_READ_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report'])
-// Store reads that are not capture events: the open-panel timer and opening the panel.
-const OPEN_ONLY_READS: ReadonlySet<string> = new Set(['timer', 'obs.open'])
+// Events that read the store (floored to one read per interval). Any other event only updates the
+// figures in memory. A closed panel does nothing: opening it reads the store.
+const STORE_READ_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report', 'timer', 'obs.open'])
 
 export function createRefresher(deps: RefresherDeps) {
   let inFlight = false
@@ -44,6 +41,7 @@ export function createRefresher(deps: RefresherDeps) {
           aggregate: result.aggregate,
           liveAgentIds: result.liveAgentIds,
           context: result.context ?? null,
+          mainAgent: result.mainAgent ?? null,
           loadedAt: deps.now(),
           error: null,
         })
@@ -94,11 +92,10 @@ export function createRefresher(deps: RefresherDeps) {
   }
 
   function requestRefresh(type: string): void {
-    const open = deps.isOpen()
-    if (!open && !deps.isBandEnabled()) return
+    if (!deps.isOpen()) return
     // Rejections stay contained: callers fire this without awaiting.
     void applyLive().catch(() => undefined)
-    if (STORE_READ_EVENTS.has(type) || (open && OPEN_ONLY_READS.has(type))) schedule()
+    if (STORE_READ_EVENTS.has(type)) schedule()
   }
 
   function stopTimer(): void {

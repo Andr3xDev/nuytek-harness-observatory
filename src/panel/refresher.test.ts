@@ -6,12 +6,11 @@ import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './ti
 
 type Timer = { at: number; period?: number; fn: () => void; cancelled: boolean }
 
-function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
+function setup(overrides: { open?: boolean } = {}) {
   let time = 0
   const timers: Timer[] = []
   const state = {
     open: overrides.open ?? true,
-    bandEnabled: overrides.bandEnabled ?? true,
     session: null as SessionAtom | null,
     history: { status: 'idle' } as HistoryAtom,
     tick: 0,
@@ -53,7 +52,6 @@ function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
     after: (ms, fn) => add(ms, fn),
     every: (ms, fn) => add(ms, fn, ms),
     isOpen: () => state.open,
-    isBandEnabled: () => state.bandEnabled,
     getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : 's1'),
     session: { get: () => state.session, set: value => void (state.session = value) },
     history: { get: () => state.history, set: value => void (state.history = value) },
@@ -170,19 +168,11 @@ describe('refresher', () => {
     expect(state.tick).toBe(0)
   })
 
-  test('closed panel ignores tool.check and honors session.measure only with band on', async () => {
+  test('closed panel ignores every event and reads nothing', async () => {
     const closed = setup({ open: false })
-    closed.refresher.requestRefresh('tool.check')
+    for (const type of ['tool.check', 'session.measure', 'agent.spawn', 'skill.prompt']) closed.refresher.requestRefresh(type)
     await closed.settle()
     expect(closed.state.sessionCalls).toBe(0)
-    closed.refresher.requestRefresh('session.measure')
-    await closed.settle()
-    expect(closed.state.sessionCalls).toBe(1)
-
-    const bandOff = setup({ open: false, bandEnabled: false })
-    bandOff.refresher.requestRefresh('session.measure')
-    await bandOff.settle()
-    expect(bandOff.state.sessionCalls).toBe(0)
   })
 
   test('failed reload keeps the previous atom and sets error', async () => {

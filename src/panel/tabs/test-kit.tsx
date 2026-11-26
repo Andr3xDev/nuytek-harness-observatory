@@ -128,7 +128,6 @@ type Seed = {
   scope?: PanelScope
   session?: SessionAtom | null
   history?: HistoryAtom
-  bandEnabled?: boolean
   panelOpen?: boolean
 }
 
@@ -138,7 +137,7 @@ type Seed = {
  * press redraws the band; `written` records them for the test to read back.
  */
 export function installState(on: On, seed: Seed = {}) {
-  const shapes: Record<string, string> = { tab: 'tab-1', scope: 'scope-1', tick: 'tick-1', session: 'session-1', history: 'history-1', bandEnabled: 'band-1', panelOpen: 'open-1' }
+  const shapes: Record<string, string> = { tab: 'tab-1', scope: 'scope-1', tick: 'tick-1', session: 'session-1', history: 'history-1', panelOpen: 'open-1' }
   const written: Record<string, unknown> = {}
   on('state.get', async (_, e, next) => {
     const stored = await next(e)

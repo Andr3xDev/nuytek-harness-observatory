@@ -24,7 +24,6 @@ const COST_COLUMN: Column = { header: 'Cost est.', width: 9, color: costColumn }
 const TREE_COLUMNS: Column[] = [{ header: 'Name', width: 0 }, { header: 'Status', width: 9, narrowHidden: true, color: statusColumn }, TOKENS_COLUMN, COST_COLUMN]
 const TYPE_COLUMNS: Column[] = [{ header: 'Type', width: 0 }, { header: 'Spawns', width: 6 }, TOKENS_COLUMN, COST_COLUMN]
 const MODEL_COLUMNS: Column[] = [{ header: 'Model', width: 0 }, TOKENS_COLUMN]
-const ISSUE_COLUMNS: Column[] = [{ header: 'Issue', width: 0 }, TOKENS_COLUMN, COST_COLUMN]
 const INDENT = '  '
 
 const totalsLine = (total: Figure): Line => ({
@@ -86,9 +85,6 @@ function historyScopeLines(ctx: TabContext, aggregate: AggregateFigures): Line[]
     (entry): Row => ({ cells: [entry.type, String(entry.spawns), formatTokens(entry.tokens), formatCost(entry)] }),
   )
   const byModel = aggregate.byModel.map((entry): Row => ({ cells: [entry.model, formatTokens(entry.tokens)] }))
-  const byIssue = [...aggregate.byIssue]
-    .sort((left, right) => right.tokens - left.tokens)
-    .map((entry): Row => ({ cells: [entry.issue, formatTokens(entry.tokens), formatCost(entry)] }))
   const lines: Line[] = [
     totalsLine(aggregate.total),
     { text: `Sessions: ${aggregate.sessions} · ${formatDay(aggregate.windowStart)} to ${formatDay(aggregate.windowEnd)}` },
@@ -96,8 +92,6 @@ function historyScopeLines(ctx: TabContext, aggregate: AggregateFigures): Line[]
     ...tableLines(tier, columns, TYPE_COLUMNS, byType),
     heading('Usage by model'),
     ...tableLines(tier, columns, MODEL_COLUMNS, byModel),
-    heading('Top issues'),
-    ...tableLines(tier, columns, ISSUE_COLUMNS, byIssue),
   ]
   return aggregate.total.hasUnknownPrice ? [...lines, dim(ESTIMATE_FOOTNOTE)] : lines
 }

@@ -19,7 +19,7 @@ describe('history states', () => {
     expect(textOf(sessionLines(context('wide', { scope: 'session', history, session: live })))).toContain('Agent tree')
   })
 
-  test('tab 5 renders the History layout whatever the stored scope', () => {
+  test('the History tab renders the History layout whatever the stored scope', () => {
     const history = { status: 'ready' as const, aggregate: aggregate({ sessions: 7 }) }
     expect(textOf(historyLines(context('wide', { scope: 'session', history, session: live })))).toContain('Sessions: 7')
   })

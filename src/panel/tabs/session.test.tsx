@@ -44,7 +44,7 @@ describe('session tab, Session scope', () => {
 })
 
 describe('session tab, History scope', () => {
-  test('shows window, session count, type, model and issue figures', () => {
+  test('shows window, session count, type and model figures, and no issue list', () => {
     const history = {
       status: 'ready' as const,
       aggregate: aggregate({
@@ -58,6 +58,6 @@ describe('session tab, History scope', () => {
     expect(text).toContain('Sessions: 3')
     expect(text).toMatch(/^builder /m)
     expect(text).toMatch(/^m9 /m)
-    expect(text).toMatch(/^IO-1 /m)
+    expect(text).not.toMatch(/IO-1|Top issues/)
   })
 })

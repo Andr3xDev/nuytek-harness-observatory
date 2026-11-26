@@ -17,11 +17,8 @@ const scopeAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'scope' } as
 const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })
 const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
 const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
-const bandEnabledAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'bandEnabled' } as const, true, { shape: STATE_SHAPES.bandEnabled })
-
 const panelOpenAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'panelOpen' } as const, false, { shape: STATE_SHAPES.panelOpen })
 
-const BAND_STORE_KEY = 'bandEnabled'
 const PANEL_OPEN_STORE_KEY = 'panelOpen'
 
 /** The slice of `$` the panel needs, as closures built inline by each hook that can create the panel. */
@@ -33,6 +30,7 @@ type PanelHost = {
   listAgents: () => Promise<readonly LiveAgentRow[]>
   usage: () => Promise<{ context?: { percent?: number | null; window: number } | null }>
   sessionId: () => Promise<string>
+  agentType: () => Promise<string | undefined>
   after: (ms: number, fn: () => void) => { cancel: () => void }
   every: (ms: number, fn: () => void) => { cancel: () => void }
   setSession: (value: SessionAtom | null) => Promise<unknown>
@@ -43,7 +41,6 @@ type PanelHost = {
 type PanelState = {
   refresher: Refresher | undefined
   open: boolean
-  bandOn: boolean
   obsRegistered: boolean
   lastSession: SessionAtom | null
   lastHistory: HistoryAtom
@@ -54,7 +51,7 @@ type PanelState = {
  * has a `PanelHost` (`session.start` or `/obs`; the same approach as capture's runtime) and shared by every hook.
  */
 export const createPanel = (capture: Capture) => {
-  const state: PanelState = { refresher: undefined, open: false, bandOn: true, obsRegistered: false, lastSession: null, lastHistory: { status: 'idle' } }
+  const state: PanelState = { refresher: undefined, open: false, obsRegistered: false, lastSession: null, lastHistory: { status: 'idle' } }
 
   const safeRefresh = (type: string): void => {
     try {
@@ -78,6 +75,7 @@ export const createPanel = (capture: Capture) => {
             const { context } = await host.usage()
             return context ? { percent: context.percent ?? null, window: context.window } : null
           },
+          readMainAgent: async () => (await host.agentType()) ?? null,
         }),
       ),
       now: () => Date.now(),
@@ -90,7 +88,6 @@ export const createPanel = (capture: Capture) => {
         return () => timer.cancel()
       },
       isOpen: () => state.open,
-      isBandEnabled: () => state.bandOn,
       getSessionId: () => host.sessionId(),
       session: {
         get: () => state.lastSession,
@@ -151,18 +148,16 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
       try {
         await $.command.register({
           name: 'obs',
-          description: 'Toggle the observability panel, or: band on|off, report',
-          argumentHint: '[band on|off | report]',
+          description: 'Toggle the observability panel, or: report',
+          argumentHint: '[report]',
           isTerminalOnly: true,
         })
       } catch {
-        // The command is optional: capture and the band keep working without it.
+        // The command is optional: capture and the panel keep working without it.
       }
     }
     try {
-      state.bandOn = (await $.store.get(BAND_STORE_KEY)) !== false
-      await update($, bandEnabledAtom, () => state.bandOn)
-      state.open = state.bandOn && (await $.store.get(PANEL_OPEN_STORE_KEY)) === true
+      state.open = (await $.store.get(PANEL_OPEN_STORE_KEY)) === true
       await update($, panelOpenAtom, () => state.open)
       // /clear and resume reuse this plugin instance: drop the previous session's figures before the first refresh.
       state.lastSession = null
@@ -175,6 +170,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         listAgents: () => $.agent.list(),
         usage: () => $.session.usage(),
         sessionId: () => $.session.id(),
+        agentType: async () => (await $.session.info()).agentType,
         after: (ms, fn) => $.clock.after(ms, fn),
         every: (ms, fn) => $.clock.every(ms, fn),
         setSession: (value) => update($, sessionAtom, () => value),
@@ -214,6 +210,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         listAgents: () => $.agent.list(),
         usage: () => $.session.usage(),
         sessionId: () => $.session.id(),
+        agentType: async () => (await $.session.info()).agentType,
         after: (ms, fn) => $.clock.after(ms, fn),
         every: (ms, fn) => $.clock.every(ms, fn),
         setSession: (value) => update($, sessionAtom, () => value),
@@ -237,14 +234,8 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         }
       },
       resetScope: async () => void (await update($, scopeAtom, (): PanelScope => 'session')),
-      setBandEnabled: async (enabled) => {
-        state.bandOn = enabled
-        await $.store.set(BAND_STORE_KEY, enabled)
-        await update($, bandEnabledAtom, () => enabled)
-        if (!enabled && state.open) await deps.setOpen(false)
-      },
     }
-    return handleObs(command, deps)
+    return handleObs(deps)
   })
   registerBand(on, {
     ensureHistory: () => {

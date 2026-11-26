@@ -5,10 +5,9 @@ export type Tier = 'wide' | 'medium' | 'narrow'
 export const TIER_WIDE_MIN = 70
 export const TIER_MEDIUM_MIN = 45
 export const LIST_ROW_CAP = 20
-export const BASH_ROW_CAP = 10
 
 /** The hotkey Button draws its own `1: ` prefix, so labels carry no digit. */
-export const TAB_LABELS = ['Session', 'Agents', 'Tools', 'Permissions', 'History'] as const
+export const TAB_LABELS = ['Session', 'Agents', 'Tools', 'History'] as const
 
 export const tierOf = (bodyColumns: number): Tier =>
   bodyColumns >= TIER_WIDE_MIN ? 'wide' : bodyColumns >= TIER_MEDIUM_MIN ? 'medium' : 'narrow'
@@ -21,7 +20,11 @@ export const PALETTE = {
   tokens: 'suggestion',
   agents: 'permission',
   failure: 'error',
+  border: 'subtle',
 } as const
+
+/** The panel box costs one border cell and one padding cell on each side. */
+export const BOX_CHROME_COLUMNS = 4
 
 /** Single-width line drawn between tab sections and under the tab row. */
 export const SECTION_RULE = '─'

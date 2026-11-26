@@ -10,6 +10,8 @@ export type SessionLoad = {
   aggregate: object
   liveAgentIds: string[]
   context?: ContextReading | null
+  /** The agent the session itself runs as (`--agent`); null when it runs as none. */
+  mainAgent?: string | null
 }
 export type HistoryLoad = { aggregate: object }
 /** Figures re-derived in memory from events that arrived after the last store read. */
@@ -64,6 +66,7 @@ export type LiveLoaderDeps = {
   pendingEvents: (sessionId: string) => readonly EventRecord[]
   listAgents: () => Promise<readonly LiveAgentRow[]>
   readContext: () => Promise<ContextReading | null>
+  readMainAgent: () => Promise<string | null>
 }
 
 export const liveAgentsOf = (rows: readonly LiveAgentRow[]): LiveAgent[] =>
@@ -100,6 +103,7 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
         aggregate: combineSessions([figures]),
         liveAgentIds: rows.map(row => row.id),
         context: await deps.readContext().catch(() => null),
+        mainAgent: await deps.readMainAgent().catch(() => null),
       }
     },
     loadHistory: async () => ({ aggregate: combineSessions(await deps.loadSessions({})) }),

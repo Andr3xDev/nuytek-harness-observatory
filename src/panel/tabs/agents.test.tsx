@@ -34,6 +34,25 @@ describe('agents tab', () => {
     expect(text).toContain('explorer · haiku-4-5\n  3× · 42k · $0.08')
   })
 
+  test('Session scope starts with the main loop row: model left after the agents, tokens and cost', () => {
+    const lines = agentsLines(context('wide', { session: sessionWith(figures) }))
+    expect(lines[0]?.text).toBe('Agents')
+    expect(lines[2]?.text).toContain('main · m1')
+    expect(lines[2]?.text).toContain('2.0k')
+    expect(lines[2]?.text).toContain('$0.20')
+  })
+
+  test('the main row takes the session agent name and falls back to ? without a model', () => {
+    const base = sessionAtomValue(sessionFigures([], { byModel: {} }), figures)
+    const text = textOf(agentsLines(context('wide', { session: { ...base, mainAgent: 'tech-orchestrator' } })))
+    expect(text).toContain('tech-orchestrator · ?')
+  })
+
+  test('History scope has no main row', () => {
+    const history = { status: 'ready' as const, aggregate: figures }
+    expect(textOf(agentsLines(context('wide', { scope: 'history', session: sessionWith(figures), history })))).not.toContain('main')
+  })
+
   test('Session scope lists agents with their id and model; History scope does not', () => {
     const session = sessionWith(figures)
     const lines = agentsLines(context('wide', { session }))

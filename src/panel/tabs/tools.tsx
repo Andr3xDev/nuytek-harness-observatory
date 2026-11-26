@@ -1,8 +1,6 @@
 import { formatFigure } from '../../core/format'
-import { BASH_ROW_CAP } from '../layout'
 import {
   PROFILE_OFF_FOOTNOTE,
-  capLines,
   dim,
   gateOf,
   heading,
@@ -52,9 +50,6 @@ export function toolsLines(ctx: TabContext): Line[] {
   const commands = Object.entries(tools.commands)
     .sort(byCountDesc)
     .map(([name, count]): Row => ({ cells: [`/${name}`, String(count)] }))
-  const bash = Object.entries(tools.bash)
-    .sort(byCountDesc)
-    .map(([command, count]): Line => ({ text: `${count}  ${command}` }))
   const injected = profile
     ? Object.entries(profile.skillsInjected)
         .sort(byCountDesc)
@@ -70,8 +65,6 @@ export function toolsLines(ctx: TabContext): Line[] {
     ...tableLines(tier, columns, MCP_COLUMNS, mcp),
     heading('Slash commands'),
     ...tableLines(tier, columns, COMMAND_COLUMNS, commands),
-    heading('Top Bash commands'),
-    ...capLines(bash, BASH_ROW_CAP),
     ...(profile ? [] : [dim(PROFILE_OFF_FOOTNOTE)]),
   ]
 }

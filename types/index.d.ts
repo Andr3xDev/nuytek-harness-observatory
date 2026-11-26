@@ -1,7 +1,7 @@
 // The validator requires this contract to be self-contained (no import), so the
 // aggregate shapes cannot be named here. They are opaque objects at the atom
 // boundary; panel/ narrows them to SessionFigures / AggregateFigures at the seam.
-export type PanelTab = 1 | 2 | 3 | 4 | 5
+export type PanelTab = 1 | 2 | 3 | 4
 export type PanelScope = 'session' | 'history'
 
 export type SessionAtom = {
@@ -10,6 +10,8 @@ export type SessionAtom = {
   liveAgentIds: string[]
   /** Latest context-window reading; absent or null when the host gave none. */
   context?: { percent: number | null; window: number } | null
+  /** The agent the session itself runs as (`--agent`); absent or null when it runs as none. */
+  mainAgent?: string | null
   loadedAt: number
   error: string | null
 }
@@ -29,7 +31,6 @@ declare module 'claude-code' {
       tick: Shaped<number>
       session: Shaped<SessionAtom | null>
       history: Shaped<HistoryAtom>
-      bandEnabled: Shaped<boolean>
       panelOpen: Shaped<boolean>
     }
   }
