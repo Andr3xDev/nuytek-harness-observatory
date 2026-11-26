@@ -1,4 +1,4 @@
-import { DRIFT_ABS_USD, DRIFT_REL } from '../../core/constants'
+import { driftToleranceOf } from '../../core/constants'
 import type { DriftReason } from '../../core/schema'
 
 export type ReconcileInput = {
@@ -22,7 +22,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
   const { sessionUsd, mainTokens } = input
   const sumAgentsUsd = input.agents.reduce((sum, agent) => sum + agent.usd, 0)
   const mainResidualUsd = sessionUsd - sumAgentsUsd
-  const tolerance = Math.max(DRIFT_ABS_USD, DRIFT_REL * Math.abs(sessionUsd))
+  const tolerance = driftToleranceOf(sessionUsd)
 
   const driftReasons: DriftReason[] = []
   if (sumAgentsUsd - sessionUsd > tolerance) driftReasons.push('agents-exceed-session')

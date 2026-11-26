@@ -6,6 +6,7 @@ export const STORE_DIR = '.claude/observability'
 /** Reconciliation tolerance is max(DRIFT_ABS_USD, DRIFT_REL * |sessionUsd|). */
 export const DRIFT_ABS_USD = 0.01
 export const DRIFT_REL = 0.01
+export const driftToleranceOf = (usd: number): number => Math.max(DRIFT_ABS_USD, DRIFT_REL * Math.abs(usd))
 
 export const FLUSH_INTERVAL_MS = 10_000
 export const MAX_BATCH_EVENTS = 200

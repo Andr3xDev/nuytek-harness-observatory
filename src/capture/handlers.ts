@@ -2,13 +2,13 @@ import { FLUSH_INTERVAL_MS } from '../core/constants'
 import { isoDay } from '../core/format'
 import { isRecord } from '../core/guards'
 import type { ObsEvent, SkillUseKind } from '../core/schema'
-import { mapUsage, type HostUsage } from '../core/usage'
+import { mapUsage } from '../core/usage'
 import { eventsFileOf, mainSnapshotFileOf } from '../store/layout'
 import type { StoredSnapshot } from '../store/read/snapshot-store'
 import type { Batcher } from '../store/write/batcher'
 import { resolveRetentionDays } from '../store/write/retention'
 import type { Writer } from '../store/write/writer'
-import { computeTurnCost, type Reading } from './cost/cost'
+import { computeTurnCost, EMPTY_AGENTS, type Reading } from './cost/cost'
 import { reconcile } from './cost/reconciliation'
 import { parseSkillNameFromPath } from './events/parsers/skill-path'
 import {
@@ -25,6 +25,7 @@ import {
   buildVerdictRecord,
   type EnvelopeContext,
   type ReportInput,
+  type TurnInput,
   type VerdictResult,
 } from './events/records'
 import type { BranchProvider } from './session/branch'
@@ -96,7 +97,6 @@ const readModel = async (host: HostApi): Promise<string> => {
 type CaptureSession = { id: string; tracker: SnapshotTracker; cwd: string }
 
 type ToolCheckInput = { tool: string; input: unknown; tool_use_id?: string; agentId?: string }
-type TurnInput = { durationMs: number; agentId?: string; usage?: HostUsage }
 
 // The snapshot schema needs a number per agent, so an agent without `cost` still counts as 0 here.
 const toReading = (sample: Sample): Reading | null =>
@@ -108,8 +108,6 @@ const toReading = (sample: Sample): Reading | null =>
         agents: new Map(sample.agents.map((agent) => [agent.id, agent.cost?.usd ?? 0])),
       }
     : null
-
-const ZERO_BASELINE_AGENTS: ReadonlyMap<string, number> = new Map()
 
 const skillUseOf = (tool: string, input: unknown): { skill: string; kind: SkillUseKind } | null => {
   if (!isRecord(input)) return null
@@ -232,7 +230,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           previousModel = NO_MODEL
           lastKnownAgentUsd.clear()
           // No `session.start` follows a `/clear`: a zero baseline makes the first turn cost the new cumulative.
-          baseline = { startedAt: NO_STARTED_AT, sessionUsd: 0, hasUnknownPrice: false, agents: ZERO_BASELINE_AGENTS }
+          baseline = { startedAt: NO_STARTED_AT, sessionUsd: 0, hasUnknownPrice: false, agents: EMPTY_AGENTS }
         }
         rt.batcher.pushEvent(buildSessionEnd({ reason: e.reason }, ctx))
         // Events are appended first; snapshots are the part dropped when the shared bound runs low.

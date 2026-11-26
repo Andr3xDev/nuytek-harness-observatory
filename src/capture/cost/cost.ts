@@ -1,4 +1,4 @@
-import { DRIFT_ABS_USD, DRIFT_REL } from '../../core/constants'
+import { driftToleranceOf } from '../../core/constants'
 
 export type Reading = {
   startedAt: number
@@ -7,7 +7,7 @@ export type Reading = {
   agents: ReadonlyMap<string, number>
 }
 
-const EMPTY_AGENTS: ReadonlyMap<string, number> = new Map()
+export const EMPTY_AGENTS: ReadonlyMap<string, number> = new Map()
 
 /** Main-loop cost of one turn: session delta minus subagent deltas over the same window. */
 export const computeTurnCost = (
@@ -27,6 +27,6 @@ export const computeTurnCost = (
   }
 
   const cost = end.sessionUsd - startSessionUsd - agentsDelta
-  const tolerance = Math.max(DRIFT_ABS_USD, DRIFT_REL * Math.abs(end.sessionUsd))
+  const tolerance = driftToleranceOf(end.sessionUsd)
   return cost < 0 && cost >= -tolerance ? 0 : cost
 }
