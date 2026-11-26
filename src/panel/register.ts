@@ -1,10 +1,10 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
 import type { Capture } from '../capture/register'
 import { loadHistory, type EventsCache } from '../report/load-history'
 import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { listStoredSnapshots } from '../store/read/snapshot-store'
-import type { HistoryAtom, SessionAtom } from '../../types'
+import type { HistoryAtom, PanelTab, SessionAtom } from '../../types'
 import { registerBand } from './band'
 import { handleObs, type ObsDeps } from './obs-command'
 import { createRefresher, type Refresher } from './refresher'
@@ -12,6 +12,7 @@ import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
 import { STATE_SHAPES } from './state'
 
 // Atoms are declared per reading file (see band.tsx).
+const tabAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tab' } as const, 1, { shape: STATE_SHAPES.tab })
 const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })
 const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
 const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
@@ -33,6 +34,7 @@ type PanelHost = {
   setSession: (value: SessionAtom | null) => Promise<unknown>
   setHistory: (value: HistoryAtom) => Promise<unknown>
   bumpTick: () => Promise<unknown>
+  readTab: () => Promise<PanelTab>
   readOpen: () => Promise<boolean>
   setPanelOpen: (open: boolean) => Promise<unknown>
 }
@@ -106,6 +108,7 @@ export const createPanel = (capture: Capture) => {
         },
       },
       bumpTick: () => void host.bumpTick().catch(() => undefined),
+      readTab: () => host.readTab(),
     })
   }
 
@@ -175,6 +178,7 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
         setSession: (value) => update($, sessionAtom, () => value),
         setHistory: (value) => update($, historyAtom, () => value),
         bumpTick: () => update($, tickAtom, (tick) => tick + 1),
+        readTab: () => read($, tabAtom),
         readOpen: async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true,
         setPanelOpen: (open) => update($, panelOpenAtom, () => open),
       })
@@ -202,6 +206,7 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
         setSession: (value) => update($, sessionAtom, () => value),
         setHistory: (value) => update($, historyAtom, () => value),
         bumpTick: () => update($, tickAtom, (tick) => tick + 1),
+        readTab: () => read($, tabAtom),
         readOpen: async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true,
         setPanelOpen: (open) => update($, panelOpenAtom, () => open),
       })

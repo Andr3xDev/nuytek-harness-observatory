@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import type { HistoryAtom, SessionAtom } from '../../types'
+import type { HistoryAtom, PanelTab, SessionAtom } from '../../types'
 import { createRefresher, type RefresherDeps } from './refresher'
 import type { HistoryLoad, LiveOverlay, Loaded, SessionLoad, Sources } from './sources'
 import { HISTORY_MAX_AGE_MS, LIVE_COALESCE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
@@ -14,6 +14,7 @@ function setup(overrides: { open?: boolean } = {}) {
     session: null as SessionAtom | null,
     history: { status: 'idle' } as HistoryAtom,
     tick: 0,
+    tab: 1 as PanelTab,
     sessionCalls: 0,
     historyCalls: 0,
     sessionResult: (): Loaded<SessionLoad> => ({
@@ -40,7 +41,7 @@ function setup(overrides: { open?: boolean } = {}) {
       return state.historyResult()
     },
     // The overlay is seeded for `s1` only, like the real loader keeps one session's inputs.
-    liveSession: sessionId => {
+    liveSession: (sessionId) => {
       state.liveReads++
       return sessionId === 's1' ? state.live : null
     },
@@ -59,9 +60,10 @@ function setup(overrides: { open?: boolean } = {}) {
     every: (ms, fn) => add(ms, fn, ms),
     isOpen: () => state.open,
     getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : state.sessionId),
-    session: { get: () => state.session, set: value => void (state.session = value) },
-    history: { get: () => state.history, set: value => void (state.history = value) },
+    session: { get: () => state.session, set: (value) => void (state.session = value) },
+    history: { get: () => state.history, set: (value) => void (state.history = value) },
     bumpTick: () => void state.tick++,
+    readTab: async () => state.tab,
   }
   const settle = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve()
@@ -69,7 +71,7 @@ function setup(overrides: { open?: boolean } = {}) {
   const advance = async (ms: number) => {
     const target = time + ms
     for (;;) {
-      const due = timers.filter(t => !t.cancelled && t.at <= target).sort((a, b) => a.at - b.at)[0]
+      const due = timers.filter((t) => !t.cancelled && t.at <= target).sort((a, b) => a.at - b.at)[0]
       if (!due) break
       time = due.at
       if (due.period) due.at += due.period
@@ -181,7 +183,7 @@ describe('refresher', () => {
   test('a request during flight does not overlap and gives one follow-up', async () => {
     const { refresher, state, advance, settle } = setup()
     let release!: () => void
-    state.gate = new Promise<void>(resolve => (release = resolve))
+    state.gate = new Promise<void>((resolve) => (release = resolve))
     refresher.requestRefresh('session.measure')
     await settle()
     refresher.requestRefresh('agent.spawn')
@@ -280,5 +282,32 @@ describe('refresher', () => {
     expect(state.history).toEqual({ status: 'unavailable', reason: 'no report' })
     await refresher.ensureHistory()
     expect(state.historyCalls).toBe(2)
+  })
+
+  test('opening the panel on the restored History tab loads history', async () => {
+    const { refresher, state, settle } = setup()
+    state.tab = 4
+    refresher.requestRefresh('obs.open')
+    await settle()
+    expect(state.historyCalls).toBe(1)
+    expect(state.history.status).toBe('ready')
+  })
+
+  test('a timer tick on the History tab reloads stale history', async () => {
+    const { refresher, state, advance } = setup()
+    state.tab = 4
+    refresher.startTimer()
+    await advance(OPEN_TIMER_MS)
+    expect(state.historyCalls).toBe(1)
+    await advance(HISTORY_MAX_AGE_MS)
+    expect(state.historyCalls).toBe(2)
+  })
+
+  test('other tabs never start a history load', async () => {
+    const { refresher, state, settle } = setup()
+    refresher.requestRefresh('obs.open')
+    refresher.requestRefresh('timer')
+    await settle()
+    expect(state.historyCalls).toBe(0)
   })
 })

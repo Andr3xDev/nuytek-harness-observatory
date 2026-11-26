@@ -1,3 +1,4 @@
+import type { PanelTab } from '../../types'
 import { truncate } from '../core/format'
 
 export type Tier = 'wide' | 'medium' | 'narrow'
@@ -8,6 +9,8 @@ export const LIST_ROW_CAP = 20
 
 /** The hotkey Button draws its own `1: ` prefix, so labels carry no digit. */
 export const TAB_LABELS = ['Session', 'Agents', 'Tools', 'History'] as const
+
+export const HISTORY_TAB: PanelTab = 4
 
 export const tierOf = (bodyColumns: number): Tier =>
   bodyColumns >= TIER_WIDE_MIN ? 'wide' : bodyColumns >= TIER_MEDIUM_MIN ? 'medium' : 'narrow'

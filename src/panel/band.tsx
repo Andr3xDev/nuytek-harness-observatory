@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
 import type { PanelTab } from '../../types'
-import { BOX_CHROME_COLUMNS, PALETTE, SECTION_RULE, TAB_LABELS, tierOf } from './layout'
+import { BOX_CHROME_COLUMNS, HISTORY_TAB, PALETTE, SECTION_RULE, TAB_LABELS, tierOf } from './layout'
 import { STATE_SHAPES } from './state'
 import { renderLines, type Line, type TabContext } from './tabs/common'
 import { agentsLines } from './tabs/agents'
@@ -10,7 +10,6 @@ import { sessionLines } from './tabs/session'
 import { toolsLines } from './tabs/tools'
 
 const TABS: readonly PanelTab[] = [1, 2, 3, 4]
-const HISTORY_TAB: PanelTab = 4
 
 // The hooks scan reads state refs only from literals or atoms declared in the reading file, so the
 // panel atoms are declared in each file that reads them (same keys, shape tags from panel/state.ts).
@@ -28,7 +27,7 @@ const TAB_LINES: Record<PanelTab, (ctx: TabContext) => Line[]> = {
 }
 
 export type BandDeps = {
-  /** Starts (or reuses) the history load; called from press handlers only, never while drawing. */
+  /** Starts (or reuses) the history load; called from press handlers only, never while drawing. The refresher also starts it while the History tab is open. */
   ensureHistory: () => void
 }
 

@@ -1,4 +1,5 @@
-import type { HistoryAtom, SessionAtom } from '../../types'
+import type { HistoryAtom, PanelTab, SessionAtom } from '../../types'
+import { HISTORY_TAB } from './layout'
 import { HISTORY_MAX_AGE_MS, LIVE_COALESCE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 import type { Sources } from './sources'
 
@@ -15,6 +16,7 @@ export type RefresherDeps = {
   session: { get: () => SessionAtom | null; set: (value: SessionAtom) => void }
   history: { get: () => HistoryAtom; set: (value: HistoryAtom) => void }
   bumpTick: () => void
+  readTab: () => Promise<PanelTab>
 }
 
 // Events that read the store (floored to one read per interval). Any other event only updates the
@@ -107,6 +109,13 @@ export function createRefresher(deps: RefresherDeps) {
     if (cancelLiveWindow) livePending = true
     else runLive()
     if (STORE_READ_EVENTS.has(type)) schedule()
+    // A restored History tab or one left open past the max age has no press to start the load.
+    if (type === 'obs.open' || type === 'timer') {
+      void deps
+        .readTab()
+        .then((tab) => (tab === HISTORY_TAB ? ensureHistory() : undefined))
+        .catch(() => undefined)
+    }
   }
 
   function stopTimer(): void {
