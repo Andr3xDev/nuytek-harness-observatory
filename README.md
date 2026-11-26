@@ -32,7 +32,7 @@ claude plugin test /path/to/nuytek-harness-observatory
 
 `.claude-plugin/types/` is not created by `-p`, `plugin validate` or `plugin test`.
 
-Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture), `src/store` (`write/` and `read/`), `src/report` (the figures analysis and history loading the panel reads), `src/panel` (band, tabs and `/obs`). `hooks/register.tsx` is the composition root; `capture` and `panel` each have a `register.ts`. Tests sit next to their sources.
+Layout: `src/core` (schema, constants, figures, guards, formatting), `src/capture` (event capture), `src/store` (`write/` and `read/`), `src/report` (the figures analysis and history loading the panel reads), `src/panel` (band, tabs and `/obs`). `hooks/register.tsx` is the composition root; `capture` and `panel` each have a `register.ts`. Tests sit next to their sources.
 
 ## Commands
 
@@ -48,7 +48,7 @@ Token columns are split into `In`, `Out` and `Total`; input includes the cached 
 
 The Agents tab is one table: the main loop first (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. There is no per-agent list on this tab; the Session tab shows the agent tree. The main row's model is the session's model (`$.session.model()`); a model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's), else the one its last request carried (agents that inherit the session's effort); `-` when neither exists. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: no captured main-loop record carries it.
 
-Tools lists skills, MCP tools and commands used in the session.
+Tools lists skills, MCP tools and commands used in the session, plus "Skills injected" (the `harnessProfile` skills parsed from delegation prompts); with the profile off it shows a `n/a: harness profile off` note instead.
 
 The History tab adds, after the totals, the same grouped agent totals across the window's sessions plus a "Recent runs" list of the last 20 agent runs (newest first) with start time (UTC), agent, model and effort, tokens and cost.
 
@@ -82,7 +82,7 @@ Everything lives under `~/.claude/observability/`. Directories are created with 
 | `snapshots/<agentId>.json` | Latest state of one subagent. | Replaced in place |
 | `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
 
-Retention deletes regular files older than `retentionDays` from these locations at session start. It keeps the current session's events file and main snapshot, and never touches anything outside these locations.
+At session start the plugin also runs `chmod -R go-rwx` over the store root, and retention deletes regular files older than `retentionDays` from these locations. Retention keeps the current session's events file and main snapshot, and never touches anything outside these locations.
 
 ## Privacy
 
