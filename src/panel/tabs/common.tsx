@@ -53,7 +53,7 @@ export const TOKEN_COLUMNS: Column[] = [
 /** Input counts the cached prompt tokens too, so In + Out is the total. */
 export const promptTokensOf = (figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
 
-export const formatCost =(figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
+export const formatCost = (figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
 
 export const formatTokenCount = (tokens: number): string => formatTokens(Math.round(tokens))
@@ -66,7 +66,7 @@ export const tokenCells = (figure: TokenCounts & { tokens: number }): string[] =
 ]
 
 export function capLines(lines: readonly Line[], cap: number): Line[] {
-  const capped = capRows(lines.map(line => line.text), cap)
+  const capped = capRows(lines.map((line) => line.text), cap)
   return capped.length > cap ? [...lines.slice(0, cap), dim(capped[cap] ?? '')] : [...lines]
 }
 
@@ -75,7 +75,7 @@ export function capLines(lines: readonly Line[], cap: number): Line[] {
  * values on one indented line. Secondary columns are dropped below wide.
  */
 export function tableLines(tier: Tier, columns: number, spec: readonly Column[], rows: readonly Row[], cap = LIST_ROW_CAP): Line[] {
-  const keep = spec.map(column => !(column.secondary && tier !== 'wide') && !(column.narrowHidden && tier === 'narrow'))
+  const keep = spec.map((column) => !(column.secondary && tier !== 'wide') && !(column.narrowHidden && tier === 'narrow'))
   const visible = <T,>(items: readonly T[]): T[] => items.filter((_, index) => keep[index])
   const shown = visible(spec)
   if (tier === 'narrow') {
@@ -87,14 +87,14 @@ export function tableLines(tier: Tier, columns: number, spec: readonly Column[],
       cap,
     )
   }
-  const fixed = shown.slice(1).map(column => column.width)
+  const fixed = shown.slice(1).map((column) => column.width)
   const nameWidth = Math.min(
     Math.max(columns - fixed.reduce((sum, width) => sum + width, 0) - fixed.length * COLUMN_SEPARATOR.length, MIN_NAME_WIDTH),
     MAX_NAME_WIDTH,
   )
   const widths = [nameWidth, ...fixed]
   return [
-    dim(formatRow(shown.map(column => column.header), widths, COLUMN_SEPARATOR)),
+    dim(formatRow(shown.map((column) => column.header), widths, COLUMN_SEPARATOR)),
     ...capLines(
       rows.map(({ cells, agentId }) => {
         const shownCells = visible(cells)

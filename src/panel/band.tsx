@@ -65,7 +65,7 @@ export function registerBand(on: On, deps: BandDeps) {
           <Text bold color={PALETTE.brand}>
             ◆ obs
           </Text>
-          {TABS.map(number => (
+          {TABS.map((number) => (
             <Button key={`tab:${number}`} plain hotkey={String(number)} dimColor={tab !== number} onPress={() => selectTab(number)}>
               {tab === number ? (
                 <Text bold underline color={PALETTE.brand}>
@@ -80,7 +80,7 @@ export function registerBand(on: On, deps: BandDeps) {
         <Text dimColor wrap="truncate-end">
           {SECTION_RULE.repeat(columns)}
         </Text>
-        {session?.error && tab !== HISTORY_TAB &&<Text color={PALETTE.failure}>stale: {session.error}</Text>}
+        {session?.error && tab !== HISTORY_TAB && <Text color={PALETTE.failure}>stale: {session.error}</Text>}
         {renderLines({ Box, Text, Button }, TAB_LINES[tab](ctx), session?.liveAgentIds ?? [], viewAgent, columns)}
       </Box>
     )
