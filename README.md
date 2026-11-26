@@ -58,7 +58,7 @@ Set through `/config` or `pluginConfigs` in Claude Code settings.
 
 | Option | Type | Default | Effect |
 |--------|------|---------|--------|
-| `retentionDays` | string `30`, `60`, `90` | `30` | Files older than this are deleted at session start. The current session's files are kept. Other values fall back to `30`. |
+| `retentionDays` | string `30`, `60`, `90` | `30` | Files older than this are deleted at session start. The current session's events file and main snapshot are kept. Other values fall back to `30`. |
 | `harnessProfile` | boolean | `false` | Adds harness-specific fields. The value is read once when the plugin loads. |
 
 ### Harness profile
@@ -82,7 +82,7 @@ Everything lives under `~/.claude/observability/`. Directories are created with 
 | `snapshots/<agentId>.json` | Latest state of one subagent. | Replaced in place |
 | `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
 
-Retention deletes regular files older than `retentionDays` from these locations at session start. It never touches the current session's files or anything outside them.
+Retention deletes regular files older than `retentionDays` from these locations at session start. It keeps the current session's events file and main snapshot, and never touches anything outside these locations.
 
 ## Privacy
 
