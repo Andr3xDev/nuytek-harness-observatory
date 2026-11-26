@@ -1,4 +1,5 @@
-import type { AggregateFigures, SessionFigures } from '../../report/analysis'
+import type { SessionFigures } from '../../core/figures'
+import type { AggregateFigures } from '../../report/analysis'
 import { formatFigure } from '../../core/format'
 import {
   PROFILE_OFF_FOOTNOTE,

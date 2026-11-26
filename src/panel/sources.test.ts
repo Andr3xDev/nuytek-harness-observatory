@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { summarizeSession, type SessionFigures } from '../report/analysis'
-import { UNAVAILABLE_SOURCES, createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
+import type { SessionFigures } from '../core/figures'
+import { summarizeSession } from '../report/analysis'
+import { createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
 
 const figures = { agents: [] } as unknown as SessionFigures
 
@@ -36,11 +37,6 @@ describe('sources failure wrapper', () => {
     const sources = createSources({ loadSession: () => Promise.reject('plain'), loadHistory: () => Promise.reject(42) })
     expect(await sources.loadSessionAggregate('s1')).toEqual({ status: 'unavailable', reason: 'plain' })
     expect(await sources.loadHistoryAggregate()).toEqual({ status: 'unavailable', reason: '42' })
-  })
-
-  test('the stub sources are unavailable', async () => {
-    expect((await UNAVAILABLE_SOURCES.loadSessionAggregate('s1')).status).toBe('unavailable')
-    expect((await UNAVAILABLE_SOURCES.loadHistoryAggregate()).status).toBe('unavailable')
   })
 })
 

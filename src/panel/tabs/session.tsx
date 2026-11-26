@@ -1,6 +1,7 @@
-import type { AgentFigures, AggregateFigures, Figure, SessionFigures } from '../../report/analysis'
+import type { AgentFigures, Figure, SessionFigures } from '../../core/figures'
+import type { AggregateFigures } from '../../report/analysis'
 import type { SessionAtom } from '../../../types'
-import { formatTokens } from '../../core/format'
+import { formatTokens, isoDay } from '../../core/format'
 import {
   ESTIMATE_FOOTNOTE,
   dim,
@@ -68,7 +69,7 @@ function sessionScopeLines(ctx: TabContext, figures: SessionFigures, context: Se
   return figures.total.hasUnknownPrice ? [...lines, dim(ESTIMATE_FOOTNOTE)] : lines
 }
 
-const formatDay = (ms: number | null): string => (ms === null ? '-' : new Date(ms).toISOString().slice(0, 10))
+const formatDay = (ms: number | null): string => (ms === null ? '-' : isoDay(ms))
 
 function historyScopeLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
   const { tier, columns } = ctx

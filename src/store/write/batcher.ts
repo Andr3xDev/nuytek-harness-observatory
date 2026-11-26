@@ -1,5 +1,6 @@
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
 import type { AgentSnapshot, ObsEvent, PromptRecord } from '../../core/schema'
+import { eventsPathOf, promptsPathOf, snapshotPathOf } from '../layout'
 
 export type BatchSink = {
   append: (path: string, text: string) => Promise<boolean>
@@ -26,7 +27,6 @@ export type Batcher = {
   readonly droppedEvents: number
 }
 
-const SNAPSHOT_DIR = 'snapshots'
 const encoder = new TextEncoder()
 
 export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
@@ -105,7 +105,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
           return false
         }
       })
-      const ok = allowed && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
+      const ok = allowed && (await attempt(() => sink.upsert(snapshotPathOf(file), text)))
       if (!ok) {
         stalled = true
         if (!snapshots.has(file)) snapshots.set(file, text)
@@ -148,9 +148,9 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     },
     pushEvent: (event) => {
       Object.freeze(event)
-      enqueue({ path: `events/${event.sessionId}.jsonl`, line: `${JSON.stringify(event)}\n`, event })
+      enqueue({ path: eventsPathOf(event.sessionId), line: `${JSON.stringify(event)}\n`, event })
     },
-    pushPrompt: (date, record) => enqueue({ path: `prompts-${date}.jsonl`, line: `${JSON.stringify(record)}\n` }),
+    pushPrompt: (date, record) => enqueue({ path: promptsPathOf(date), line: `${JSON.stringify(record)}\n` }),
     setSnapshot: (file, snapshot) => {
       startTimerOnce()
       snapshots.set(file, JSON.stringify(snapshot))

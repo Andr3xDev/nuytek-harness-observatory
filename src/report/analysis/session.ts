@@ -1,3 +1,4 @@
+import { emptyFigure } from '../../core/figures'
 import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord } from '../../core/schema'
 import { UNATTRIBUTED_ISSUE, issueKeyOf } from './issue'
 import { mergeLiveEvents } from './live'
@@ -37,7 +38,6 @@ type AgentRecord = { spawn: AgentSpawnEvent; report: AgentReportEvent | null; du
 type Source = { usage: readonly UsageRecord[]; costUsd: number; hasUnknownPrice: boolean }
 
 const zeroTokens = (): TokenCounts => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 })
-const emptyFigure = (): Figure => ({ ...zeroTokens(), tokens: 0, costUsd: 0, hasUnknownPrice: false })
 
 const addTokens = (target: TokenCounts, part: TokenCounts): void => {
   target.input += part.input

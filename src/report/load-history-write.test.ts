@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { ROLLUP_VERSION } from '../../report/analysis/rollup'
-import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn } from '../../report/analysis/test-fixtures'
-import type { SessionRollup } from '../../report/analysis/types'
+import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from '../store/read/test-fs'
+import { ROLLUP_VERSION } from './analysis/rollup'
+import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn } from './analysis/test-fixtures'
+import type { SessionRollup } from './analysis/types'
 import { READ_CONCURRENCY, loadHistory } from './load-history'
-import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from './test-fs'
 
 const closedSession = (id: string): FakeFiles => ({
   [`events/${id}.jsonl`]: { content: jsonl([sessionStart({ sessionId: id }), spawn(`${id}a`, { sessionId: id }), sessionEnd({ sessionId: id })]), mtimeMs: NOW - 7 * HOUR_MS },
@@ -42,6 +42,14 @@ describe('loadHistory rollup write path', () => {
     const result = await run({ ...closedSession('s1'), ...closedSession('s2') }, 'false').history
 
     expect(result.rollupWriteFailures).toBe(2)
+  })
+
+  test('without a writer sessions load, nothing is written and no failure is counted', async () => {
+    const files = closedSession('s1')
+    const result = await loadHistory({ fs: createFakeFs(files).fs }, { now: NOW })
+
+    expect(result.sessions).toHaveLength(1)
+    expect(result.rollupWriteFailures).toBe(0)
   })
 
   test('an invalid session id still yields figures but is never written', async () => {

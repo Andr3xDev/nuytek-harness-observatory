@@ -1,10 +1,9 @@
+import { emptyFigure } from '../../core/figures'
 import { cacheRatio } from './issue'
 import { createRecord } from './session'
 import type { AggregateFigures, Figure, ProfileFigures, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
 
 type Counts = Record<string, number>
-
-const emptyFigure = (): Figure => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, tokens: 0, costUsd: 0, hasUnknownPrice: false })
 
 const addFigure = (target: Figure, part: Figure): void => {
   target.input += part.input

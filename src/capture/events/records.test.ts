@@ -11,7 +11,6 @@ import {
   buildTurnComplete,
   buildVerdictRecord,
   createEnvelope,
-  mapUsage,
   sha256Hex,
   type EnvelopeContext,
 } from './records'
@@ -55,20 +54,6 @@ describe('envelope', () => {
 describe('sha256Hex', () => {
   test('matches the SHA-256 known vector for "abc"', async () => {
     expect(await sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
-  })
-})
-
-describe('mapUsage', () => {
-  test('maps snake_case host usage to camelCase', () => {
-    expect(
-      mapUsage({
-        input_tokens: 1,
-        output_tokens: 2,
-        cache_read_input_tokens: 3,
-        cache_creation_input_tokens: 4,
-        model: 'm',
-      }),
-    ).toEqual({ input: 1, output: 2, cacheRead: 3, cacheCreation: 4, model: 'm' })
   })
 })
 

@@ -1,9 +1,11 @@
-const EVENTS_PATH = /^events\/[A-Za-z0-9][A-Za-z0-9-]{0,63}\.jsonl$/
-const PROMPTS_PATH = /^prompts-\d{4}-\d{2}-\d{2}\.jsonl$/
-const SNAPSHOTS_PATH = /^snapshots\/[A-Za-z0-9][A-Za-z0-9_-]{0,95}\.json$/
-const ROLLUP_PATH = /^rollup\/[A-Za-z0-9][A-Za-z0-9_-]{0,95}\.json$/
-const EVENTS_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}\.jsonl$/
-const SNAPSHOT_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,95}\.json$/
+import { FILE_STEM_SOURCE, PROMPTS_DAY_SOURCE, SESSION_ID_SOURCE } from '../layout'
+
+const EVENTS_PATH = new RegExp(`^events/${SESSION_ID_SOURCE}\\.jsonl$`)
+const PROMPTS_PATH = new RegExp(`^prompts-${PROMPTS_DAY_SOURCE}\\.jsonl$`)
+const SNAPSHOTS_PATH = new RegExp(`^snapshots/${FILE_STEM_SOURCE}\\.json$`)
+const ROLLUP_PATH = new RegExp(`^rollup/${FILE_STEM_SOURCE}\\.json$`)
+const EVENTS_FILE_NAME = new RegExp(`^${SESSION_ID_SOURCE}\\.jsonl$`)
+const SNAPSHOT_FILE_NAME = new RegExp(`^${FILE_STEM_SOURCE}\\.json$`)
 const DAYS = /^\d{1,4}$/
 
 export type PathCheck = { ok: true; path: string } | { ok: false }

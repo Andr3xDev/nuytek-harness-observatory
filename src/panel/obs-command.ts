@@ -1,8 +1,9 @@
-export type ObsCommand = 'toggle' | 'band-on' | 'band-off' | 'band-usage' | 'other'
+export type ObsCommand = 'toggle' | 'band-on' | 'band-off' | 'band-usage' | 'report' | 'other'
 
 export const parseObsArgs = (args: string): ObsCommand => {
   const [first, second, ...rest] = args.trim().split(/\s+/).filter(Boolean)
   if (first === undefined) return 'toggle'
+  if (first === 'report') return 'report'
   if (first !== 'band' || rest.length > 0) return 'other'
   if (second === 'on') return 'band-on'
   if (second === 'off') return 'band-off'
@@ -38,7 +39,7 @@ async function toggle(deps: ObsDeps): Promise<ObsResult> {
   return display('Observatory opened.')
 }
 
-/** Resolves `null` for arguments that are not ours (`report`, unknown): the caller passes them to `next(e)`. */
+/** Resolves `null` for arguments the pane does not answer: unknown ones go to `next(e)`, `report` is run by the caller. */
 export async function handleObs(command: ObsCommand, deps: ObsDeps): Promise<ObsResult | null> {
   switch (command) {
     case 'toggle':
@@ -51,6 +52,7 @@ export async function handleObs(command: ObsCommand, deps: ObsDeps): Promise<Obs
     }
     case 'band-usage':
       return display(BAND_USAGE_TEXT)
+    case 'report':
     case 'other':
       return null
   }

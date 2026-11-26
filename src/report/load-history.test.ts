@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { buildRollup } from '../../report/analysis/rollup'
-import { summarizeSession } from '../../report/analysis/session'
-import { CTX, HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, turn, usage, verdict } from '../../report/analysis/test-fixtures'
-import type { EventRecord } from '../../core/figures'
+import type { EventRecord } from '../core/figures'
+import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from '../store/read/test-fs'
+import { buildRollup } from './analysis/rollup'
+import { summarizeSession } from './analysis/session'
+import { CTX, HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, turn, usage, verdict } from './analysis/test-fixtures'
 import { loadHistory } from './load-history'
-import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from './test-fs'
 
 const FRESH_MTIME_MS = NOW - 60_000
 const STALE_MTIME_MS = NOW - 7 * HOUR_MS

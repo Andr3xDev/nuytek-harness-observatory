@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { Figure, SessionFigures } from './figures'
-import { formatBandLine, formatFigure, formatTokens, formatUsd } from './format'
+import { formatBandLine, formatFigure, formatTokens, formatUsd, isoDay, truncate } from './format'
 
 const figure = (tokens: number, costUsd: number, hasUnknownPrice = false): Figure => ({
   input: tokens,
@@ -56,6 +56,22 @@ describe('formatTokens', () => {
       expect(formatTokens(tokens)).toBe(label)
     })
   }
+})
+
+describe('truncate', () => {
+  test('cuts at the end with an ellipsis and fills the width', () => {
+    expect(truncate('infra-agent-bash-guard', 10)).toBe('infra-age…')
+  })
+
+  test('leaves text that fits untouched', () => {
+    expect(truncate('short', 10)).toBe('short')
+  })
+})
+
+describe('isoDay', () => {
+  test('renders the UTC calendar day', () => {
+    expect(isoDay(Date.UTC(2026, 10, 25, 23, 59))).toBe('2026-11-25')
+  })
 })
 
 describe('formatUsd', () => {

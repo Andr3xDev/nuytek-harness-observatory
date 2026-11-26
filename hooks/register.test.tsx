@@ -1,5 +1,6 @@
 import type { On, PluginOptions } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
+import { OPEN_TIMER_MS } from '../src/panel/timing'
 import { registerHooks } from './register'
 
 const CAPTURE_EVENTS = [
@@ -64,6 +65,23 @@ describe('registration set', () => {
       }
     })
   }
+})
+
+describe('registration order', () => {
+  test("registers session.start once and the /obs hook after capture's command.run", () => {
+    const order: Array<{ name: string; matcher?: object }> = []
+    const on = ((name: string, matcherOrHook: Hook | object, hook?: Hook) => {
+      order.push(hook ? { name, matcher: matcherOrHook as object } : { name })
+      return { cancel: () => {} }
+    }) as unknown as On
+    registerHooks(on, {}, false)
+
+    const captureRun = order.findIndex((entry) => entry.name === 'command.run' && entry.matcher === undefined)
+    const obsRun = order.findIndex((entry) => entry.name === 'command.run' && JSON.stringify(entry.matcher) === '{"command":"obs"}')
+    expect(order.filter((entry) => entry.name === 'session.start')).toHaveLength(1)
+    expect(captureRun).toBeGreaterThanOrEqual(0)
+    expect(obsRun).toBeGreaterThan(captureRun)
+  })
 })
 
 describe('profile read once at register', () => {
@@ -211,15 +229,13 @@ describe('obs report command hook', () => {
     expect(closed).toEqual([{ id: 'observatory' }])
   })
 
-  test('capture observers return the host result untouched and refresh only after capture records', async () => {
+  test('capture observers return the host result untouched', async () => {
     const { hooks, host } = setup()
-    const passThrough = async (e: unknown) => e
     const verdict = { allow: true }
     for (const name of ['agent.spawn', 'agent.report', 'session.measure', 'tool.check']) {
       const result = await hooks.get(name)?.(host, { tool: 'Bash', input: {} }, async () => verdict)
       expect(result).toBe(verdict)
     }
-    await hooks.get('session.start')?.(host, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
   })
 
   test('capture still records /obs when the report hook answers beneath it', async () => {
@@ -235,7 +251,6 @@ describe('obs report command hook', () => {
 })
 
 describe('live panel wiring', () => {
-  const OPEN_TIMER_MS = 5000
   const startEvent = { cwd: '/w', surface: null, isInteractive: true }
   const passThrough = async (e: unknown) => e
   const obs = (args: string) => ({ command: 'obs', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } })

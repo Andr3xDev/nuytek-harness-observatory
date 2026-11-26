@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { HistoryAtom, SessionAtom } from '../../types'
 import { createRefresher, type RefresherDeps } from './refresher'
 import type { HistoryLoad, Loaded, SessionLoad, Sources } from './sources'
-import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './state'
+import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 
 type Timer = { at: number; period?: number; fn: () => void; cancelled: boolean }
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { NOW, sessionEnd, sessionStart, snapshot, spawn, usage } from './analysis/test-fixtures'
 import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from '../store/read/test-fs'
-import { handleReport, isReportCommand, thresholdsFrom } from './command'
+import { handleReport } from './handler'
 
 const files = (costUsd: number): FakeFiles => ({
   'events/s1.jsonl': { content: jsonl([sessionStart({ sessionId: 's1' }), spawn('a1', { sessionId: 's1' }), sessionEnd({ sessionId: 's1' })]) },
@@ -37,22 +37,5 @@ describe('handleReport', () => {
   test('columns narrow the report', async () => {
     const lines = (await handleReport({ fs: createFakeFs(files(1.4)).fs, writer: createRecordingWriter().writer, options: {}, now: NOW, columns: 30 })).text.split('\n')
     expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(30)
-  })
-})
-
-describe('thresholdsFrom', () => {
-  test('non-numeric, negative and missing values fall back to 1 / 0.6 / 5', () => {
-    const defaults = { anomalyDelegationCostUsd: 1, anomalyCacheRatioMin: 0.6, anomalyDeniesPerSessionMax: 5 }
-    expect(thresholdsFrom({})).toEqual(defaults)
-    expect(thresholdsFrom({ anomalyDelegationCostUsd: 'x', anomalyCacheRatioMin: -1, anomalyDeniesPerSessionMax: Number.NaN })).toEqual(defaults)
-    expect(thresholdsFrom({ anomalyDelegationCostUsd: 2 }).anomalyDelegationCostUsd).toBe(2)
-  })
-})
-
-describe('isReportCommand', () => {
-  test('only a first argument of report matches', () => {
-    expect(isReportCommand('report')).toBe(true)
-    expect(isReportCommand('  report  now')).toBe(true)
-    for (const args of ['', 'band', 'band on', 'reports']) expect(isReportCommand(args)).toBe(false)
   })
 })

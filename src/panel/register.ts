@@ -1,14 +1,13 @@
 import { atom, update } from 'claude-code'
 import type { On, PluginOptions } from 'claude-code'
 import type { Capture } from '../capture/register'
-import { listStoredSnapshots } from '../capture/session/snapshot-store'
-import { isReportCommand } from '../report/command'
+import { loadHistory } from '../report/load-history'
 import { runReportCommand } from '../report/run'
-import { historyFsOf } from '../store/read/history-fs'
-import { loadHistory, type HistoryFs } from '../store/read/load-history'
+import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
+import { listStoredSnapshots } from '../store/read/snapshot-store'
 import type { HistoryAtom, PanelScope, SessionAtom } from '../../types'
 import { registerBand } from './band'
-import { handleObs, parseObsArgs } from './command'
+import { handleObs, parseObsArgs } from './obs-command'
 import { PANE_ID, registerPane } from './pane'
 import { createRefresher, type Refresher } from './refresher'
 import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
@@ -69,9 +68,8 @@ export const createPanel = (capture: Capture) => {
     state.refresher ??= createRefresher({
       sources: createSources(
         createLiveLoaders({
-          // The panel never writes the store: rollups stay the report command's cache.
-          loadSessions: async (options) =>
-            (await loadHistory({ fs, writer: { upsert: async () => false } }, { now: Date.now(), ...options })).sessions,
+          // No writer: the panel never writes the store, rollups stay the report command's cache.
+          loadSessions: async (options) => (await loadHistory({ fs }, { now: Date.now(), ...options })).sessions,
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
           readContext: async () => {
@@ -140,11 +138,14 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
         every: (ms, fn) => $.clock.every(ms, fn),
         detect: (path) => $.vcs.detect({ path }),
         listSnapshots: () =>
-          listStoredSnapshots({
-            home: () => $.env.get('HOME'),
-            list: (dir) => $.fs.list(dir),
-            read: (path) => $.fs.read(path),
-          }),
+          listStoredSnapshots(
+            {
+              home: () => $.env.get('HOME'),
+              list: (dir) => $.fs.list(dir),
+              read: (path) => $.fs.read(path),
+            },
+            Date.now(),
+          ),
       },
       e,
       next,
@@ -190,7 +191,8 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
     return result
   })
   on('command.run', { command: 'obs' }, async ($, e, next) => {
-    if (isReportCommand(e.args)) {
+    const command = parseObsArgs(e.args)
+    if (command === 'report') {
       return runReportCommand(
         {
           home: () => $.env.get('HOME'),
@@ -223,7 +225,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
     } catch {
       // The panel is optional: /obs still answers without it.
     }
-    const result = await handleObs(parseObsArgs(e.args), {
+    const result = await handleObs(command, {
       isPaneOpen: async () => (await $.ui.panes()).some((pane) => pane.id === PANE_ID),
       closePane: () => $.ui.close({ id: PANE_ID }),
       openPane: async () => {

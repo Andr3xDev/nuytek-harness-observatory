@@ -4,7 +4,8 @@ import { combineSessions } from './analysis/combine'
 import { summarizeSession } from './analysis/session'
 import { CTX, mainSnapshot, sessionEnd, sessionStart, snapshot, spawn, usage } from './analysis/test-fixtures'
 import type { SessionFigures } from './analysis/types'
-import { DEFAULT_THRESHOLDS, formatReport } from './command'
+import { formatReport } from './format'
+import { DEFAULT_THRESHOLDS } from './thresholds'
 
 const RICH_SESSIONS = 12
 

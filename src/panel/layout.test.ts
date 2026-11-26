@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { capRows, formatRow, tabLabels, tierOf, truncate } from './layout'
+import { capRows, formatRow, tabLabels, tierOf } from './layout'
 
 const rowsOf = (count: number): string[] => Array.from({ length: count }, (_, index) => `row ${index + 1}`)
 
@@ -18,16 +18,6 @@ describe('tierOf', () => {
       expect(tierOf(columns)).toBe(tier)
     })
   }
-})
-
-describe('truncate', () => {
-  test('cuts at the end with an ellipsis and fills the width', () => {
-    expect(truncate('infra-agent-bash-guard', 10)).toBe('infra-age…')
-  })
-
-  test('leaves text that fits untouched', () => {
-    expect(truncate('short', 10)).toBe('short')
-  })
 })
 
 describe('formatRow', () => {

@@ -1,5 +1,5 @@
 import type { HistoryAtom, SessionAtom } from '../../types'
-import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './state'
+import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 import type { Sources } from './sources'
 
 type Cancel = () => void

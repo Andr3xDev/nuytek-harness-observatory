@@ -1,5 +1,7 @@
 import { STORE_DIR } from '../../core/constants'
-import type { HistoryFs } from './load-history'
+import type { ReaderFs } from './reader'
+
+export type HistoryFs = ReaderFs & { readText: (path: string) => Promise<string> }
 
 /** Roots the store file system at `$HOME/.claude/observability`; without HOME every read fails, which yields the no-data view. */
 export const historyFsOf = (home: string | undefined, fs: HistoryFs): HistoryFs => {

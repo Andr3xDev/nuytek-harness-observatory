@@ -1,8 +1,9 @@
 import type { Elements, RenderSurface } from 'claude-code'
 import type { HistoryAtom, PanelScope, SessionAtom } from '../../../types'
-import type { AggregateFigures, Figure } from '../../report/analysis'
-import { formatTokens, formatUsd } from '../../core/format'
-import { LIST_ROW_CAP, capRows, formatRow, truncate, type Tier } from '../layout'
+import type { Figure } from '../../core/figures'
+import type { AggregateFigures } from '../../report/analysis'
+import { formatTokens, formatUsd, truncate } from '../../core/format'
+import { LIST_ROW_CAP, capRows, formatRow, type Tier } from '../layout'
 
 export type Kit = Pick<Elements[RenderSurface], 'Box' | 'Text' | 'Button'>
 

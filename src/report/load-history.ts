@@ -1,17 +1,16 @@
-import { parseJsonl } from '../../report/analysis/parse'
-import { agentSnapshotPathOf, buildRollup, eventsPathOf, isRollupFresh, mainSnapshotPathOf } from '../../report/analysis/rollup'
-import { summarizeSession } from '../../report/analysis/session'
-import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../../core/figures'
-import type { Writer } from '../write/writer'
-import { listSources, readLines, type ReaderFs } from './reader'
+import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../core/figures'
+import type { HistoryFs } from '../store/read/history-fs'
+import { listSources, readLines } from '../store/read/reader'
+import { SESSION_ID_PATTERN, agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf, rollupPathOf, sessionIdOfEventsPath } from '../store/layout'
+import type { Writer } from '../store/write/writer'
+import { parseJsonl } from './analysis/parse'
+import { buildRollup, isRollupFresh } from './analysis/rollup'
+import { summarizeSession } from './analysis/session'
 
 export const READ_CONCURRENCY = 8
 
-const EVENTS_PATH = /^events\/(.+)\.jsonl$/
-const WRITABLE_SESSION_ID = /^[A-Za-z0-9_-]{1,96}$/
-
-export type HistoryFs = ReaderFs & { readText: (path: string) => Promise<string> }
-export type HistoryDeps = { fs: HistoryFs; writer: Pick<Writer, 'upsert'> }
+/** Without a `writer` the load is read-only: no rollup is built or stored. */
+export type HistoryDeps = { fs: HistoryFs; writer?: Pick<Writer, 'upsert'> }
 export type LoadHistoryOptions = {
   now: number
   sessionIds?: readonly string[]
@@ -20,7 +19,7 @@ export type LoadHistoryOptions = {
 }
 export type HistoryResult = { sessions: SessionFigures[]; warnings: number; rollupWriteFailures: number }
 
-type Loaded = { sessionId: string; figures: SessionFigures; cacheable: boolean }
+type LoadedSession = { sessionId: string; figures: SessionFigures; cacheable: boolean }
 
 async function mapWithLimit<T, R>(items: readonly T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length)
@@ -44,7 +43,7 @@ const parseJson = (text: string): unknown => {
 }
 
 const readRollup = async (fs: HistoryFs, sessionId: string, listing: SourceListing): Promise<SessionFigures | null> => {
-  const rollup = await fs.readText(`rollup/${sessionId}.json`).then(parseJson, () => undefined)
+  const rollup = await fs.readText(rollupPathOf(sessionId)).then(parseJson, () => undefined)
   return isRollupFresh(rollup, listing) && rollup.sessionId === sessionId ? rollup.figures : null
 }
 
@@ -56,7 +55,7 @@ const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing)
 }
 
 const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | undefined): string[] => {
-  const ids = requested ?? Object.keys(listing).flatMap((path) => EVENTS_PATH.exec(path)?.[1] ?? [])
+  const ids = requested ?? Object.keys(listing).flatMap((path) => sessionIdOfEventsPath(path) ?? [])
   return [...new Set(ids)].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 }
 
@@ -65,7 +64,7 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
   const listing = await listSources(fs)
   let warnings = 0
 
-  const loadSession = async (sessionId: string): Promise<Loaded | null> => {
+  const loadSession = async (sessionId: string): Promise<LoadedSession | null> => {
     try {
       return await loadSessionOrThrow(sessionId)
     } catch {
@@ -75,7 +74,7 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     }
   }
 
-  const loadSessionOrThrow = async (sessionId: string): Promise<Loaded | null> => {
+  const loadSessionOrThrow = async (sessionId: string): Promise<LoadedSession | null> => {
     const pending = Object.hasOwn(pendingEvents, sessionId) ? pendingEvents[sessionId] : undefined
     const live = Object.hasOwn(liveAgents, sessionId) ? liveAgents[sessionId] : undefined
     const isLive = (pending?.length ?? 0) > 0 || (live?.length ?? 0) > 0
@@ -110,18 +109,21 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     return {
       sessionId,
       figures: { ...figures, coverage: { ...figures.coverage, skippedNewerSchema } },
-      cacheable: !isLive && stat !== undefined && figures.state !== 'open' && WRITABLE_SESSION_ID.test(sessionId),
+      cacheable: !isLive && stat !== undefined && figures.state !== 'open' && SESSION_ID_PATTERN.test(sessionId),
     }
   }
 
   const loaded = await mapWithLimit(sessionIdsOf(listing, options.sessionIds), READ_CONCURRENCY, loadSession)
   const present = loaded.flatMap((entry) => (entry ? [entry] : []))
 
-  const writes = await mapWithLimit(
-    present.filter(({ cacheable }) => cacheable),
-    READ_CONCURRENCY,
-    ({ sessionId, figures }) => writer.upsert(`rollup/${sessionId}.json`, JSON.stringify(buildRollup(figures, listing, now))).catch(() => false),
-  )
+  const upsert = writer?.upsert.bind(writer)
+  const writes = upsert
+    ? await mapWithLimit(
+        present.filter(({ cacheable }) => cacheable),
+        READ_CONCURRENCY,
+        ({ sessionId, figures }) => upsert(rollupPathOf(sessionId), JSON.stringify(buildRollup(figures, listing, now))).catch(() => false),
+      )
+    : []
   const rollupWriteFailures = writes.filter((written) => !written).length
 
   return { sessions: present.map((entry) => entry.figures), warnings, rollupWriteFailures }

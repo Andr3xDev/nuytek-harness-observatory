@@ -1,6 +1,8 @@
 import { RESUME_SWEEP_WINDOW_MS } from '../../core/constants'
 import { SCHEMA_VERSION, type AgentSnapshot, type ClosedReason, type UsageRecord } from '../../core/schema'
-import { mapUsage, type HostUsage } from '../events/records'
+import { mapUsage, type HostUsage } from '../../core/usage'
+import { agentSnapshotFileOf, mainSnapshotFileOf } from '../../store/layout'
+import type { StoredSnapshot } from '../../store/read/snapshot-store'
 
 const MAIN_AGENT_ID = 'main'
 
@@ -30,8 +32,6 @@ export type SnapshotCycleInput = {
 
 export type SnapshotWrite = { file: string; snapshot: AgentSnapshot }
 
-export type StoredSnapshot = { name: string; mtimeMs: number; snapshot: AgentSnapshot }
-
 export type SnapshotTracker = {
   recordMainTurn: (usage: UsageRecord) => void
   /** Sum of the four token fields over the main-loop ledger of the current `startedAt`. */
@@ -54,7 +54,7 @@ const closeSnapshot = (snapshot: AgentSnapshot, reason: ClosedReason, now: numbe
 })
 
 export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
-  const mainFile = `main-${sessionId}.json`
+  const mainFile = mainSnapshotFileOf(sessionId)
   let tracked = new Map<string, Tracked>()
   let ledger: UsageRecord[] = []
   let startedAt: number | undefined
@@ -136,14 +136,14 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
       const writes = startedAt !== undefined && startedAt !== input.startedAt ? closeOpen(input.now) : []
       startedAt = input.startedAt
       for (const agent of input.agents) {
-        const file = `${agent.id}.json`
+        const file = agentSnapshotFileOf(agent.id)
         if (!tracked.get(file)?.snapshot.closed) writes.push(...writeIfChanged(file, agentSnapshot(agent, input)))
       }
       writes.push(...writeIfChanged(mainFile, mainSnapshot(input)))
       return writes
     },
     closeAgent: (agentId, input) => {
-      const file = `${agentId}.json`
+      const file = agentSnapshotFileOf(agentId)
       const agent = input.agents.find((candidate) => candidate.id === agentId)
       const base = agent ? agentSnapshot(agent, input) : tracked.get(file)?.snapshot
       if (!base) return []

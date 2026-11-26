@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import type { ToolFigures } from '../../report/analysis'
+import type { ToolFigures } from '../../core/figures'
 import { toolsLines } from './tools'
 import { aggregate, context, emptyTools, profile, sessionAtomValue, sessionFigures, textOf } from './test-kit'
 

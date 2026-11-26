@@ -1,6 +1,6 @@
 import type { On, PluginOptions } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
-import { registerHooks } from '../../hooks/register'
+import { registerHooks } from './register'
 
 type Hook = (host: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) => Promise<unknown>
 type AnyRecord = Record<string, unknown> & { type?: string; schema?: unknown }
@@ -11,7 +11,7 @@ const USAGE = { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 30
 
 const runSession = async (options: PluginOptions) => {
   const hooks = new Map<string, Hook>()
-  // A matched registration (`on(name, matcher, hook)`) is the report command, not capture: keep it under its own key.
+  // A matched registration (`on(name, matcher, hook)`) belongs to the panel (`/obs`, pane, band), not capture: keep it under its own key.
   registerHooks(
     ((name: string, matcherOrHook: Hook | object, hook?: Hook) => hooks.set(hook ? `${name}:matched` : name, hook ?? (matcherOrHook as Hook))) as unknown as On,
     options,

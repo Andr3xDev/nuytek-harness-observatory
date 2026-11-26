@@ -1,5 +1,10 @@
 import { FLUSH_INTERVAL_MS } from '../core/constants'
+import { isoDay } from '../core/format'
+import { isRecord } from '../core/guards'
 import type { ObsEvent, PermissionOutcome, SkillUseKind } from '../core/schema'
+import { mapUsage, type HostUsage } from '../core/usage'
+import { eventsFileOf, mainSnapshotFileOf } from '../store/layout'
+import type { StoredSnapshot } from '../store/read/snapshot-store'
 import type { Batcher } from '../store/write/batcher'
 import { resolveRetentionDays } from '../store/write/retention'
 import type { Writer } from '../store/write/writer'
@@ -20,9 +25,7 @@ import {
   buildSpawnRecord,
   buildTurnComplete,
   buildVerdictRecord,
-  mapUsage,
   type EnvelopeContext,
-  type HostUsage,
   type ReportInput,
   type VerdictResult,
 } from './events/records'
@@ -32,11 +35,9 @@ import {
   sweepStaleSnapshots,
   type SnapshotAgent,
   type SnapshotTracker,
-  type StoredSnapshot,
 } from './session/snapshots'
 
 const BASH_TOOL = 'Bash'
-const ISO_DATE_LENGTH = 10
 const NO_MODEL = ''
 /** Never matches a real `startedAt`, so a baseline built on it always takes the `computeTurnCost` reset path. */
 const NO_STARTED_AT = -1
@@ -83,13 +84,11 @@ type Sample = {
   agents: readonly SnapshotAgent[]
 }
 
-type SessionState = { id: string; tracker: SnapshotTracker; cwd: string }
+type CaptureSession = { id: string; tracker: SnapshotTracker; cwd: string }
 
 type ToolCheckInput = { tool: string; input: unknown; tool_use_id?: string; agentId?: string }
 type TurnInput = { durationMs: number; agentId?: string; usage?: HostUsage }
 type PermissionInput = { tool_name: string; tool_use_id?: string; agent_id?: string }
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
 // The snapshot schema needs a number per agent, so an agent without `cost` still counts as 0 here.
 const toReading = (sample: Sample): Reading | null =>
@@ -121,7 +120,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   // Built by the first hook that touches it, normally `session.start`. After a module reload with no
   // `session.start` it is built in another dispatch, so that host's closures own the timer and writer.
   let runtime: Runtime | undefined
-  let session: SessionState | undefined
+  let session: CaptureSession | undefined
   // Survives `/clear`, which ends the session without a `session.start` for the next one.
   let lastCwd = '.'
   let baseline: Reading | null = null
@@ -131,11 +130,11 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
   const runtimeOf = (host: H): Runtime => (runtime ??= config.runtime(host))
 
-  const startSession = (id: string): SessionState => (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
+  const startSession = (id: string): CaptureSession => (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
 
-  const sessionOf = async (host: H): Promise<SessionState> => session ?? startSession(await host.sessionId())
+  const sessionOf = async (host: H): Promise<CaptureSession> => session ?? startSession(await host.sessionId())
 
-  const contextOf = (state: SessionState, rt: Runtime): EnvelopeContext => ({
+  const contextOf = (state: CaptureSession, rt: Runtime): EnvelopeContext => ({
     sessionId: state.id,
     branch: rt.branch.current(),
     now: now(),
@@ -157,7 +156,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
     }
   }
 
-  const runCycle = (state: SessionState, rt: Runtime, sample: Sample): void => {
+  const runCycle = (state: CaptureSession, rt: Runtime, sample: Sample): void => {
     lastCycleAt = now()
     const writes = state.tracker.cycle({ ...sample, branch: rt.branch.current(), now: lastCycleAt })
     for (const write of writes) rt.batcher.setSnapshot(write.file, write.snapshot)
@@ -195,7 +194,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const sample = await takeSample(host)
         baseline = sample ? toReading(sample) : null
         rt.batcher.pushEvent(buildSessionStart(e, profile, contextOf(state, rt)))
-        void rt.writer.maintain(resolveRetentionDays(config.retentionDays), `${state.id}.jsonl`, `main-${state.id}.json`)
+        void rt.writer.maintain(resolveRetentionDays(config.retentionDays), eventsFileOf(state.id), mainSnapshotFileOf(state.id))
         for (const write of sweepStaleSnapshots(state.id, await host.listSnapshots(), now())) {
           rt.batcher.setSnapshot(write.file, write.snapshot)
         }
@@ -252,7 +251,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const ctx = contextOf(await sessionOf(host), rt)
         const { event, prompt } = await buildSpawnRecord(e, { agentId: result.agentId }, profile, ctx)
         rt.batcher.pushEvent(event)
-        rt.batcher.pushPrompt(new Date(ctx.now).toISOString().slice(0, ISO_DATE_LENGTH), prompt)
+        rt.batcher.pushPrompt(isoDay(ctx.now), prompt)
       }),
 
     agentReport: <E extends ReportInput, R>(host: H, e: E, next: Next<E, R>) =>

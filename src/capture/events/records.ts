@@ -1,4 +1,5 @@
 import { PARSER_VERSION, REPORT_EXCERPT_MAX_BYTES } from '../../core/constants'
+import { mapUsage, type HostUsage } from '../../core/usage'
 import { parseMcpServer } from './parsers/mcp'
 import { parseGuardName } from './parsers/guard'
 import { parseReportStatus } from './parsers/report'
@@ -28,15 +29,6 @@ import {
 
 export type EnvelopeContext = { sessionId: string; branch: string | null; now: number }
 
-/** Host `TurnUsage`, snake_case. */
-export type HostUsage = {
-  input_tokens: number
-  output_tokens: number
-  cache_read_input_tokens: number
-  cache_creation_input_tokens: number
-  model: string
-}
-
 const BASH_TOOL = 'Bash'
 const SPAWN_PROMPT_ID_PREFIX = 'pr-'
 const HEX_RADIX = 16
@@ -62,14 +54,6 @@ export const sha256Hex = async (text: string): Promise<string> => {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(text))
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(HEX_RADIX).padStart(HEX_BYTE_WIDTH, '0')).join('')
 }
-
-export const mapUsage = (usage: HostUsage): UsageRecord => ({
-  input: usage.input_tokens,
-  output: usage.output_tokens,
-  cacheRead: usage.cache_read_input_tokens,
-  cacheCreation: usage.cache_creation_input_tokens,
-  model: usage.model,
-})
 
 const truncateToBytes = (text: string, maxBytes: number): string => {
   let bytes = 0

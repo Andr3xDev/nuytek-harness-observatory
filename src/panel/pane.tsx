@@ -16,7 +16,7 @@ const HISTORY_TAB: PanelTab = 5
 const UNFOCUSED_HINT = 'click a tab, or ctrl+x tab, to use keys 1-5'
 
 // The hooks scan reads state refs only from literals or atoms declared in the reading file, so the
-// atoms of panel/state.ts are redeclared here (same keys and shape tags) instead of imported.
+// panel atoms are declared in each file that reads them (same keys, shape tags from panel/state.ts).
 const tabAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tab' } as const, 1, { shape: STATE_SHAPES.tab })
 const scopeAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'scope' } as const, 'session', { shape: STATE_SHAPES.scope })
 const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })

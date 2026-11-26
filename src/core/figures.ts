@@ -7,6 +7,9 @@ export type TokenCounts = { input: number; output: number; cacheRead: number; ca
 export type Money = { costUsd: number; hasUnknownPrice: boolean }
 export type Figure = TokenCounts & Money & { tokens: number }
 
+/** A fresh zeroed figure each call: callers accumulate into it. */
+export const emptyFigure = (): Figure => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, tokens: 0, costUsd: 0, hasUnknownPrice: false })
+
 /** Normalized `$.agent.list()` row: the caller maps the host's snake_case usage and `cost.usd`. */
 export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null }
 export type SessionState = 'open' | 'closed' | 'stale'

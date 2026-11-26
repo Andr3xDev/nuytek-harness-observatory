@@ -1,5 +1,5 @@
 import type { SourceStat } from '../../core/figures'
-import type { HistoryFs } from './load-history'
+import type { HistoryFs } from './history-fs'
 
 export type FakeFiles = Record<string, { content: string; mtimeMs?: number }>
 

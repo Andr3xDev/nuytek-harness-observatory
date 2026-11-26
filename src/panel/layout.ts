@@ -1,4 +1,6 @@
-export type Tier = 'wide' | 'medium' | 'narrow'
+import { truncate } from '../core/format'
+
+export type Tier ='wide' | 'medium' | 'narrow'
 
 export const TIER_WIDE_MIN = 70
 export const TIER_MEDIUM_MIN = 45
@@ -10,9 +12,6 @@ const SHORT_TAB_LABELS = ['1 Sess', '2 Agnt', '3 Tool', '4 Perm', '5 Hist'] as c
 
 export const tierOf = (bodyColumns: number): Tier =>
   bodyColumns >= TIER_WIDE_MIN ? 'wide' : bodyColumns >= TIER_MEDIUM_MIN ? 'medium' : 'narrow'
-
-export const truncate = (text: string, width: number): string =>
-  text.length <= width ? text : `${text.slice(0, Math.max(width - 1, 0))}…`
 
 // Name column left-aligned and truncated; numeric columns right-aligned.
 export const formatRow = (cells: readonly string[], widths: readonly number[]): string =>

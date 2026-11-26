@@ -1,8 +1,7 @@
 import type { PluginOptions } from 'claude-code'
-import { historyFsOf } from '../store/read/history-fs'
-import type { HistoryFs } from '../store/read/load-history'
+import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { createWriter, type ProcessRunner } from '../store/write/writer'
-import { handleReport } from './command'
+import { handleReport } from './handler'
 
 /**
  * Closures over `$`, built inline by the `/obs` hook: the plugin validator rejects `$` as a value, and

@@ -1,5 +1,6 @@
-import { combineSessions, type EventRecord, type LiveAgent, type SessionFigures } from '../report/analysis'
-import { mapUsage, type HostUsage } from '../capture/events/records'
+import type { EventRecord, LiveAgent, SessionFigures } from '../core/figures'
+import { mapUsage, type HostUsage } from '../core/usage'
+import { combineSessions } from '../report/analysis'
 
 export type ContextReading = { percent: number | null; window: number }
 
@@ -82,13 +83,3 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
     loadHistory: async () => ({ aggregate: combineSessions(await deps.loadSessions({})) }),
   }
 }
-
-// Fallback when the loaders cannot be built.
-export const UNAVAILABLE_SOURCES: Sources = createSources({
-  loadSession: async () => {
-    throw new Error('report aggregates not available')
-  },
-  loadHistory: async () => {
-    throw new Error('report aggregates not available')
-  },
-})

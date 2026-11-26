@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { handleObs, parseObsArgs, type ObsCommand, type ObsDeps } from './command'
+import { handleObs, parseObsArgs, type ObsCommand, type ObsDeps } from './obs-command'
 
 describe('parseObsArgs', () => {
   const cases: [string, ObsCommand][] = [
@@ -11,7 +11,9 @@ describe('parseObsArgs', () => {
     ['band  off', 'band-off'],
     ['band', 'band-usage'],
     ['band x', 'band-usage'],
-    ['report', 'other'],
+    ['report', 'report'],
+    ['  report  now', 'report'],
+    ['reports', 'other'],
     ['foo', 'other'],
     ['band on extra', 'other'],
     ['Band On', 'other'],
@@ -65,9 +67,10 @@ describe('handleObs', () => {
     expect(Object.keys(off ?? {}).sort()).toEqual(['isTextDisplayOnly', 'text'])
   })
 
-  test('other arguments return null and touch nothing', async () => {
+  test('other and report arguments return null and touch nothing', async () => {
     const { deps, calls } = setup()
     expect(await handleObs('other', deps)).toBeNull()
+    expect(await handleObs('report', deps)).toBeNull()
     expect(calls).toEqual([])
   })
 
