@@ -3,7 +3,7 @@ import type { HistoryAtom, SessionAtom } from '../../../types'
 import type { Figure, TokenCounts } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens, formatUsd, truncate } from '../../core/format'
-import { COLUMN_SEPARATOR, LIST_ROW_CAP, PALETTE, SECTION_RULE, capRows, formatRow, type Tier } from '../layout'
+import { COLUMN_SEPARATOR, LIST_ROW_CAP, PALETTE, SECTION_RULE, formatRow, type Tier } from '../layout'
 
 export type Kit = Pick<Elements[RenderSurface], 'Box' | 'Text' | 'Button'>
 
@@ -42,7 +42,8 @@ export const statusColumn = (cell: string): Color | undefined => (cell === 'fail
 
 const colorOf = (column: Column, cell: string): Color | undefined => (typeof column.color === 'function' ? column.color(cell) : column.color)
 
-const TOKEN_COLUMN_WIDTH = 7
+export const TOKEN_COLUMN_WIDTH = 7
+export const COST_COLUMN: Column = { header: 'Cost est.', width: 9, color: costColumn }
 /** Input, output and total: In and Out are secondary, so narrow rows keep only the total. */
 export const TOKEN_COLUMNS: Column[] = [
   { header: 'In', width: TOKEN_COLUMN_WIDTH, secondary: true, color: tokensColumn },
@@ -66,8 +67,8 @@ export const tokenCells = (figure: TokenCounts & { tokens: number }): string[] =
 ]
 
 export function capLines(lines: readonly Line[], cap: number): Line[] {
-  const capped = capRows(lines.map((line) => line.text), cap)
-  return capped.length > cap ? [...lines.slice(0, cap), dim(capped[cap] ?? '')] : [...lines]
+  const extra = lines.length - cap
+  return extra > 0 ? [...lines.slice(0, cap), dim(`+${extra} more`)] : [...lines]
 }
 
 /**

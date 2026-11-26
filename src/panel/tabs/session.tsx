@@ -3,7 +3,9 @@ import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens, isoDay } from '../../core/format'
 import { COLUMN_SEPARATOR } from '../layout'
 import {
+  COST_COLUMN,
   ESTIMATE_FOOTNOTE,
+  TOKEN_COLUMN_WIDTH,
   costColumn,
   dim,
   formatCost,
@@ -19,8 +21,7 @@ import {
   type TabContext,
 } from './common'
 
-const TOKENS_COLUMN: Column = { header: 'Tokens', width: 7, color: tokensColumn }
-const COST_COLUMN: Column = { header: 'Cost est.', width: 9, color: costColumn }
+const TOKENS_COLUMN: Column = { header: 'Tokens', width: TOKEN_COLUMN_WIDTH, color: tokensColumn }
 const TREE_COLUMNS: Column[] = [{ header: 'Name', width: 0 }, { header: 'Status', width: 9, narrowHidden: true, color: statusColumn }, TOKENS_COLUMN, COST_COLUMN]
 const TYPE_COLUMNS: Column[] = [{ header: 'Type', width: 0 }, { header: 'Spawns', width: 6 }, TOKENS_COLUMN, COST_COLUMN]
 const MODEL_COLUMNS: Column[] = [{ header: 'Model', width: 0 }, TOKENS_COLUMN]

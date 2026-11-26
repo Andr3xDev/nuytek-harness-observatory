@@ -2,7 +2,7 @@ import type { SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { effortLabel } from '../effort'
 import { PALETTE } from '../layout'
-import { TOKEN_COLUMNS, costColumn, dim, formatCost, gateOf, heading, tableLines, tokenCells, type Column, type Line, type Row, type TabContext } from './common'
+import { COST_COLUMN, TOKEN_COLUMNS, dim, formatCost, gateOf, heading, tableLines, tokenCells, type Column, type Line, type Row, type TabContext } from './common'
 
 const UNKNOWN_MODEL = '?'
 const MAIN_LABEL = 'main'
@@ -21,7 +21,7 @@ const TYPE_MODEL_COLUMNS: Column[] = [
   EFFORT_COLUMN,
   { header: 'Spawns', width: 6 },
   ...TOKEN_COLUMNS,
-  { header: 'Cost est.', width: 9, color: costColumn },
+  COST_COLUMN,
 ]
 
 const shortModel = (model: string | null | undefined): string =>
@@ -40,7 +40,7 @@ const RECENT_COLUMNS: Column[] = [
   EFFORT_COLUMN,
   { header: 'Started', width: 11 },
   ...TOKEN_COLUMNS,
-  { header: 'Cost est.', width: 9, color: costColumn },
+  COST_COLUMN,
 ]
 const UTC_MINUTE_START = 5
 const UTC_MINUTE_END = 16

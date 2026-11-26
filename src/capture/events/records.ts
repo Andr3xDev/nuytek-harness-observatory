@@ -110,7 +110,7 @@ export const buildReportRecord = (input: ReportInput, profile: boolean, ctx: Env
   parentAgentId: input.parentAgentId ?? null,
   subagentType: input.subagentType,
   reportExcerpt: truncateToBytes(input.text, REPORT_EXCERPT_MAX_BYTES),
-  engineStatus: input.status ?? null,
+  engineStatus: input.status,
   status: profile ? parseReportStatus(input.text) : null,
   parserVersion: profile ? PARSER_VERSION : null,
 })

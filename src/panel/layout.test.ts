@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { capRows, formatRow, tierOf } from './layout'
-
-const rowsOf = (count: number): string[] => Array.from({ length: count }, (_, index) => `row ${index + 1}`)
+import { formatRow, tierOf } from './layout'
 
 describe('tierOf', () => {
   const cases: [number, 'wide' | 'medium' | 'narrow'][] = [
@@ -36,19 +34,5 @@ describe('formatRow', () => {
     const row = formatRow(['a-very-long-agent-name', '1.2M', '$12.00'], widths)
 
     expect(row.startsWith('a-very-long…')).toBe(true)
-  })
-})
-
-describe('capRows', () => {
-  test('caps 25 rows to 20 plus "+5 more"', () => {
-    const capped = capRows(rowsOf(25), 20)
-
-    expect(capped).toHaveLength(21)
-    expect(capped[19]).toBe('row 20')
-    expect(capped[20]).toBe('+5 more')
-  })
-
-  test('adds no "+N more" line at exactly the cap', () => {
-    expect(capRows(rowsOf(20), 20)).toEqual(rowsOf(20))
   })
 })

@@ -40,6 +40,3 @@ export const formatRow = (cells: readonly string[], widths: readonly number[], s
       return index === 0 ? truncate(cell, width).padEnd(width) : cell.padStart(width)
     })
     .join(separator)
-
-export const capRows = (rows: readonly string[], cap: number): string[] =>
-  rows.length <= cap ? [...rows] : [...rows.slice(0, cap), `+${rows.length - cap} more`]
