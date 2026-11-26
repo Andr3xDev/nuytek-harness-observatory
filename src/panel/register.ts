@@ -6,7 +6,7 @@ import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { listStoredSnapshots } from '../store/read/snapshot-store'
 import type { HistoryAtom, SessionAtom } from '../../types'
 import { registerBand } from './band'
-import { handleObs, parseObsArgs, type ObsDeps } from './obs-command'
+import { handleObs, type ObsDeps } from './obs-command'
 import { createRefresher, type Refresher } from './refresher'
 import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
 import { STATE_SHAPES } from './state'
@@ -177,8 +177,7 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
     return result
   })
   on('command.run', { command: 'obs' }, async ($, e, next) => {
-    const command = parseObsArgs(e.args)
-    if (command === 'other') return next(e)
+    if (e.args.trim() !== '') return next(e)
     try {
       // After a plugin reload `session.start` has not run: build the panel here so the band is not empty forever.
       await ensurePanel({

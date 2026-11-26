@@ -1,20 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { handleObs, parseObsArgs, type ObsCommand, type ObsDeps } from './obs-command'
-
-describe('parseObsArgs', () => {
-  const cases: [string, ObsCommand][] = [
-    ['', 'toggle'],
-    ['   ', 'toggle'],
-    ['report', 'other'],
-    ['foo', 'other'],
-    ['band on', 'other'],
-  ]
-  for (const [args, expected] of cases) {
-    test(`parses ${JSON.stringify(args)} as ${expected}`, () => {
-      expect(parseObsArgs(args)).toBe(expected)
-    })
-  }
-})
+import { handleObs, type ObsDeps } from './obs-command'
 
 describe('handleObs', () => {
   const setup = (overrides: Partial<ObsDeps> = {}) => {

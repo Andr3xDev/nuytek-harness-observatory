@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { formatFigure, formatTokens, formatUsd, isoDay, truncate } from './format'
+import { formatTokens, formatUsd, isoDay, truncate } from './format'
 
 describe('formatTokens', () => {
   const cases: [number, string][] = [
@@ -38,20 +38,5 @@ describe('formatUsd', () => {
   test('renders two decimals', () => {
     expect(formatUsd(2.41)).toBe('$2.41')
     expect(formatUsd(0)).toBe('$0.00')
-  })
-})
-
-describe('formatFigure', () => {
-  test('null is the long profile-off wording in scalar mode', () => {
-    expect(formatFigure(null, 'scalar')).toBe('n/a (harness profile off)')
-  })
-
-  test('null is bare n/a in cell mode', () => {
-    expect(formatFigure(null, 'cell')).toBe('n/a')
-  })
-
-  test('a real zero renders 0 in both modes, never n/a', () => {
-    expect(formatFigure(0, 'scalar')).toBe('0')
-    expect(formatFigure(0, 'cell')).toBe('0')
   })
 })

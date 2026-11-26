@@ -1,5 +1,3 @@
-export type FigureMode = 'scalar' | 'cell'
-
 const THOUSAND = 1000
 const MILLION = 1_000_000
 const COMPACT_DECIMALS_LIMIT = 10
@@ -23,8 +21,3 @@ export const truncate = (text: string, width: number): string =>
 export const isoDay = (ms: number): string => new Date(ms).toISOString().slice(0, ISO_DAY_LENGTH)
 
 export const formatUsd = (usd: number): string => `$${usd.toFixed(2)}`
-
-export const formatFigure = (value: number | null | undefined, mode: FigureMode): string => {
-  if (value == null) return mode === 'scalar' ? 'n/a (harness profile off)' : 'n/a'
-  return String(value)
-}

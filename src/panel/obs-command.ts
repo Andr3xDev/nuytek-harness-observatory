@@ -1,9 +1,3 @@
-export type ObsCommand = 'toggle' | 'other'
-
-export const parseObsArgs = (args: string): ObsCommand => (args.trim() === '' ? 'toggle' : 'other')
-
-export type ObsResult = { text: string; isTextDisplayOnly: true }
-
 /** Plain function seams: `$` cannot be a value in a plugin, so the hook builds these inline. */
 export type ObsDeps = {
   isOpen: () => boolean
@@ -11,15 +5,13 @@ export type ObsDeps = {
   setOpen: (open: boolean) => Promise<void>
 }
 
-const display = (text: string): ObsResult => ({ text, isTextDisplayOnly: true })
-
 /** Toggles the panel; the caller lets unknown arguments through. */
-export async function handleObs(deps: ObsDeps): Promise<ObsResult> {
+export async function handleObs(deps: ObsDeps): Promise<{ text: string; isTextDisplayOnly: true }> {
   const open = !deps.isOpen()
   try {
     await deps.setOpen(open)
   } catch {
-    return display('Observatory toggle failed.')
+    return { text: 'Observatory toggle failed.', isTextDisplayOnly: true }
   }
-  return display(open ? 'Observatory opened.' : 'Observatory closed.')
+  return { text: open ? 'Observatory opened.' : 'Observatory closed.', isTextDisplayOnly: true }
 }

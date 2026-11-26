@@ -1,4 +1,3 @@
-import { formatFigure } from '../../core/format'
 import {
   PROFILE_OFF_FOOTNOTE,
   dim,
@@ -54,7 +53,7 @@ export function toolsLines(ctx: TabContext): Line[] {
     ? Object.entries(profile.skillsInjected)
         .sort(byCountDesc)
         .map(([name, count]): Row => ({ cells: [name, String(count)] }))
-    : [{ cells: ['(all skills)', formatFigure(null, 'cell')] }]
+    : [{ cells: ['(all skills)', 'n/a'] }]
 
   return [
     heading('Skills'),

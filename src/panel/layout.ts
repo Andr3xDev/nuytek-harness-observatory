@@ -18,7 +18,6 @@ export const PALETTE = {
   heading: 'claude',
   cost: 'success',
   tokens: 'suggestion',
-  agents: 'permission',
   failure: 'error',
   effort: 'remember',
   border: 'subtle',
