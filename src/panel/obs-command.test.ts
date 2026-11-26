@@ -29,34 +29,25 @@ describe('handleObs', () => {
   const setup = (overrides: Partial<ObsDeps> = {}) => {
     const calls: string[] = []
     const deps: ObsDeps = {
-      isPaneOpen: async () => false,
-      closePane: async () => void calls.push('close'),
-      openPane: async () => (calls.push('open'), { isPlaced: true }),
+      isOpen: () => false,
+      setOpen: async open => void calls.push(`open:${open}`),
       resetScope: async () => void calls.push('reset'),
-      onOpened: () => void calls.push('opened'),
       setBandEnabled: async enabled => void calls.push(`band:${enabled}`),
       ...overrides,
     }
     return { deps, calls }
   }
 
-  test('toggle on a closed pane resets the scope, opens it and starts the refresh', async () => {
+  test('toggle on a closed panel resets the scope, shows the band and opens it', async () => {
     const { deps, calls } = setup()
     expect(await handleObs('toggle', deps)).toEqual({ text: 'Observatory opened.', isTextDisplayOnly: true })
-    expect(calls).toEqual(['reset', 'open', 'opened'])
+    expect(calls).toEqual(['reset', 'band:true', 'open:true'])
   })
 
-  test('toggle on an open pane closes it and opens nothing', async () => {
-    const { deps, calls } = setup({ isPaneOpen: async () => true })
+  test('toggle on an open panel closes it and opens nothing', async () => {
+    const { deps, calls } = setup({ isOpen: () => true })
     expect(await handleObs('toggle', deps)).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
-    expect(calls).toEqual(['close'])
-  })
-
-  test('an unplaced pane skips the refresh and returns the reason as text', async () => {
-    const { deps, calls } = setup({ openPane: async () => ({ isPlaced: false, reason: 'terminal too narrow' }) })
-    const result = await handleObs('toggle', deps)
-    expect(result?.text).toContain('terminal too narrow')
-    expect(calls).not.toContain('opened')
+    expect(calls).toEqual(['open:false'])
   })
 
   test('band on and off persist the setting and answer display-only without context', async () => {

@@ -16,7 +16,7 @@ const CAPTURE_EVENTS = [
   'turn.complete',
 ]
 const OBS_HOOK = 'command.run:{"command":"obs"}'
-const PANEL_HOOKS = ['ui.close:{"id":"observatory"}', 'ui.render:{"component":"AbovePrompt"}', 'ui.render:{"component":"Pane","requestId":"observatory"}']
+const PANEL_HOOKS = ['ui.render:{"component":"AbovePrompt"}']
 const CLASSIC_EVENTS = [
   'classic.PermissionDenied',
   'classic.PermissionRequest',
@@ -199,7 +199,6 @@ describe('obs command hook', () => {
     const stored: Record<string, unknown> = {}
     const withStore = {
       ...host,
-      ui: { panes: async () => [] },
       store: { get: async () => undefined, set: async (key: string, value: unknown) => void (stored[key] = value) },
       state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
     }
@@ -208,25 +207,20 @@ describe('obs command hook', () => {
     expect(stored.bandEnabled).toBe(false)
   })
 
-  test('/obs opens the pane focused with Esc-to-close when it is closed', async () => {
+  test('/obs toggles the panel open and closed and answers display-only', async () => {
     const { hooks, host } = setup()
-    const opened: unknown[] = []
-    const withUi = {
+    const stored: Record<string, unknown> = {}
+    const withStore = {
       ...host,
-      ui: { panes: async () => [], open: async (args: unknown) => (opened.push(args), { isPlaced: true }) },
+      store: { get: async () => undefined, set: async (key: string, value: unknown) => void (stored[key] = value) },
       state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) },
     }
-    const result = (await hooks.get(OBS_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
-    expect(opened).toEqual([{ id: 'observatory', title: 'Observatory', focus: true, closeOnEscape: true }])
-    expect(result.isTextDisplayOnly).toBe(true)
-  })
-
-  test('/obs closes an open pane', async () => {
-    const { hooks, host } = setup()
-    const closed: unknown[] = []
-    const withUi = { ...host, ui: { panes: async () => [{ id: 'observatory' }], close: async (args: unknown) => void closed.push(args) } }
-    await hooks.get(OBS_HOOK)?.(withUi, obs(''), async () => ({ text: 'inner' }))
-    expect(closed).toEqual([{ id: 'observatory' }])
+    const opened = (await hooks.get(OBS_HOOK)?.(withStore, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    expect(stored.panelOpen).toBe(true)
+    expect(opened).toEqual({ text: 'Observatory opened.', isTextDisplayOnly: true })
+    const closed = (await hooks.get(OBS_HOOK)?.(withStore, obs(''), async () => ({ text: 'inner' }))) as Record<string, unknown>
+    expect(stored.panelOpen).toBe(false)
+    expect(closed).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
   })
 
   test('capture observers return the host result untouched', async () => {
@@ -263,13 +257,12 @@ describe('live panel wiring', () => {
       .map((record) => JSON.stringify(record))
       .join('\n') + '\n'
 
-  const setup = (stored: { bandEnabled?: boolean } = {}) => {
+  const setup = (stored: { bandEnabled?: boolean; panelOpen?: boolean } = {}) => {
     const { on, hooks } = recordingOn()
     registerHooks(on, {}, false)
     const timers: Array<{ ms: number; fn: () => void; cancelled: boolean }> = []
     const writes: Array<{ ref: unknown; value: unknown }> = []
-    const calls = { agentList: 0, open: 0 }
-    let paneOpen = false
+    const calls = { agentList: 0 }
     const addTimer = (ms: number, fn: () => void) => {
       const timer = { ms, fn, cancelled: false }
       timers.push(timer)
@@ -291,15 +284,10 @@ describe('live panel wiring', () => {
       clock: { every: addTimer, after: addTimer },
       process: { run: async () => ({ exitCode: 0, stdout: '', stderr: '' }) },
       command: { register: async () => undefined },
-      store: { get: async () => stored.bandEnabled, set: async () => undefined },
+      store: { get: async (key: string) => stored[key as keyof typeof stored], set: async () => undefined },
       state: {
         get: async () => ({ value: undefined, version: 0 }),
         set: async (ref: unknown, value: unknown) => (writes.push({ ref, value }), { isSet: true, version: 1 }),
-      },
-      ui: {
-        panes: async () => (paneOpen ? [{ id: 'observatory' }] : []),
-        open: async () => (calls.open++, (paneOpen = true), { isPlaced: true }),
-        close: async () => void (paneOpen = false),
       },
     }
     const settle = async () => {
@@ -310,17 +298,25 @@ describe('live panel wiring', () => {
       await settle()
     }
     const openTimer = () => timers.find((timer) => timer.ms === OPEN_TIMER_MS && !timer.cancelled)
-    return { hooks, host, timers, writes, calls, sessionStart, settle, openTimer, closePane: () => void (paneOpen = false) }
+    return { hooks, host, timers, writes, calls, sessionStart, settle, openTimer }
   }
 
   const writtenValues = (writes: Array<{ ref: unknown; value: unknown }>, key: string) =>
     writes.filter((write) => (write.ref as { key: string }).key === key).map((write) => (write.value as { value: unknown }).value)
 
-  test('session.start with a stored bandEnabled false keeps the band off and opens no pane', async () => {
-    const { sessionStart, writes, calls } = setup({ bandEnabled: false })
+  test('session.start with a stored bandEnabled false keeps the band off and the panel closed', async () => {
+    const { sessionStart, writes, openTimer } = setup({ bandEnabled: false, panelOpen: true })
     await sessionStart()
     expect(writtenValues(writes, 'bandEnabled')).toEqual([false])
-    expect(calls.open).toBe(0)
+    expect(writtenValues(writes, 'panelOpen')).toEqual([false])
+    expect(openTimer()).toBeUndefined()
+  })
+
+  test('session.start with a stored panelOpen true reopens the panel and starts the timer', async () => {
+    const { sessionStart, writes, openTimer } = setup({ panelOpen: true })
+    await sessionStart()
+    expect(writtenValues(writes, 'panelOpen')).toEqual([true])
+    expect(openTimer()).toBeDefined()
   })
 
   test('session.start resets the previous session figures instead of keeping them', async () => {
@@ -333,20 +329,20 @@ describe('live panel wiring', () => {
     expect(sessions.at(-1)).toBeNull()
   })
 
-  test('/obs builds the panel on a host that never saw session.start, so the pane refreshes', async () => {
+  test('/obs builds the panel on a host that never saw session.start, so the panel refreshes', async () => {
     const { hooks, host, writes, settle } = setup()
     await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     expect(writtenValues(writes, 'session').some((value) => value !== null)).toBe(true)
   })
 
-  test('closing the pane through ui.close stops the 5 s timer and later time reloads nothing', async () => {
+  test('toggling /obs closed stops the 5 s timer and later time reloads nothing', async () => {
     const { hooks, host, calls, settle, openTimer } = setup()
     await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     const timer = openTimer()
     expect(timer).toBeDefined()
-    await hooks.get('ui.close:{"id":"observatory"}')?.(host, { id: 'observatory' }, passThrough)
+    await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     expect(timer?.cancelled).toBe(true)
     const reloads = calls.agentList
     timer?.fn()
@@ -354,16 +350,13 @@ describe('live panel wiring', () => {
     expect(calls.agentList).toBe(reloads)
   })
 
-  test('a pane closed without ui.close is caught by the panes probe, which stops the timer', async () => {
-    const { hooks, host, calls, settle, openTimer, closePane } = setup()
+  test('/obs band off closes an open panel and stops the timer', async () => {
+    const { hooks, host, settle, openTimer, writes } = setup()
     await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()
     const timer = openTimer()
-    closePane()
-    const reloads = calls.agentList
-    timer?.fn()
-    await settle()
+    await hooks.get(OBS_HOOK)?.(host, obs('band off'), passThrough)
     expect(timer?.cancelled).toBe(true)
-    expect(calls.agentList).toBe(reloads)
+    expect(writtenValues(writes, 'panelOpen').at(-1)).toBe(false)
   })
 })

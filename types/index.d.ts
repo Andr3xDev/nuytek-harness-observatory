@@ -30,6 +30,7 @@ declare module 'claude-code' {
       session: Shaped<SessionAtom | null>
       history: Shaped<HistoryAtom>
       bandEnabled: Shaped<boolean>
+      panelOpen: Shaped<boolean>
     }
   }
 }

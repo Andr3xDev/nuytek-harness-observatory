@@ -98,11 +98,11 @@ describe('formatFigure', () => {
 
 describe('formatBandLine', () => {
   test('renders cost, tokens and agent count', () => {
-    expect(formatBandLine(sessionFigures(figure(412_000, 2.41), 4))).toBe('obs $2.41 · 412k tok · 4 agents')
+    expect(formatBandLine(sessionFigures(figure(412_000, 2.41), 4))).toBe('◆ obs  $2.41 · ◈ 412k tok · ▸ 4 agents')
   })
 
   test('marks the cost as an estimate when the price is unknown', () => {
-    expect(formatBandLine(sessionFigures(figure(412_000, 2.41, true), 4))).toBe('obs ~$2.41 · 412k tok · 4 agents')
+    expect(formatBandLine(sessionFigures(figure(412_000, 2.41, true), 4))).toBe('◆ obs  ~$2.41 · ◈ 412k tok · ▸ 4 agents')
   })
 
   test('uses the singular for one agent', () => {
@@ -111,6 +111,6 @@ describe('formatBandLine', () => {
   })
 
   test('shows zeros before the first data', () => {
-    expect(formatBandLine(sessionFigures(figure(0, 0), 0))).toBe('obs $0.00 · 0 tok · 0 agents')
+    expect(formatBandLine(sessionFigures(figure(0, 0), 0))).toBe('◆ obs  $0.00 · ◈ 0 tok · ▸ 0 agents')
   })
 })

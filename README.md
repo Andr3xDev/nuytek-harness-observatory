@@ -32,17 +32,19 @@ claude plugin test /path/to/nuytek-harness-observatory
 
 `.claude-plugin/types/` is not created by `-p`, `plugin validate` or `plugin test`.
 
-Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture), `src/store` (`write/` and `read/`), `src/report` (`/obs report` and its analysis), `src/panel` (pane, band and `/obs`). `hooks/register.tsx` is the composition root; `capture` and `panel` each have a `register.ts`, and `report/run.ts` runs the report for the panel's `/obs`. Tests sit next to their sources.
+Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture), `src/store` (`write/` and `read/`), `src/report` (`/obs report` and its analysis), `src/panel` (band, tabs and `/obs`). `hooks/register.tsx` is the composition root; `capture` and `panel` each have a `register.ts`, and `report/run.ts` runs the report for the panel's `/obs`. Tests sit next to their sources.
 
 ## Commands
 
 | Command | Effect |
 |---------|--------|
-| `/obs` | Opens or closes the observatory pane. |
-| `/obs band on\|off` | Shows or hides the one-line status band. Default: on. |
+| `/obs` | Opens or closes the observatory panel (also shows the band if it was hidden). |
+| `/obs band on\|off` | Shows or hides the whole band above the prompt, panel included. Default: on. |
 | `/obs report` | Prints a text report of recorded sessions: agent types, models, issues and anomalies. |
 
-The pane has five tabs: Session, Agents, Tools, Permissions and History. Press `1` to `5` to switch tab once the pane has focus (click a tab, or `ctrl+x` then the tab). Close it with `Esc` or `[✕ Hide]`. The pane refreshes every 5 seconds.
+The observatory lives in the band above the prompt; there is no side pane. Closed, the band is one line: `◆ obs  $2.41 · ◈ 412k tok · ▸ 4 agents`. Open (`/obs`), it shows five tabs at full band width: Session, Agents, Tools, Permissions and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `5`. Close it with `/obs`. The open panel refreshes every 5 seconds.
+
+The Agents tab lists one row per agent type and model with spawns, tokens and estimated cost, for example `explorer · haiku-4-5   3×   42k   $0.08`. A model that was not recorded shows as `?`.
 
 ## Options
 

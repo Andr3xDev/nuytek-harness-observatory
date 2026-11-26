@@ -19,6 +19,8 @@ export type Row = { cells: string[]; agentId?: string }
 export const PROFILE_OFF_FOOTNOTE = 'n/a: harness profile off'
 export const ESTIMATE_FOOTNOTE = '~ estimate: price unknown for some usage'
 const MIN_NAME_WIDTH = 6
+// The full-width band would otherwise spread a few short rows across the whole terminal.
+const MAX_NAME_WIDTH = 40
 const MS_PER_SECOND = 1000
 const SECONDS_PER_MINUTE = 60
 const PERCENT = 100
@@ -62,7 +64,7 @@ export function tableLines(tier: Tier, columns: number, spec: readonly Column[],
     )
   }
   const fixed = shown.slice(1).map(column => column.width)
-  const nameWidth = Math.max(columns - fixed.reduce((sum, width) => sum + width, 0) - fixed.length, MIN_NAME_WIDTH)
+  const nameWidth = Math.min(Math.max(columns - fixed.reduce((sum, width) => sum + width, 0) - fixed.length, MIN_NAME_WIDTH), MAX_NAME_WIDTH)
   const widths = [nameWidth, ...fixed]
   return [
     dim(formatRow(shown.map(column => column.header), widths)),

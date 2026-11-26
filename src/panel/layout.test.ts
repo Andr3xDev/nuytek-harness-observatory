@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { capRows, formatRow, tabLabels, tierOf } from './layout'
+import { capRows, formatRow, tierOf } from './layout'
 
 const rowsOf = (count: number): string[] => Array.from({ length: count }, (_, index) => `row ${index + 1}`)
 
@@ -57,18 +57,5 @@ describe('capRows', () => {
 
   test('adds no "+N more" line at exactly the cap', () => {
     expect(capRows(rowsOf(20), 20)).toEqual(rowsOf(20))
-  })
-})
-
-describe('tabLabels', () => {
-  test('wide uses full labels', () => {
-    expect(tabLabels('wide')).toEqual(['1 Session', '2 Agents', '3 Tools', '4 Permissions', '5 History'])
-  })
-
-  test('medium and narrow share the short labels', () => {
-    const short = ['1 Sess', '2 Agnt', '3 Tool', '4 Perm', '5 Hist']
-
-    expect(tabLabels('medium')).toEqual(short)
-    expect(tabLabels('narrow')).toEqual(short)
   })
 })

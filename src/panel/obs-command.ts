@@ -14,13 +14,10 @@ export type ObsResult = { text: string; isTextDisplayOnly: true }
 
 /** Plain function seams: `$` cannot be a value in a plugin, so the hook builds these inline. */
 export type ObsDeps = {
-  isPaneOpen: () => Promise<boolean>
-  closePane: () => Promise<void>
-  /** Opens the pane focused with Esc-to-close; resolves the engine's placement answer. */
-  openPane: () => Promise<{ isPlaced: true } | { isPlaced: false; reason: string }>
+  isOpen: () => boolean
+  /** Persists the open flag; opening also loads the first figures and starts the timer, closing stops it. */
+  setOpen: (open: boolean) => Promise<void>
   resetScope: () => Promise<void>
-  /** Called once the pane is placed: loads the first figures and starts the 5 s timer. */
-  onOpened: () => void
   setBandEnabled: (enabled: boolean) => Promise<void>
 }
 
@@ -28,21 +25,21 @@ const BAND_USAGE_TEXT = 'Usage: /obs band on|off'
 const display = (text: string): ObsResult => ({ text, isTextDisplayOnly: true })
 
 async function toggle(deps: ObsDeps): Promise<ObsResult> {
-  if (await deps.isPaneOpen()) {
-    await deps.closePane()
+  if (deps.isOpen()) {
+    await deps.setOpen(false)
     return display('Observatory closed.')
   }
   await deps.resetScope()
-  const opened = await deps.openPane()
-  if (!opened.isPlaced) return display(`Observatory not shown: ${opened.reason}`)
-  deps.onOpened()
+  // An open panel inside a hidden band would draw nothing.
+  await deps.setBandEnabled(true)
+  await deps.setOpen(true)
   return display('Observatory opened.')
 }
 
-export type PaneCommand = Exclude<ObsCommand, 'report' | 'other'>
+export type PanelCommand = Exclude<ObsCommand, 'report' | 'other'>
 
-/** Answers the pane commands; the caller routes `report` and unknown arguments. */
-export async function handleObs(command: PaneCommand, deps: ObsDeps): Promise<ObsResult> {
+/** Answers the panel commands; the caller routes `report` and unknown arguments. */
+export async function handleObs(command: PanelCommand, deps: ObsDeps): Promise<ObsResult> {
   switch (command) {
     case 'toggle':
       return toggle(deps)

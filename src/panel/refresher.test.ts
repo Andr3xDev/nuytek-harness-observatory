@@ -6,11 +6,11 @@ import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './ti
 
 type Timer = { at: number; period?: number; fn: () => void; cancelled: boolean }
 
-function setup(overrides: { paneOpen?: boolean; bandEnabled?: boolean } = {}) {
+function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
   let time = 0
   const timers: Timer[] = []
   const state = {
-    paneOpen: overrides.paneOpen ?? true,
+    open: overrides.open ?? true,
     bandEnabled: overrides.bandEnabled ?? true,
     session: null as SessionAtom | null,
     history: { status: 'idle' } as HistoryAtom,
@@ -50,7 +50,7 @@ function setup(overrides: { paneOpen?: boolean; bandEnabled?: boolean } = {}) {
     now: () => time,
     after: (ms, fn) => add(ms, fn),
     every: (ms, fn) => add(ms, fn, ms),
-    isPaneOpen: () => state.paneOpen,
+    isOpen: () => state.open,
     isBandEnabled: () => state.bandEnabled,
     getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : 's1'),
     session: { get: () => state.session, set: value => void (state.session = value) },
@@ -123,10 +123,10 @@ describe('refresher', () => {
     expect(state.sessionCalls).toBe(2)
   })
 
-  test('pane gone at tick cancels the timer and stops reloads', async () => {
+  test('panel closed at tick cancels the timer and stops reloads', async () => {
     const { refresher, state, advance } = setup()
     refresher.startTimer()
-    state.paneOpen = false
+    state.open = false
     await advance(OPEN_TIMER_MS)
     expect(state.tick).toBe(0)
     await advance(OPEN_TIMER_MS * 2)
@@ -141,8 +141,8 @@ describe('refresher', () => {
     expect(state.tick).toBe(0)
   })
 
-  test('closed pane ignores tool.check and honors session.measure only with band on', async () => {
-    const closed = setup({ paneOpen: false })
+  test('closed panel ignores tool.check and honors session.measure only with band on', async () => {
+    const closed = setup({ open: false })
     closed.refresher.requestRefresh('tool.check')
     await closed.settle()
     expect(closed.state.sessionCalls).toBe(0)
@@ -150,7 +150,7 @@ describe('refresher', () => {
     await closed.settle()
     expect(closed.state.sessionCalls).toBe(1)
 
-    const bandOff = setup({ paneOpen: false, bandEnabled: false })
+    const bandOff = setup({ open: false, bandEnabled: false })
     bandOff.refresher.requestRefresh('session.measure')
     await bandOff.settle()
     expect(bandOff.state.sessionCalls).toBe(0)

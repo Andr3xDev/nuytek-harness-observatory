@@ -2,7 +2,6 @@ import type { On } from 'claude-code'
 import type { AgentFigures, AggregateFigures, Figure, SessionFigures, ToolFigures } from '../../report/analysis'
 import type { HistoryAtom, PanelScope, PanelTab, SessionAtom } from '../../../types'
 import type { TabContext } from './common'
-import { PANE_ID } from '../pane'
 
 export const PLUGIN = 'nuytek-harness-observatory'
 export const SURFACE = 'terminal'
@@ -46,6 +45,7 @@ export const aggregate = (overrides: Partial<AggregateFigures> = {}): AggregateF
   total: figure(5000, 0.5),
   cacheRatio: null,
   byType: [],
+  byTypeModel: [],
   byModel: [],
   byIssue: [],
   engineStatusMix: {},
@@ -107,34 +107,38 @@ export const context = (tier: keyof typeof WIDTHS, overrides: Partial<TabContext
 
 export const textOf = (lines: ReadonlyArray<{ text: string }>): string => lines.map(line => line.text).join('\n')
 
-export const paneProps = (bodyColumns: number, isFocused = true) =>
-  ({
-    title: 'Observatory',
-    isFocused,
-    bodyColumns,
-    placement: 'dock',
-    scroll: { offset: 0, bodyRows: 20 },
-    view: {},
-  }) as const
-
-export const mountTarget = (bodyColumns: number, isFocused = true) =>
+export const bandTarget = (bodyColumns: number, hasSurvey = false) =>
   ({
     plugin: PLUGIN,
     surface: SURFACE,
-    component: 'Pane',
-    requestId: PANE_ID,
-    props: paneProps(bodyColumns, isFocused),
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey,
+      isCollapsed: false,
+      isWorking: false,
+      maxRows: 20,
+      bodyColumns,
+      scroll: { offset: 0, bodyRows: 20 },
+      view: {},
+    },
   }) as const
 
-type Seed = { tab?: PanelTab; scope?: PanelScope; session?: SessionAtom | null; history?: HistoryAtom; bandEnabled?: boolean }
+type Seed = {
+  tab?: PanelTab
+  scope?: PanelScope
+  session?: SessionAtom | null
+  history?: HistoryAtom
+  bandEnabled?: boolean
+  panelOpen?: boolean
+}
 
 /**
  * Seeds atoms the test `$` cannot write (it has no `state` noun): a key the kit's own state holds
  * nothing for reads as `seed`, under the atom's shape tag. Writes go through to the kit, so a
- * press redraws the pane; `written` records them for the test to read back.
+ * press redraws the band; `written` records them for the test to read back.
  */
 export function installState(on: On, seed: Seed = {}) {
-  const shapes: Record<string, string> = { tab: 'tab-1', scope: 'scope-1', tick: 'tick-1', session: 'session-1', history: 'history-1', bandEnabled: 'band-1' }
+  const shapes: Record<string, string> = { tab: 'tab-1', scope: 'scope-1', tick: 'tick-1', session: 'session-1', history: 'history-1', bandEnabled: 'band-1', panelOpen: 'open-1' }
   const written: Record<string, unknown> = {}
   on('state.get', async (_, e, next) => {
     const stored = await next(e)

@@ -1,76 +1,48 @@
 import type { SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
-import { formatFigure } from '../../core/format'
-import {
-  PROFILE_OFF_FOOTNOTE,
-  dim,
-  formatDuration,
-  formatPercent,
-  formatTokenCount,
-  gateOf,
-  heading,
-  tableLines,
-  type Column,
-  type Line,
-  type Row,
-  type TabContext,
-} from './common'
+import { formatTokens } from '../../core/format'
+import { dim, formatCost, gateOf, heading, tableLines, type Column, type Line, type Row, type TabContext } from './common'
 
-const TYPE_COLUMNS: Column[] = [
-  { header: 'Type', width: 0 },
+const UNKNOWN_MODEL = '?'
+const MODEL_PREFIX = /^claude-/
+const MODEL_DATE_SUFFIX = /-\d{8}$/
+
+const TYPE_MODEL_COLUMNS: Column[] = [
+  { header: 'Agent · model', width: 0 },
   { header: 'Spawns', width: 6 },
-  { header: 'Share', width: 5 },
-  { header: 'Avg tok', width: 7, secondary: true },
-  { header: 'Time', width: 6, secondary: true },
-  { header: 'Status mix', width: 25 },
-  { header: 'Reroutes', width: 8 },
+  { header: 'Tokens', width: 7 },
+  { header: 'Cost est.', width: 9 },
 ]
 const AGENT_COLUMNS: Column[] = [
-  { header: 'Agent', width: 0 },
-  { header: 'Status', width: 9 },
+  { header: 'Agent · model', width: 0 },
   { header: 'Tokens', width: 7 },
-  { header: 'Time', width: 6, secondary: true },
+  { header: 'Cost est.', width: 9 },
 ]
 
-function typeRows(aggregate: AggregateFigures): Row[] {
-  const { profile } = aggregate
-  return aggregate.byType.map(entry => {
-    const mix = profile ? (profile.statusMixByType[entry.type] ?? {}) : null
-    const statusMix = mix ? `${mix.done ?? 0} done ${mix.blocked ?? 0} blocked ${mix.partial ?? 0} partial` : formatFigure(null, 'cell')
-    const reroutes = profile ? String(profile.reroutesByType[entry.type] ?? 0) : formatFigure(null, 'cell')
-    return {
-      cells: [
-        entry.type,
-        String(entry.spawns),
-        formatPercent(entry.tokenShare),
-        entry.avgTokens === null ? '-' : formatTokenCount(entry.avgTokens),
-        entry.avgDurationMs === null ? '-' : formatDuration(entry.avgDurationMs),
-        statusMix,
-        reroutes,
-      ],
-    }
-  })
+const shortModel = (model: string | null | undefined): string =>
+  model ? model.replace(MODEL_PREFIX, '').replace(MODEL_DATE_SUFFIX, '') : UNKNOWN_MODEL
+
+const label = (type: string, model: string | null | undefined): string => `${type} · ${shortModel(model)}`
+
+function typeModelRows(aggregate: AggregateFigures): Row[] {
+  return aggregate.byTypeModel.map(entry => ({
+    cells: [label(entry.type, entry.model), `${entry.spawns}×`, formatTokens(Math.round(entry.tokens)), formatCost(entry)],
+  }))
 }
 
 export function agentsLines(ctx: TabContext): Line[] {
   const gate = gateOf(ctx)
   if ('message' in gate) return [dim(gate.message)]
-  const { aggregate } = gate
   const { tier, columns } = ctx
-  const rows = typeRows(aggregate)
-  const lines: Line[] = [
-    { text: `Review rounds: ${aggregate.profile ? aggregate.profile.reviewPasses : formatFigure(null, 'scalar')}` },
-    heading('By agent type'),
-    ...tableLines(tier, columns, TYPE_COLUMNS, rows),
-  ]
+  const lines: Line[] = [heading('By agent type and model'), ...tableLines(tier, columns, TYPE_MODEL_COLUMNS, typeModelRows(gate.aggregate))]
   if (ctx.scope === 'session' && ctx.session) {
     const agents = (ctx.session.sessionFigures as SessionFigures).agents.map(
       (agent): Row => ({
-        cells: [agent.subagentType, agent.engineStatus, formatTokenCount(agent.tokens), formatDuration(agent.durationMs)],
+        cells: [label(agent.subagentType, agent.model), formatTokens(agent.tokens), formatCost(agent)],
         agentId: agent.agentId,
       }),
     )
     lines.push(heading('Agents'), ...tableLines(tier, columns, AGENT_COLUMNS, agents))
   }
-  return aggregate.profile === null && rows.length > 0 ? [...lines, dim(PROFILE_OFF_FOOTNOTE)] : lines
+  return lines
 }

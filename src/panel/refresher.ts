@@ -5,13 +5,13 @@ import type { Sources } from './sources'
 type Cancel = () => void
 
 // Plain function seams: `$` cannot be a value in a plugin, so the call site
-// builds these inline from `$.clock`, `$.ui.panes()` and `$.state`.
+// builds these inline from `$.clock` and `$.state`.
 export type RefresherDeps = {
   sources: Sources
   now: () => number
   after: (ms: number, fn: () => void) => Cancel
   every: (ms: number, fn: () => void) => Cancel
-  isPaneOpen: () => boolean
+  isOpen: () => boolean
   isBandEnabled: () => boolean
   getSessionId: () => string | Promise<string>
   session: { get: () => SessionAtom | null; set: (value: SessionAtom) => void }
@@ -19,8 +19,8 @@ export type RefresherDeps = {
   bumpTick: () => void
 }
 
-// Events that still refresh while the pane is closed, for the always-on band.
-const CLOSED_PANE_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report'])
+// Events that still refresh while the panel is closed, for the always-on band line.
+const CLOSED_PANEL_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report'])
 
 export function createRefresher(deps: RefresherDeps) {
   let inFlight = false
@@ -82,7 +82,7 @@ export function createRefresher(deps: RefresherDeps) {
   }
 
   function requestRefresh(type: string): void {
-    if (!deps.isPaneOpen() && !(CLOSED_PANE_EVENTS.has(type) && deps.isBandEnabled())) return
+    if (!deps.isOpen() && !(CLOSED_PANEL_EVENTS.has(type) && deps.isBandEnabled())) return
     schedule()
   }
 
@@ -94,8 +94,7 @@ export function createRefresher(deps: RefresherDeps) {
   function startTimer(): void {
     if (cancelTimer) return
     cancelTimer = deps.every(OPEN_TIMER_MS, () => {
-      // Esc and the engine close mark never reach our command, so self-heal here.
-      if (!deps.isPaneOpen()) {
+      if (!deps.isOpen()) {
         stopTimer()
         return
       }

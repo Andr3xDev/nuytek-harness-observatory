@@ -5,4 +5,5 @@ export const STATE_SHAPES = {
   session: 'session-1',
   history: 'history-1',
   bandEnabled: 'band-1',
+  panelOpen: 'open-1',
 } as const
