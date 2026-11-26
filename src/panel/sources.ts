@@ -80,7 +80,7 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
       // Accumulate: events flushed to disk since the seed leave the pending list but stay counted here.
       const events = mergeLiveEvents(seed.input.events, deps.pendingEvents(sessionId))
       seed = { sessionId, input: { ...seed.input, events } }
-      const sessionFigures = summarizeSession(seed.input, { now: deps.now(), sourceMtimeMs: deps.now() })
+      const sessionFigures = summarizeSession(seed.input)
       return { sessionFigures, aggregate: combineSessions([sessionFigures]) }
     },
     loadSession: async (sessionId) => {

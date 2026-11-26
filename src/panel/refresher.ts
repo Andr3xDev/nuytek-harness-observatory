@@ -4,8 +4,7 @@ import type { Sources } from './sources'
 
 type Cancel = () => void
 
-// Plain function seams: `$` cannot be a value in a plugin, so the call site
-// builds these inline from `$.clock` and `$.state`.
+// `$` cannot be a value: seams are built inline by the hook (see capture/handlers.ts).
 export type RefresherDeps = {
   sources: Sources
   now: () => number
@@ -43,7 +42,6 @@ export function createRefresher(deps: RefresherDeps) {
           aggregate: result.aggregate,
           liveAgentIds: result.liveAgentIds,
           mainAgent: result.mainAgent ?? null,
-          loadedAt: deps.now(),
           error: null,
         })
       } else if (previous) {

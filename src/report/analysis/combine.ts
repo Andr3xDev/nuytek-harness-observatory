@@ -71,8 +71,6 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
       addFigure(merged, agent)
       merged.spawns += 1
       recent.push({
-        sessionId: session.sessionId,
-        agentId: agent.agentId,
         type: agent.subagentType,
         model,
         effort,

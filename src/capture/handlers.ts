@@ -57,7 +57,7 @@ export type HostApi = {
 /** Reads the stored snapshots for the resume sweep; supplied by the `session.start` hook only. */
 export type SnapshotLister = { listSnapshots: () => Promise<StoredSnapshot[]> }
 
-/** Process-wide collaborators, built once from the first host a hook receives. */
+/** Process-wide collaborators. */
 export type Runtime = {
   batcher: Batcher
   writer: Pick<Writer, 'init' | 'maintain'>
@@ -314,7 +314,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           if (sample) runCycle(state, rt, sample) // re-snapshots so the written files include the turn just recorded
         }
         rt.batcher.pushEvent(buildTurnComplete(e, contextOf(state, rt), { costUsd, previousModel }))
-        void rt.batcher.flush() // never waits on disk; flush is serialized and never rejects
+        void rt.batcher.flush()
       }),
 
     sessionMeasure: <E extends { cost?: { usd: number; hasUnknownPrice?: true }; context?: object; rateLimits?: object }, R>(

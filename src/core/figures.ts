@@ -4,7 +4,7 @@ export type EventRecord = ObsEvent
 export type SnapshotRecord = AgentSnapshot
 
 export type TokenCounts = { input: number; output: number; cacheRead: number; cacheCreation: number }
-export type Money = { costUsd: number; hasUnknownPrice: boolean }
+type Money ={ costUsd: number; hasUnknownPrice: boolean }
 export type Figure = TokenCounts & Money & { tokens: number }
 
 /** A fresh zeroed figure each call: callers accumulate into it. */
@@ -33,7 +33,6 @@ export const getOrInit = <T>(record: Record<string, T>, key: string, make: () =>
 
 /** Normalized `$.agent.list()` row: the caller maps the host's snake_case usage and `cost.usd`. */
 export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null }
-export type SessionState = 'open' | 'closed' | 'stale'
 
 export type TypeFigures = Figure & { spawns: number }
 export type AgentFigures = Figure & {
@@ -44,7 +43,6 @@ export type AgentFigures = Figure & {
   model: string | null
   /** The effort set for the agent (level or budget); `null` when it took the session's. */
   effort: string | number | null
-  /** Spawn time. */
   startedAt: number
   engineStatus: 'running' | 'completed' | 'failed' | 'stopped' | 'unknown'
 }
@@ -63,10 +61,8 @@ export type ProfileFigures = {
 
 export type SessionFigures = {
   sessionId: string
-  state: SessionState
   harnessProfile: boolean
   startedAt: number | null
-  endedAt: number | null
   lastEventAt: number | null
   total: Figure
   main: Figure
@@ -79,6 +75,6 @@ export type SessionFigures = {
   profile: ProfileFigures | null
 }
 
-export type SourceStat = { size: number; mtimeMs: number }
+type SourceStat ={ size: number; mtimeMs: number }
 /** Current files by store-relative path (`events/<id>.jsonl`, `snapshots/<id>.json`). */
 export type SourceListing = Readonly<Record<string, SourceStat>>

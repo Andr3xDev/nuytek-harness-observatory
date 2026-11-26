@@ -4,10 +4,7 @@ import { createWriter, WRITE_TIMEOUT_MS, type ProcessRunner } from '../store/wri
 import { createCapture, type HostApi, type Runtime } from './handlers'
 import { createBranchProvider } from './session/branch'
 
-/**
- * Closures over `$`: the plugin validator rejects any use of `$` as a value, so every hook
- * builds this object inline from `$.noun.event(...)` calls.
- */
+// `$` cannot be a value: seams are built inline by the hook (see capture/handlers.ts).
 type Host = HostApi & {
   run: ProcessRunner
   every: (ms: number, fn: () => void) => { cancel: () => void }

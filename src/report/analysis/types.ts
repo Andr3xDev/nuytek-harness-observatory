@@ -10,8 +10,6 @@ import type {
 } from '../../core/figures'
 
 export type RecentAgent = Pick<Figure, keyof TokenCounts | 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
-  sessionId: string
-  agentId: string
   type: string
   model: string | null
   effort: string | number | null
@@ -25,16 +23,12 @@ export type {
   LiveAgent,
   ProfileFigures,
   SessionFigures,
-  SessionState,
   SkillFigures,
-  SourceListing,
-  SourceStat,
   TokenCounts,
   ToolFigures,
   TypeFigures,
 } from '../../core/figures'
 
-export const OPEN_SESSION_MAX_IDLE_MS = 6 * 60 * 60 * 1000
 export const SUPPORTED_SCHEMA = 1
 
 export type SessionInput = {
@@ -43,7 +37,6 @@ export type SessionInput = {
   pendingEvents?: readonly EventRecord[]
   liveAgents?: readonly LiveAgent[]
 }
-export type SessionContext = { now: number; sourceMtimeMs: number }
 
 export type AggregateFigures = {
   sessions: number

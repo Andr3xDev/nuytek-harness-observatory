@@ -62,7 +62,7 @@ function treeRows(agents: readonly AgentFigures[]): Row[] {
   return rows
 }
 
-function sessionScopeLines(ctx: TabContext, figures: SessionFigures): Line[] {
+function sessionLinesOf(ctx: TabContext, figures: SessionFigures): Line[] {
   const { tier, columns } = ctx
   const models = Object.entries(figures.byModel).map(([model, usage]): Row => ({ cells: [model, formatTokens(usage.tokens)] }))
   const lines: Line[] = [
@@ -98,5 +98,5 @@ export function historyOverviewLines(ctx: TabContext, aggregate: AggregateFigure
 export function sessionLines(ctx: TabContext): Line[] {
   const gate = gateOf(ctx)
   if ('message' in gate) return [dim(gate.message)]
-  return sessionScopeLines(ctx, ctx.session?.sessionFigures as SessionFigures)
+  return sessionLinesOf(ctx, ctx.session?.sessionFigures as SessionFigures)
 }

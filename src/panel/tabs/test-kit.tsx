@@ -53,10 +53,8 @@ export const profile = (overrides: Partial<NonNullable<AggregateFigures['profile
 export const sessionFigures = (agents: AgentFigures[] = [], overrides: Partial<SessionFigures> = {}): SessionFigures =>
   ({
     sessionId: 's1',
-    state: 'open',
     harnessProfile: false,
     startedAt: 1,
-    endedAt: null,
     lastEventAt: 1,
     total: figure(5000, 0.5),
     main: figure(2000, 0.2),
@@ -73,7 +71,6 @@ export const sessionAtomValue = (figures: SessionFigures, aggregateFigures: Aggr
   sessionFigures: figures,
   aggregate: aggregateFigures,
   liveAgentIds,
-  loadedAt: 1,
   error: null,
 })
 

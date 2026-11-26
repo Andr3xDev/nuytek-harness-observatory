@@ -1,4 +1,4 @@
-/** Plain function seams: `$` cannot be a value in a plugin, so the hook builds these inline. */
+// `$` cannot be a value: seams are built inline by the hook (see capture/handlers.ts).
 export type ObsDeps = {
   isOpen: () => boolean
   /** Persists the open flag; opening also loads the first figures and starts the timer, closing stops it. */

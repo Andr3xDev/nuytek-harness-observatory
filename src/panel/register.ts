@@ -11,7 +11,7 @@ import { createRefresher, type Refresher } from './refresher'
 import { createLiveLoaders, createSources, type LiveAgentRow } from './sources'
 import { STATE_SHAPES } from './state'
 
-// The hooks scan reads state refs only from literals or atoms declared in the reading file (see band.tsx).
+// Atoms are declared per reading file (see band.tsx).
 const tickAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'tick' } as const, 0, { shape: STATE_SHAPES.tick })
 const sessionAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'session' } as const, null, { shape: STATE_SHAPES.session })
 const historyAtom = atom({ plugin: 'nuytek-harness-observatory', key: 'history' } as const, { status: 'idle' }, { shape: STATE_SHAPES.history })
@@ -73,7 +73,7 @@ export const createPanel = (capture: Capture) => {
       sources: createSources(
         createLiveLoaders({
           now: () => Date.now(),
-          loadSessions: (options) => loadHistory({ fs }, { now: Date.now(), ...options }),
+          loadSessions: (options) => loadHistory({ fs }, options),
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
           readMainAgent: async () => (await host.agentType()) ?? null,
@@ -115,8 +115,8 @@ export type Panel = ReturnType<typeof createPanel>
 
 /**
  * Registers the panel's own hooks plus `session.start` (capture's start and the panel setup share
- * that one registration) and `/obs`. Call it after `registerCapture`: the `/obs` hook is then the outer
- * `command.run`, so capture still records `/obs` after this one answers.
+ * that one registration) and `/obs`. Call it after `registerCapture`: the `/obs` hook is then inner to
+ * capture's `command.run` (first registered is outermost), so capture still records `/obs`.
  * A top-level function, not a `Panel` method: the validator only lets `on` reach functions named in the module.
  */
 export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {

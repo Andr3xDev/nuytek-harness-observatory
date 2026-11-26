@@ -52,21 +52,20 @@ export const TOKEN_COLUMNS: Column[] = [
 ]
 
 /** Input counts the cached prompt tokens too, so In + Out is the total. */
-export const promptTokensOf = (figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
+const promptTokensOf =(figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
 
 export const formatCost = (figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
 
-export const formatTokenCount = (tokens: number): string => formatTokens(Math.round(tokens))
+const formatTokenCount = (tokens: number): string => formatTokens(Math.round(tokens))
 
-/** The In, Out and Total cells matching `TOKEN_COLUMNS`. */
 export const tokenCells = (figure: TokenCounts & { tokens: number }): string[] => [
   formatTokenCount(promptTokensOf(figure)),
   formatTokenCount(figure.output),
   formatTokenCount(figure.tokens),
 ]
 
-export function capLines(lines: readonly Line[], cap: number): Line[] {
+function capLines(lines: readonly Line[], cap: number): Line[] {
   const extra = lines.length - cap
   return extra > 0 ? [...lines.slice(0, cap), dim(`+${extra} more`)] : [...lines]
 }
@@ -112,11 +111,9 @@ export function tableLines(tier: Tier, columns: number, spec: readonly Column[],
 
 export type Gate = { aggregate: AggregateFigures } | { message: string }
 
-/** The current session's aggregate, or the one line to show instead of it. */
 export const gateOf = ({ session }: TabContext): Gate =>
   session ? { aggregate: session.aggregate as AggregateFigures } : { message: 'Waiting for session data...' }
 
-/** The history window's aggregate, or the one line to show instead of it. */
 export function historyGateOf({ history }: TabContext): Gate {
   if (history.status === 'ready' && history.aggregate) return { aggregate: history.aggregate as AggregateFigures }
   if (history.status === 'unavailable') return { message: `History unavailable: ${history.reason ?? 'unknown reason'}` }
@@ -131,7 +128,7 @@ export function renderLines(
   columns: number,
 ) {
   const { Text, Button } = kit
-  // Cells are colored and the column dividers drawn dim; a text without a divider is one plain piece.
+  // No divider: draw the text as one plain piece.
   const pieces = ({ text, styles }: Line) =>
     text.split(COLUMN_SEPARATOR).flatMap((cell, index) => [
       ...(index > 0 ? [<Text key={`sep:${index}`} dimColor>{COLUMN_SEPARATOR}</Text>] : []),

@@ -27,7 +27,6 @@ const TYPE_MODEL_COLUMNS: Column[] = [
 const shortModel = (model: string | null | undefined): string =>
   model ? model.replace(MODEL_PREFIX, '').replace(MODEL_DATE_SUFFIX, '') : UNKNOWN_MODEL
 
-/** The Agent, Model and Effort cells that lead every row. */
 const identity = (type: string, model: string | null | undefined, effort?: string | number | null): string[] => [
   type,
   shortModel(model),
@@ -58,7 +57,7 @@ const typeModelLines = ({ tier, columns }: TabContext, aggregate: AggregateFigur
   ...tableLines(tier, columns, TYPE_MODEL_COLUMNS, typeModelRows(aggregate)),
 ]
 
-/** The history tab's agents section: the window's agents by type, model and effort, then its latest runs. */
+/** History tab's agents section. */
 export function agentHistoryLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
   const recent = aggregate.recentAgents.map(run => ({
     cells: [...identity(run.type, run.model, run.effort), formatStarted(run.startedAt), ...tokenCells(run), formatCost(run)],

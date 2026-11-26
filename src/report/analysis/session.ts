@@ -3,15 +3,12 @@ import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord 
 import { mergeLiveEvents } from './live'
 import { modelOf } from './model'
 import {
-  OPEN_SESSION_MAX_IDLE_MS,
   type AgentFigures,
   type EventRecord,
   type Figure,
   type ProfileFigures,
-  type SessionContext,
   type SessionFigures,
   type SessionInput,
-  type SessionState,
   type SkillFigures,
   type ToolFigures,
   type TypeFigures,
@@ -35,17 +32,6 @@ const figureOf = ({ usage, costUsd, hasUnknownPrice }: Source): Figure => {
 
 const bump = (record: Record<string, number>, key: string): void => {
   record[key] = (record[key] ?? 0) + 1
-}
-
-/** A resumed session appends a new session.start after its earlier session.end, so only a trailing end closes it. */
-const lifecycleEnd = (events: readonly EventRecord[]): EventRecord | undefined => {
-  const last = events.filter((event) => event.type === 'session.start' || event.type === 'session.end').at(-1)
-  return last?.type === 'session.end' ? last : undefined
-}
-
-export function classifySession(events: EventRecord[], sourceMtimeMs: number, now: number): SessionState {
-  if (lifecycleEnd(events)) return 'closed'
-  return now - sourceMtimeMs <= OPEN_SESSION_MAX_IDLE_MS ? 'open' : 'stale'
 }
 
 const collectAgents = (events: readonly EventRecord[]): Map<string, AgentRecord> => {
@@ -99,7 +85,7 @@ const buildProfile = (agents: Map<string, AgentRecord>): ProfileFigures => {
   return profile
 }
 
-export function summarizeSession(input: SessionInput, ctx: SessionContext): SessionFigures {
+export function summarizeSession(input: SessionInput): SessionFigures {
   const pending = input.pendingEvents ?? []
   const liveById = new Map((input.liveAgents ?? []).map((agent) => [agent.agentId, agent]))
   const events = mergeLiveEvents(input.events, pending)
@@ -107,7 +93,6 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
   const mainSnapshot = input.snapshots.find((snapshot) => snapshot.agentId === 'main')
   const snapshotById = new Map(input.snapshots.filter((snapshot) => snapshot.agentId !== 'main').map((snapshot) => [snapshot.agentId, snapshot]))
   const sessionStart = events.find((event) => event.type === 'session.start')
-  const sessionEnd = lifecycleEnd(events)
   const agentTypeOf = (agentId: string | null): string =>
     agentId === null ? MAIN_AGENT_TYPE : (agents.get(agentId)?.spawn.subagentType ?? UNKNOWN_KEY)
 
@@ -167,13 +152,10 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
 
   const harnessProfile = sessionStart?.type === 'session.start' && sessionStart.harnessProfile === true
 
-  const isLive = pending.length > 0 || liveById.size > 0
   return {
     sessionId: events[0]?.sessionId ?? input.snapshots[0]?.sessionId ?? '',
-    state: sessionEnd || !isLive ? classifySession(events, ctx.sourceMtimeMs, ctx.now) : 'open',
     harnessProfile,
     startedAt: sessionStart?.ts ?? events[0]?.ts ?? null,
-    endedAt: sessionEnd?.ts ?? null,
     lastEventAt: events.length === 0 ? null : events.reduce((latest, event) => Math.max(latest, event.ts), -Infinity),
     total,
     main,

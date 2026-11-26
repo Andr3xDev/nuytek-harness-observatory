@@ -2,8 +2,8 @@ import { truncate } from '../core/format'
 
 export type Tier = 'wide' | 'medium' | 'narrow'
 
-export const TIER_WIDE_MIN = 70
-export const TIER_MEDIUM_MIN = 45
+const TIER_WIDE_MIN = 70
+const TIER_MEDIUM_MIN = 45
 export const LIST_ROW_CAP = 20
 
 /** The hotkey Button draws its own `1: ` prefix, so labels carry no digit. */
@@ -26,13 +26,12 @@ export const PALETTE = {
 /** The panel box costs one border cell and one padding cell on each side. */
 export const BOX_CHROME_COLUMNS = 4
 
-/** Single-width line drawn between tab sections and under the tab row. */
+/** Single-width so `repeat(columns)` fills the row exactly. */
 export const SECTION_RULE = '─'
 
 /** Table column divider; the renderer splits rows on it to draw the `│` dim. */
 export const COLUMN_SEPARATOR = ' │ '
 
-// Name column left-aligned and truncated; numeric columns right-aligned.
 export const formatRow = (cells: readonly string[], widths: readonly number[], separator = ' '): string =>
   cells
     .map((cell, index) => {

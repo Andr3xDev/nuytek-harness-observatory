@@ -11,7 +11,6 @@ export const READ_CONCURRENCY = 8
 
 export type HistoryDeps = { fs: HistoryFs }
 export type LoadHistoryOptions = {
-  now: number
   sessionIds?: readonly string[]
   /** Skips sessions whose events file was last modified before this time, without opening them. */
   modifiedSince?: number
@@ -56,7 +55,7 @@ const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | und
 }
 
 export async function loadHistory({ fs }: HistoryDeps, options: LoadHistoryOptions): Promise<SessionFigures[]> {
-  const { now, pendingEvents = {}, liveAgents = {} } = options
+  const { pendingEvents = {}, liveAgents = {} } = options
   const listing = await listSources(fs)
 
   const loadSession = async (sessionId: string): Promise<SessionFigures | null> => {
@@ -90,7 +89,7 @@ export async function loadHistory({ fs }: HistoryDeps, options: LoadHistoryOptio
 
     const input = { events, snapshots, pendingEvents: pending, liveAgents: live }
     options.onSessionInput?.(sessionId, input)
-    return summarizeSession(input, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
+    return summarizeSession(input)
   }
 
   const loaded = await mapWithLimit(sessionIdsOf(listing, options.sessionIds, options.modifiedSince), READ_CONCURRENCY, loadSession)
