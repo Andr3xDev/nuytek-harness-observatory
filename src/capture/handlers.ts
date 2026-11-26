@@ -293,7 +293,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const rt = runtimeOf(host)
         const state = await sessionOf(host)
         if (e.agentId !== undefined) {
-          rt.batcher.pushEvent(buildTurnComplete(e, contextOf(state, rt), { costUsd: null, previousModel }))
+          rt.batcher.pushEvent(buildTurnComplete(e, contextOf(state, rt), { costUsd: null, previousModel: NO_MODEL }))
           if (now() - lastCycleAt >= FLUSH_INTERVAL_MS) {
             const sample = await takeSample(host)
             if (sample) runCycle(state, rt, sample)
@@ -303,14 +303,15 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
         await rt.branch.refresh(state.cwd)
         const sample = await takeSample(host)
-        const costUsd = computeTurnCost(baseline, sample ? toReading(sample) : null, lastKnownAgentUsd)
-        baseline = sample ? toReading(sample) : null
+        const reading = sample ? toReading(sample) : null
+        const costUsd = computeTurnCost(baseline, reading, lastKnownAgentUsd)
+        baseline = reading
         // The first cycle detects a `startedAt` reset and clears the ledger before this turn is recorded.
         if (sample) runCycle(state, rt, sample)
         if (e.usage) {
           state.tracker.recordMainTurn(mapUsage(e.usage))
           previousModel = e.usage.model
-          if (sample) runCycle(state, rt, sample)
+          if (sample) runCycle(state, rt, sample) // re-snapshots so the written files include the turn just recorded
         }
         rt.batcher.pushEvent(buildTurnComplete(e, contextOf(state, rt), { costUsd, previousModel }))
         void rt.batcher.flush() // never waits on disk; flush is serialized and never rejects
