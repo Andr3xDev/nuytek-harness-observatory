@@ -52,6 +52,8 @@ export type HostApi = {
   sessionId: () => Promise<string>
   usage: () => Promise<{ startedAt: number; cost?: { usd: number; hasUnknownPrice?: true } }>
   agents: () => Promise<readonly SnapshotAgent[]>
+  /** The session's model; optional at runtime, a host without it records `''`. */
+  model: () => Promise<string>
 }
 
 /** Reads the stored snapshots for the resume sweep; supplied by the `session.start` hook only. */
@@ -82,6 +84,16 @@ type Sample = {
   sessionCostKnown: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]
+  model: string
+}
+
+// A missing `$.session.model` throws synchronously, so the call sits inside the try.
+const readModel = async (host: HostApi): Promise<string> => {
+  try {
+    return await host.model()
+  } catch {
+    return ''
+  }
 }
 
 type CaptureSession = { id: string; tracker: SnapshotTracker; cwd: string }
@@ -158,7 +170,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
   const takeSample = async (host: H): Promise<Sample | null> => {
     try {
-      const [usage, agents] = await Promise.all([host.usage(), host.agents()])
+      const [usage, agents, model] = await Promise.all([host.usage(), host.agents(), readModel(host)])
       for (const agent of agents) if (agent.cost) lastKnownAgentUsd.set(agent.id, agent.cost.usd)
       return {
         startedAt: usage.startedAt,
@@ -166,6 +178,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         sessionCostKnown: usage.cost !== undefined,
         hasUnknownPrice: usage.cost?.hasUnknownPrice === true,
         agents,
+        model,
       }
     } catch {
       return null

@@ -66,6 +66,7 @@ export const registerCapture = (
       capture.sessionEnd(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -83,6 +84,7 @@ export const registerCapture = (
       capture.sessionCompact(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -100,6 +102,7 @@ export const registerCapture = (
       capture.commandRun(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -117,6 +120,7 @@ export const registerCapture = (
       capture.skillPrompt(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -134,6 +138,7 @@ export const registerCapture = (
       capture.agentSpawn(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -151,6 +156,7 @@ export const registerCapture = (
       capture.agentReport(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -168,6 +174,7 @@ export const registerCapture = (
       capture.turnComplete(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -185,6 +192,7 @@ export const registerCapture = (
       capture.sessionMeasure(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -202,6 +210,7 @@ export const registerCapture = (
       capture.toolCheck(
         {
           sessionId: () => $.session.id(),
+          model: () => $.session.model(),
           usage: () => $.session.usage(),
           agents: () => $.agent.list(),
           run: (argv, init) => $.process.run(argv, init),
@@ -221,6 +230,7 @@ export const registerCapture = (
         capture.permissionOutcome('prompted')(
           {
             sessionId: () => $.session.id(),
+            model: () => $.session.model(),
             usage: () => $.session.usage(),
             agents: () => $.agent.list(),
             run: (argv, init) => $.process.run(argv, init),
@@ -238,6 +248,7 @@ export const registerCapture = (
         capture.permissionOutcome('denied')(
           {
             sessionId: () => $.session.id(),
+            model: () => $.session.model(),
             usage: () => $.session.usage(),
             agents: () => $.agent.list(),
             run: (argv, init) => $.process.run(argv, init),
@@ -255,6 +266,7 @@ export const registerCapture = (
         capture.permissionOutcome('completed')(
           {
             sessionId: () => $.session.id(),
+            model: () => $.session.model(),
             usage: () => $.session.usage(),
             agents: () => $.agent.list(),
             run: (argv, init) => $.process.run(argv, init),
@@ -272,6 +284,7 @@ export const registerCapture = (
         capture.permissionOutcome('failed')(
           {
             sessionId: () => $.session.id(),
+            model: () => $.session.model(),
             usage: () => $.session.usage(),
             agents: () => $.agent.list(),
             run: (argv, init) => $.process.run(argv, init),

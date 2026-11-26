@@ -119,6 +119,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
     const result = await capture.sessionStart(
       {
         sessionId: () => $.session.id(),
+        model: () => $.session.model(),
         usage: () => $.session.usage(),
         agents: () => $.agent.list(),
         run: (argv, init) => $.process.run(argv, init),

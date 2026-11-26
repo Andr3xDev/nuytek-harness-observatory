@@ -8,10 +8,10 @@ const SESSION_ID = 's1'
 const START = 1_000
 const NOW = 1_700_000_000_000
 
-type World = { usd: number; startedAt: number; agents: SnapshotAgent[] }
+type World = { usd: number; startedAt: number; agents: SnapshotAgent[]; model: string }
 
 const setup = (profile = false) => {
-  const world: World = { usd: 0, startedAt: START, agents: [] }
+  const world: World = { usd: 0, startedAt: START, agents: [], model: '' }
   const appended: string[] = []
   const sink: BatchSink = {
     append: async (_path, text) => {
@@ -42,6 +42,7 @@ const setup = (profile = false) => {
     sessionId: async () => SESSION_ID,
     usage: async () => ({ startedAt: world.startedAt, cost: { usd: world.usd } }),
     agents: async () => world.agents,
+    model: async () => world.model,
     listSnapshots: async () => [],
   }
   const capture = createCapture({ profile, retentionDays: '60', runtime: () => runtime, now: () => NOW })
@@ -130,6 +131,16 @@ describe('session lifecycle', () => {
     await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
     expect((await events())[0]).toMatchObject({ type: 'session.start', harnessProfile: true, cwd: '/w', branch: 'main' })
     expect(maintainCalls).toEqual([['60', 's1.jsonl', 'main-s1.json']])
+  })
+
+  test('the main snapshot records the session model from the host', async () => {
+    const { world, host, capture, runtime } = setup()
+    world.model = 'claude-opus-4-8'
+    const upserts: string[] = []
+    runtime.batcher = createBatcher({ append: async () => true, upsert: async (_path, text) => (upserts.push(text), true) }, { every: () => () => {} })
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    await runtime.batcher.flush()
+    expect(upserts.map((text) => JSON.parse(text))).toContainEqual(expect.objectContaining({ agentId: 'main', model: 'claude-opus-4-8' }))
   })
 
   test('session.start creates the store root before maintenance runs', async () => {

@@ -31,6 +31,8 @@ export type SnapshotCycleInput = {
   sessionCostKnown?: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]
+  /** `$.session.model()`; the main snapshot's model while the ledger has no turn. */
+  model?: string
 }
 
 export type SnapshotWrite = { file: string; snapshot: AgentSnapshot }
@@ -47,7 +49,7 @@ export type SnapshotTracker = {
 type Tracked = { snapshot: AgentSnapshot; signature: string }
 
 const signatureOf = (snapshot: AgentSnapshot): string =>
-  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus, snapshot.effort])
+  JSON.stringify([snapshot.usage.length, snapshot.tokenCount, snapshot.costUsd, snapshot.taskStatus, snapshot.effort, snapshot.model])
 
 const closeSnapshot = (snapshot: AgentSnapshot, reason: ClosedReason, now: number): AgentSnapshot => ({
   ...snapshot,
@@ -102,7 +104,7 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
     agentId: MAIN_AGENT_ID,
     parentAgentId: null,
     subagentType: MAIN_AGENT_ID,
-    model: ledger.at(-1)?.model ?? '',
+    model: input.model || (ledger.at(-1)?.model ?? ''),
     branch: input.branch,
     startedAt: input.startedAt,
     updatedAt: input.now,
