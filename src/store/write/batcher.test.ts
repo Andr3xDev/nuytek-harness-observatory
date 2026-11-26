@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
 import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent, type PromptRecord } from '../../core/schema'
-import { snapshot as snapshotFixture } from '../../report/analysis/test-fixtures'
+import { snapshot as snapshotFixture } from '../../core/test-fixtures'
 import { createBatcher, type BatchClock, type BatchSink } from './batcher'
 
 type SinkCall = { kind: 'append' | 'upsert'; path: string; text: string }
@@ -232,6 +232,18 @@ describe('batcher flush', () => {
     await settle()
     await batcher.flush()
     expect(calls.length).toBeLessThanOrEqual(3)
+  })
+
+  test('entries with a path the writer would reject are dropped and never stall flushes', async () => {
+    const { sink, calls } = recordingSink()
+    const batcher = createBatcher(sink, fakeClock().clock)
+    batcher.pushEvent(event('../escape', 'bad'))
+    batcher.setSnapshot('../escape.json', snapshot('a1', 1))
+    await batcher.flush()
+    expect(calls).toEqual([])
+    for (let i = 0; i < MAX_BATCH_EVENTS; i++) batcher.pushEvent(event('s1', `e${i}`))
+    await settle()
+    expect(calls.map((c) => c.kind)).toEqual(['append'])
   })
 
   test('snapshots stay queued when canContinue is false and events are still appended', async () => {

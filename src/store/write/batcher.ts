@@ -1,6 +1,7 @@
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
 import type { AgentSnapshot, ObsEvent, PromptRecord } from '../../core/schema'
 import { eventsPathOf, promptsPathOf, snapshotPathOf } from '../layout'
+import { isValidAppendPath, isValidUpsertPath } from './paths'
 
 export type BatchSink = {
   append: (path: string, text: string) => Promise<boolean>
@@ -62,6 +63,8 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   }
 
   const enqueue = (entry: Entry): void => {
+    // The writer reports a rejected path and a transient failure alike as `false`; only the latter may be retried.
+    if (!isValidAppendPath(entry.path)) return
     queue.push(entry)
     queuedBytes += entry.bytes
     startTimerOnce()
@@ -155,6 +158,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     },
     pushPrompt: (date, record) => enqueue(entryOf(promptsPathOf(date), `${JSON.stringify(record)}\n`)),
     setSnapshot: (file, snapshot) => {
+      if (!isValidUpsertPath(snapshotPathOf(file))) return
       startTimerOnce()
       snapshots.set(file, JSON.stringify(snapshot))
     },
