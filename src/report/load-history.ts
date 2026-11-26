@@ -1,4 +1,4 @@
-import { isSnapshotShape } from '../core/guards'
+import { isSnapshotShape, tryParseJson } from '../core/guards'
 import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../core/figures'
 import type { HistoryFs } from '../store/read/history-fs'
 import { listSources, readLines } from '../store/read/reader'
@@ -9,7 +9,12 @@ import type { SessionInput } from './analysis/types'
 
 export const READ_CONCURRENCY = 8
 
-export type HistoryDeps = { fs: HistoryFs }
+export type EventsCache = Map<string, { size: number; mtimeMs: number; events: EventRecord[] }>
+export type HistoryDeps = {
+  fs: HistoryFs
+  /** Events parsed per session id, valid while the file's size and mtime are unchanged. Used only when `sessionIds` is set. */
+  eventsCache?: EventsCache
+}
 export type LoadHistoryOptions = {
   sessionIds?: readonly string[]
   /** Skips sessions whose events file was last modified before this time, without opening them. */
@@ -33,19 +38,11 @@ async function mapWithLimit<T, R>(items: readonly T[], limit: number, task: (ite
   return results
 }
 
-const parseJson = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
-
 /** A snapshot that cannot be read is dropped; the session keeps its other figures. */
 const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing): Promise<SnapshotRecord | null> => {
   if (!Object.hasOwn(listing, path)) return null
-  const snapshot = await fs.readText(path).then(parseJson, () => undefined)
-  return isSnapshotShape(snapshot) ? (snapshot as SnapshotRecord) : null
+  const snapshot = await fs.readText(path).then(tryParseJson, () => undefined)
+  return isSnapshotShape(snapshot) ? snapshot : null
 }
 
 const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | undefined, modifiedSince: number | undefined): string[] => {
@@ -54,9 +51,14 @@ const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | und
   return [...new Set(ids)].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 }
 
-export async function loadHistory({ fs }: HistoryDeps, options: LoadHistoryOptions): Promise<SessionFigures[]> {
+export async function loadHistory({ fs, eventsCache }: HistoryDeps, options: LoadHistoryOptions): Promise<SessionFigures[]> {
   const { pendingEvents = {}, liveAgents = {} } = options
   const listing = await listSources(fs)
+  // Only the live session is re-read on every refresh; other sessions (after /clear or resume) must not stay cached.
+  const cache = options.sessionIds ? eventsCache : undefined
+  if (eventsCache && options.sessionIds) {
+    for (const cachedId of eventsCache.keys()) if (!options.sessionIds.includes(cachedId)) eventsCache.delete(cachedId)
+  }
 
   const loadSession = async (sessionId: string): Promise<SessionFigures | null> => {
     try {
@@ -78,9 +80,15 @@ export async function loadHistory({ fs }: HistoryDeps, options: LoadHistoryOptio
 
     let events: EventRecord[] = []
     if (stat) {
-      const read = await readLines(fs, eventsPath, stat.size)
-      if (!read.ok) return null
-      events = parseJsonl(read.lines)
+      const hit = cache?.get(sessionId)
+      if (hit && hit.size === stat.size && hit.mtimeMs === stat.mtimeMs) {
+        events = [...hit.events]
+      } else {
+        const read = await readLines(fs, eventsPath, stat.size)
+        if (!read.ok) return null
+        events = parseJsonl(read.lines)
+        cache?.set(sessionId, { size: stat.size, mtimeMs: stat.mtimeMs, events: [...events] })
+      }
     }
 
     const agentIds = new Set([...events, ...(pending ?? [])].flatMap((event) => (event.type === 'agent.spawn' && event.agentId !== null ? [event.agentId] : [])))

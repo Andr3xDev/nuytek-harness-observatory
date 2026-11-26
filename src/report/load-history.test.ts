@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { EventRecord } from '../core/figures'
 import { createFakeFs, jsonl, type FakeFiles } from '../store/read/test-fs'
 import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, usage, verdict } from './analysis/test-fixtures'
-import { loadHistory } from './load-history'
+import { loadHistory, type EventsCache } from './load-history'
 
 const FRESH_MTIME_MS = NOW - 60_000
 const STALE_MTIME_MS = NOW - 7 * HOUR_MS
@@ -57,9 +57,41 @@ describe('loadHistory live sessions', () => {
       'snapshots/a1.json': { content: JSON.stringify(snapshot('a1', { usage: [usage(10, 0, 0, 0)], costUsd: 0.5 })) },
     }
 
-    const history = await load(files, { liveAgents: { s1: [{ agentId: 'a1', usage: [usage(40, 0, 0, 0)], costUsd: 0.75 }] } }).result
+    const history = await load(files, { liveAgents: { s1: [{ agentId: 'a1', usage: [usage(40, 0, 0, 0)], costUsd: 0.75, hasUnknownPrice: false }] } }).result
 
     expect(history[0]?.total).toMatchObject({ tokens: 40, costUsd: 0.75 })
+  })
+})
+
+describe('loadHistory events cache', () => {
+  const eventReads = (fake: ReturnType<typeof createFakeFs>) => fake.calls.read.filter((call) => call.path === 'events/s1.jsonl').length
+
+  test('an unchanged live events file is not read again, a changed one is', async () => {
+    const eventsCache: EventsCache = new Map()
+    const files = closedSession('s1')
+    const fake = createFakeFs(files)
+
+    const first = await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s1'] })
+    const second = await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s1'] })
+    expect(eventReads(fake)).toBe(1)
+    expect(second).toEqual(first)
+
+    files['events/s1.jsonl'] = { content: jsonl([...closedEvents('s1'), verdict('t1', 'allow', { sessionId: 's1', mcpServer: 'srv' })]), mtimeMs: STALE_MTIME_MS }
+    const third = await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s1'] })
+    expect(eventReads(fake)).toBe(2)
+    expect(third[0]?.tools.mcp.srv).toBeDefined()
+  })
+
+  test('another session id evicts the cached one, and a load without sessionIds bypasses the cache', async () => {
+    const eventsCache: EventsCache = new Map()
+    const fake = createFakeFs({ ...closedSession('s1'), ...closedSession('s2') })
+
+    await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s1'] })
+    await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s2'] })
+    expect([...eventsCache.keys()]).toEqual(['s2'])
+
+    await loadHistory({ fs: fake.fs, eventsCache }, {})
+    expect([...eventsCache.keys()]).toEqual(['s2'])
   })
 })
 

@@ -1,4 +1,5 @@
 import type { SourceListing } from '../../core/figures'
+import { tryParseJson } from '../../core/guards'
 import { EVENTS_DIR, EVENTS_EXTENSION, SNAPSHOTS_DIR, SNAPSHOT_EXTENSION } from '../layout'
 
 export const READ_CHUNK_BYTES = 4 * 1024 * 1024
@@ -27,13 +28,11 @@ export async function listSources(fs: ReaderFs): Promise<SourceListing> {
   return listing
 }
 
-const isValidJson = (text: string): boolean => {
-  try {
-    JSON.parse(text)
-    return true
-  } catch {
-    return false
-  }
+const decodeBase64 = (base64: string): Uint8Array => {
+  const raw = atob(base64)
+  const bytes = new Uint8Array(raw.length)
+  for (let index = 0; index < raw.length; index++) bytes[index] = raw.charCodeAt(index)
+  return bytes
 }
 
 const concat = (head: Uint8Array, tail: Uint8Array): Uint8Array => {
@@ -50,7 +49,7 @@ export async function readLines(fs: ReaderFs, path: string, size: number, chunkB
   try {
     for (let offset = 0; offset < size; offset += chunkBytes) {
       const { base64 } = await fs.read(path, { as: 'bytes', offset, length: chunkBytes })
-      const bytes = concat(carry, Uint8Array.from(atob(base64), (char) => char.charCodeAt(0)))
+      const bytes = concat(carry, decodeBase64(base64))
       let lineStart = 0
       for (let index = bytes.indexOf(NEWLINE); index !== -1; index = bytes.indexOf(NEWLINE, lineStart)) {
         lines.push(decoder.decode(bytes.subarray(lineStart, index)))
@@ -62,6 +61,6 @@ export async function readLines(fs: ReaderFs, path: string, size: number, chunkB
     return { ok: false }
   }
   const last = decoder.decode(carry)
-  if (last.trim() !== '' && isValidJson(last)) lines.push(last)
+  if (last.trim() !== '' && tryParseJson(last) !== undefined) lines.push(last)
   return { ok: true, lines: lines.filter((line) => line.trim() !== '') }
 }

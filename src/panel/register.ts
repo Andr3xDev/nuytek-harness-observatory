@@ -1,7 +1,7 @@
 import { atom, update } from 'claude-code'
 import type { On } from 'claude-code'
 import type { Capture } from '../capture/register'
-import { loadHistory } from '../report/load-history'
+import { loadHistory, type EventsCache } from '../report/load-history'
 import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { listStoredSnapshots } from '../store/read/snapshot-store'
 import type { HistoryAtom, SessionAtom } from '../../types'
@@ -69,11 +69,12 @@ export const createPanel = (capture: Capture) => {
     if (state.refresher) return
     state.open = open
     const fs = historyFsOf(home, { list: host.list, read: host.read, readText: host.readText })
+    const eventsCache: EventsCache = new Map()
     state.refresher = createRefresher({
       sources: createSources(
         createLiveLoaders({
           now: () => Date.now(),
-          loadSessions: (options) => loadHistory({ fs }, options),
+          loadSessions: (options) => loadHistory({ fs, eventsCache }, options),
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
           readMainAgent: async () => (await host.agentType()) ?? null,
