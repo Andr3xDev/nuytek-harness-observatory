@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { ROLLUP_VERSION } from '../aggregates/rollup'
 import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn } from '../aggregates/test-fixtures'
 import type { SessionRollup } from '../aggregates/types'
-import { loadHistory } from './load-history'
+import { READ_CONCURRENCY, loadHistory } from './load-history'
 import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from './test-fs'
 
 const closedSession = (id: string): FakeFiles => ({
@@ -29,12 +29,19 @@ describe('loadHistory rollup write path', () => {
     expect(result.sessions).toEqual([rollup.figures])
   })
 
-  test('writes only under rollup/ and sequentially', async () => {
+  test('writes only under rollup/ and concurrently within the read limit', async () => {
     const { recorder, history } = run({ ...closedSession('s1'), ...closedSession('s2'), ...closedSession('s3') })
     await history
 
-    expect(recorder.writes.map((write) => write.path)).toEqual(['rollup/s1.json', 'rollup/s2.json', 'rollup/s3.json'])
-    expect(recorder.maxInFlight()).toBe(1)
+    expect(recorder.writes.map((write) => write.path).sort()).toEqual(['rollup/s1.json', 'rollup/s2.json', 'rollup/s3.json'])
+    expect(recorder.maxInFlight()).toBeGreaterThan(1)
+    expect(recorder.maxInFlight()).toBeLessThanOrEqual(READ_CONCURRENCY)
+  })
+
+  test('counts every failed write when several sessions are written at once', async () => {
+    const result = await run({ ...closedSession('s1'), ...closedSession('s2') }, 'false').history
+
+    expect(result.rollupWriteFailures).toBe(2)
   })
 
   test('an invalid session id still yields figures but is never written', async () => {

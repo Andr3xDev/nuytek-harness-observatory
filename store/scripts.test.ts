@@ -39,7 +39,7 @@ describe('script constants', () => {
   })
 
   test('UPSERT writes a temp file then renames it over $1', () => {
-    expect(UPSERT_SCRIPT).toContain('cat > "$1.tmp" && mv -f "$1.tmp" "$1"')
+    expect(UPSERT_SCRIPT).toContain('cat > "$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"')
   })
 
   test('MAINTAIN limits find to the four known entries and regular files', () => {

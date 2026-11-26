@@ -7,7 +7,7 @@ export const INIT_SCRIPT = 'umask 077; [ -n "$HOME" ] || exit 1; mkdir -p -- "$H
 
 export const APPEND_SCRIPT = `${SAFE_PREFIX}; case "$1" in */*) mkdir -p -- "\${1%/*}";; esac; cat >> "$1"`
 
-export const UPSERT_SCRIPT = `${SAFE_PREFIX}; case "$1" in */*) mkdir -p -- "\${1%/*}";; esac; cat > "$1.tmp" && mv -f "$1.tmp" "$1"`
+export const UPSERT_SCRIPT = `${SAFE_PREFIX}; case "$1" in */*) mkdir -p -- "\${1%/*}";; esac; cat > "$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"`
 
 export const MAINTAIN_SCRIPT =
   `${SAFE_PREFIX}; chmod -R go-rwx . ; ` +

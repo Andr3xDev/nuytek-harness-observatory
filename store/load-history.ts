@@ -117,13 +117,12 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
   const loaded = await mapWithLimit(sessionIdsOf(listing, options.sessionIds), READ_CONCURRENCY, loadSession)
   const present = loaded.flatMap((entry) => (entry ? [entry] : []))
 
-  let rollupWriteFailures = 0
-  for (const { sessionId, figures, cacheable } of present) {
-    if (!cacheable) continue
-    const rollup = buildRollup(figures, listing, now)
-    const written = await writer.upsert(`rollup/${sessionId}.json`, JSON.stringify(rollup)).catch(() => false)
-    if (!written) rollupWriteFailures += 1
-  }
+  const writes = await mapWithLimit(
+    present.filter(({ cacheable }) => cacheable),
+    READ_CONCURRENCY,
+    ({ sessionId, figures }) => writer.upsert(`rollup/${sessionId}.json`, JSON.stringify(buildRollup(figures, listing, now))).catch(() => false),
+  )
+  const rollupWriteFailures = writes.filter((written) => !written).length
 
   return { sessions: present.map((entry) => entry.figures), warnings, rollupWriteFailures }
 }
