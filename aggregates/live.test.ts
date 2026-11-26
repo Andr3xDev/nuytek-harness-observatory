@@ -25,6 +25,13 @@ describe('mergeLiveEvents', () => {
     expect(merged).toEqual([stored, fresh])
   })
 
+  test('drops a duplicate id inside the stored events, keeping the first', () => {
+    const first = turn(null, { id: 'dup', ts: 1 })
+    const retried = { ...first, ts: 2 }
+
+    expect(mergeLiveEvents([first, retried], [])).toEqual([first])
+  })
+
   test('returns the stored events when nothing is pending', () => {
     const stored = [sessionStart(), turn(null)]
 
@@ -33,6 +40,15 @@ describe('mergeLiveEvents', () => {
 })
 
 describe('summarizeSession live merge', () => {
+  test('counts a turn.complete duplicated in the stored events once', () => {
+    const once = turn(null, { id: 'dup', usage: usage(7, 0, 0, 0), costUsd: 0.5 })
+
+    const figures = summarizeSession({ events: [sessionStart(), once, { ...once }], snapshots: [] }, CTX)
+
+    expect(figures.main.input).toBe(7)
+    expect(figures.main.costUsd).toBe(0.5)
+  })
+
   test('includes an unflushed deny verdict in the denies figure', () => {
     const figures = summarizeSession({ events: [sessionStart()], snapshots: [], pendingEvents: [verdict('t1', 'deny')] }, CTX)
 

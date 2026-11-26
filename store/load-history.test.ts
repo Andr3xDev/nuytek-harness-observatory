@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { buildRollup } from '../aggregates/rollup'
 import { summarizeSession } from '../aggregates/session'
-import { CTX, HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, usage, verdict } from '../aggregates/test-fixtures'
+import { CTX, HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, turn, usage, verdict } from '../aggregates/test-fixtures'
 import type { EventRecord } from '../aggregates/types'
 import { loadHistory } from './load-history'
 import { createFakeFs, createRecordingWriter, jsonl, type FakeFiles } from './test-fs'
@@ -39,6 +39,15 @@ describe('loadHistory rollups', () => {
     expect(fake.readPaths()).not.toContain('events/s1.jsonl')
     expect(recorder.writes).toEqual([])
     expect(history.sessions).toEqual([figures])
+  })
+
+  test('counts a line duplicated in the events file once', async () => {
+    const dup = turn(null, { sessionId: 's1', id: 'dup', usage: usage(7, 0, 0, 0), costUsd: 0.5 })
+    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart(), dup, dup, sessionEnd()]), mtimeMs: STALE_MTIME_MS } }
+
+    const history = await load(files).result
+
+    expect(history.sessions[0]?.main.input).toBe(7)
   })
 
   test('ignores an orphan rollup whose events file is gone', async () => {
