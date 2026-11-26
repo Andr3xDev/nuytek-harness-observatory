@@ -1,6 +1,6 @@
 # nuytek-harness-observatory
 
-Claude Code plugin that records session, agent, tool-verdict and cost telemetry to local files under `~/.claude/observability/` and shows it in a live panel. It runs as hooks only: no model calls, no tool-call interception, no network, zero model tokens.
+Claude Code plugin that records session, agent, tool-verdict and cost telemetry to local files under `~/.claude/observability/` and shows it in a live panel. It runs as hooks only: no model calls, no tool-call interception, no network.
 
 Read [Privacy](#privacy) before installing: prompts and Bash commands are stored unredacted.
 
@@ -46,7 +46,9 @@ Tabs 1 to 3 always show the current session; the History tab shows the sessions 
 
 Token columns are split into `In`, `Out` and `Total`; input includes the cached prompt tokens, so `In + Out = Total`. Narrow bands keep only `Total`. The Session tab totals line reads `Tokens: in 5.0k │ out 1.2k │ total 6.2k │ Cost (est.): $0.50`.
 
-The Agents tab is one table: the main loop first (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. There is no per-agent list. The main row's model is the session's model (`$.session.model()`); a model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's), else the one its last request carried (agents that inherit the session's effort); `-` when neither exists. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: no captured main-loop record carries it.
+The Agents tab is one table: the main loop first (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. There is no per-agent list on this tab; the Session tab shows the agent tree. The main row's model is the session's model (`$.session.model()`); a model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's), else the one its last request carried (agents that inherit the session's effort); `-` when neither exists. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: no captured main-loop record carries it.
+
+Tools lists skills, MCP tools and commands used in the session.
 
 The History tab adds, after the totals, the same grouped agent totals across the window's sessions plus a "Recent runs" list of the last 20 agent runs (newest first) with start time (UTC), agent, model and effort, tokens and cost.
 

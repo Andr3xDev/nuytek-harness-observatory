@@ -1,7 +1,7 @@
 {
   "name": "nuytek-harness-observatory",
   "version": "0.1.0",
-  "description": "Captures Claude Code session, agent and cost telemetry into local files under ~/.claude/observability/.",
+  "description": "Captures Claude Code session, agent and cost telemetry into local files under ~/.claude/observability/ and shows it in a live /obs panel.",
   "author": { "name": "Andr3xDev" },
   "license": "GPL-3.0-or-later",
   "types": "./types/index.d.ts",
