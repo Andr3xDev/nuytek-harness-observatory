@@ -10,8 +10,6 @@ import {
   type AgentSpawnEvent,
   type CommandRunEvent,
   type Envelope,
-  type PermissionOutcome,
-  type PermissionOutcomeEvent,
   type PromptRecord,
   type ReconciliationEvent,
   type SessionCompactEvent,
@@ -208,13 +206,3 @@ export const buildReconciliationRecord = (
   result: Omit<ReconciliationEvent, keyof Envelope<'reconciliation'>>,
   ctx: EnvelopeContext,
 ): ReconciliationEvent => ({ ...createEnvelope('reconciliation', ctx, null), ...result })
-
-export const buildPermissionOutcome = (
-  input: { toolName: string; outcome: PermissionOutcome; toolUseId: string | null; agentId: string | null },
-  ctx: EnvelopeContext,
-): PermissionOutcomeEvent => ({
-  ...createEnvelope('permission.outcome', ctx, input.agentId),
-  toolName: input.toolName,
-  outcome: input.outcome,
-  toolUseId: input.toolUseId,
-})

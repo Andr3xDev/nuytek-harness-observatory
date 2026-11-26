@@ -48,12 +48,7 @@ export type Capture = ReturnType<typeof createPluginCapture>
  * sets the panel up (an event can be registered once). `onObserved` lets the panel refresh after each
  * event; it runs after capture records, so the new event is pending.
  */
-export const registerCapture = (
-  on: On,
-  capture: Capture,
-  classicPermissionHooks: boolean,
-  onObserved: (type: string) => void,
-): void => {
+export const registerCapture = (on: On, capture: Capture, onObserved: (type: string) => void): void => {
   const observed = async <T>(type: string, handled: Promise<T>): Promise<T> => {
     const result = await handled
     onObserved(type)
@@ -222,79 +217,4 @@ export const registerCapture = (
       ),
     ),
   )
-
-  if (classicPermissionHooks) {
-    on('classic.PermissionRequest', ($, e, next) =>
-      observed(
-        'permission.outcome',
-        capture.permissionOutcome('prompted')(
-          {
-            sessionId: () => $.session.id(),
-            model: () => $.session.model(),
-            usage: () => $.session.usage(),
-            agents: () => $.agent.list(),
-            run: (argv, init) => $.process.run(argv, init),
-            every: (ms, fn) => $.clock.every(ms, fn),
-            detect: (path) => $.vcs.detect({ path }),
-          },
-          e,
-          next,
-        ),
-      ),
-    )
-    on('classic.PermissionDenied', ($, e, next) =>
-      observed(
-        'permission.outcome',
-        capture.permissionOutcome('denied')(
-          {
-            sessionId: () => $.session.id(),
-            model: () => $.session.model(),
-            usage: () => $.session.usage(),
-            agents: () => $.agent.list(),
-            run: (argv, init) => $.process.run(argv, init),
-            every: (ms, fn) => $.clock.every(ms, fn),
-            detect: (path) => $.vcs.detect({ path }),
-          },
-          e,
-          next,
-        ),
-      ),
-    )
-    on('classic.PostToolUse', ($, e, next) =>
-      observed(
-        'permission.outcome',
-        capture.permissionOutcome('completed')(
-          {
-            sessionId: () => $.session.id(),
-            model: () => $.session.model(),
-            usage: () => $.session.usage(),
-            agents: () => $.agent.list(),
-            run: (argv, init) => $.process.run(argv, init),
-            every: (ms, fn) => $.clock.every(ms, fn),
-            detect: (path) => $.vcs.detect({ path }),
-          },
-          e,
-          next,
-        ),
-      ),
-    )
-    on('classic.PostToolUseFailure', ($, e, next) =>
-      observed(
-        'permission.outcome',
-        capture.permissionOutcome('failed')(
-          {
-            sessionId: () => $.session.id(),
-            model: () => $.session.model(),
-            usage: () => $.session.usage(),
-            agents: () => $.agent.list(),
-            run: (argv, init) => $.process.run(argv, init),
-            every: (ms, fn) => $.clock.every(ms, fn),
-            detect: (path) => $.vcs.detect({ path }),
-          },
-          e,
-          next,
-        ),
-      ),
-    )
-  }
 }

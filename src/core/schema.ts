@@ -41,14 +41,6 @@ export type ToolVerdictEvent = Envelope<'tool.verdict'> & {
   mcpServer?: string
 }
 
-export type PermissionOutcome = 'prompted' | 'denied' | 'completed' | 'failed'
-
-export type PermissionOutcomeEvent = Envelope<'permission.outcome'> & {
-  toolName: string
-  outcome: PermissionOutcome
-  toolUseId: string | null
-}
-
 export type AgentSpawnEvent = Envelope<'agent.spawn'> & {
   parentAgentId: string | null
   subagentType: string
@@ -123,7 +115,6 @@ export type ReconciliationEvent = Envelope<'reconciliation'> & {
 
 export type ObsEvent =
   | ToolVerdictEvent
-  | PermissionOutcomeEvent
   | AgentSpawnEvent
   | AgentReportEvent
   | TurnCompleteEvent

@@ -15,7 +15,6 @@ const runSession = async (options: PluginOptions) => {
   registerHooks(
     ((name: string, matcherOrHook: Hook | object, hook?: Hook) => hooks.set(hook ? `${name}:matched` : name, hook ?? (matcherOrHook as Hook))) as unknown as On,
     options,
-    false,
   )
 
   const world = { usd: 0, agents: [] as unknown[] }

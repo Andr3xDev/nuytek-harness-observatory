@@ -17,12 +17,6 @@ const CAPTURE_EVENTS = [
 ]
 const OBS_HOOK = 'command.run:{"command":"obs"}'
 const PANEL_HOOKS = ['ui.render:{"component":"AbovePrompt"}']
-const CLASSIC_EVENTS = [
-  'classic.PermissionDenied',
-  'classic.PermissionRequest',
-  'classic.PostToolUse',
-  'classic.PostToolUseFailure',
-]
 
 type Hook = (host: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) => Promise<unknown>
 
@@ -36,19 +30,15 @@ const recordingOn = () => {
   return { on, hooks }
 }
 
-const registered = (options: PluginOptions, classic: boolean): string[] => {
+const registered = (options: PluginOptions): string[] => {
   const { on, hooks } = recordingOn()
-  registerHooks(on, options, classic)
+  registerHooks(on, options)
   return [...hooks.keys()].sort()
 }
 
 describe('registration set', () => {
-  test('classic flag off registers exactly the ten capture events, the obs command hook and the panel hooks', () => {
-    expect(registered({}, false)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS].sort())
-  })
-
-  test('classic flag on adds only the four classic permission hooks', () => {
-    expect(registered({}, true)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
+  test('registers exactly the ten capture events, the obs command hook and the panel hooks', () => {
+    expect(registered({})).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS].sort())
   })
 })
 
@@ -59,7 +49,7 @@ describe('registration order', () => {
       order.push(hook ? { name, matcher: matcherOrHook as object } : { name })
       return { cancel: () => {} }
     }) as unknown as On
-    registerHooks(on, {}, false)
+    registerHooks(on, {})
 
     const captureRun = order.findIndex((entry) => entry.name === 'command.run' && entry.matcher === undefined)
     const obsRun = order.findIndex((entry) => entry.name === 'command.run' && JSON.stringify(entry.matcher) === '{"command":"obs"}')
@@ -80,7 +70,7 @@ describe('obs command hook', () => {
 
   const setup = (options: PluginOptions = {}) => {
     const { on, hooks } = recordingOn()
-    registerHooks(on, options, false)
+    registerHooks(on, options)
     const appended: string[] = []
     const relative = (path: string) => path.slice(STORE.length + 1)
     const host = {
@@ -173,7 +163,7 @@ describe('live panel wiring', () => {
 
   const setup = (stored: { panelOpen?: boolean } = {}) => {
     const { on, hooks } = recordingOn()
-    registerHooks(on, {}, false)
+    registerHooks(on, {})
     const timers: Array<{ ms: number; fn: () => void; cancelled: boolean }> = []
     const writes: Array<{ ref: unknown; value: unknown }> = []
     const calls = { agentList: 0 }

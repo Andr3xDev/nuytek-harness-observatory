@@ -1,7 +1,7 @@
 import { FLUSH_INTERVAL_MS } from '../core/constants'
 import { isoDay } from '../core/format'
 import { isRecord } from '../core/guards'
-import type { ObsEvent, PermissionOutcome, SkillUseKind } from '../core/schema'
+import type { ObsEvent, SkillUseKind } from '../core/schema'
 import { mapUsage, type HostUsage } from '../core/usage'
 import { eventsFileOf, mainSnapshotFileOf } from '../store/layout'
 import type { StoredSnapshot } from '../store/read/snapshot-store'
@@ -13,7 +13,6 @@ import { reconcile } from './cost/reconciliation'
 import { parseSkillNameFromPath } from './events/parsers/skill-path'
 import {
   buildCommandRun,
-  buildPermissionOutcome,
   buildReconciliationRecord,
   buildReportRecord,
   buildSessionCompact,
@@ -98,7 +97,6 @@ type CaptureSession = { id: string; tracker: SnapshotTracker; cwd: string }
 
 type ToolCheckInput = { tool: string; input: unknown; tool_use_id?: string; agentId?: string }
 type TurnInput = { durationMs: number; agentId?: string; usage?: HostUsage }
-type PermissionInput = { tool_name: string; tool_use_id?: string; agent_id?: string }
 
 // The snapshot schema needs a number per agent, so an agent without `cost` still counts as 0 here.
 const toReading = (sample: Sample): Reading | null =>
@@ -357,20 +355,5 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const skillUse = skillUseOf(e.tool, e.input)
         if (skillUse) rt.batcher.pushEvent(buildSkillUse({ ...skillUse, agentId: e.agentId ?? null }, ctx))
       }),
-
-    /** Classic permission hook body; registered only behind `CLASSIC_PERMISSION_HOOKS_ENABLED`. */
-    permissionOutcome:
-      (outcome: PermissionOutcome) =>
-      <E extends PermissionInput, R>(host: H, e: E, next: Next<E, R>) =>
-        observe(e, next, async () => {
-          const rt = runtimeOf(host)
-          const ctx = contextOf(await sessionOf(host), rt)
-          rt.batcher.pushEvent(
-            buildPermissionOutcome(
-              { toolName: e.tool_name, outcome, toolUseId: e.tool_use_id ?? null, agentId: e.agent_id ?? null },
-              ctx,
-            ),
-          )
-        }),
   }
 }
