@@ -98,7 +98,7 @@ type CaptureSession = { id: string; tracker: SnapshotTracker; cwd: string }
 
 type ToolCheckInput = { tool: string; input: unknown; tool_use_id?: string; agentId?: string }
 
-// The snapshot schema needs a number per agent, so an agent without `cost` still counts as 0 here.
+// The cost reading holds one number per agent, so an agent without `cost` counts as 0 here.
 const toReading = (sample: Sample): Reading | null =>
   sample.sessionCostKnown
     ? {
@@ -188,7 +188,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
     for (const write of writes) rt.batcher.setSnapshot(write.file, write.snapshot)
   }
 
-  /** Host result first and unchanged; capture failures never reach the caller. */
+  /** Fail-open: the host result is returned unchanged once recording settles, and a recording failure never reaches the caller. */
   const observe = async <E, R>(e: E, next: Next<E, R>, record: (result: R) => Promise<void> | void): Promise<R> => {
     const result = await next(e)
     try {
@@ -306,8 +306,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           return
         }
 
-        await rt.branch.refresh(state.cwd)
-        const sample = await takeSample(host)
+        const [, sample] = await Promise.all([rt.branch.refresh(state.cwd), takeSample(host)])
         const reading = sample ? toReading(sample) : null
         const costUsd = computeTurnCost(baseline, reading, lastKnownAgentUsd)
         // A failed sample keeps the previous baseline, so the next good turn still pays the cost this one missed.
