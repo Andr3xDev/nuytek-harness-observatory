@@ -323,7 +323,7 @@ describe('live panel wiring', () => {
     expect(writtenValues(writes, 'session').some((value) => value !== null)).toBe(true)
   })
 
-  test('toggling /obs closed stops the 5 s timer and later time reloads nothing', async () => {
+  test('toggling /obs closed stops the 3 s timer and later time reloads nothing', async () => {
     const { hooks, host, calls, settle, openTimer } = setup()
     await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
     await settle()

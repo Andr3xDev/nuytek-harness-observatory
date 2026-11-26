@@ -1,5 +1,5 @@
 import type { HistoryAtom, SessionAtom } from '../../types'
-import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
+import { HISTORY_MAX_AGE_MS, LIVE_COALESCE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 import type { Sources } from './sources'
 
 type Cancel = () => void
@@ -28,6 +28,8 @@ export function createRefresher(deps: RefresherDeps) {
   let lastStartedAt: number | null = null
   let cancelTrailing: Cancel | null = null
   let cancelTimer: Cancel | null = null
+  let cancelLiveWindow: Cancel | null = null
+  let livePending = false
 
   async function reload(): Promise<void> {
     inFlight = true
@@ -91,10 +93,22 @@ export function createRefresher(deps: RefresherDeps) {
     deps.session.set({ ...previous, sessionFigures: live.sessionFigures, aggregate: live.aggregate })
   }
 
-  function requestRefresh(type: string): void {
-    if (!deps.isOpen()) return
+  // The first event of a burst recomputes at once; the rest of the window collapses into one trailing run.
+  function runLive(): void {
     // Rejections stay contained: callers fire this without awaiting.
     void applyLive().catch(() => undefined)
+    cancelLiveWindow = deps.after(LIVE_COALESCE_MS, () => {
+      cancelLiveWindow = null
+      if (!livePending) return
+      livePending = false
+      if (deps.isOpen()) runLive()
+    })
+  }
+
+  function requestRefresh(type: string): void {
+    if (!deps.isOpen()) return
+    if (cancelLiveWindow) livePending = true
+    else runLive()
     if (STORE_READ_EVENTS.has(type)) schedule()
   }
 

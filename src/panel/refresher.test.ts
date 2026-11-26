@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { HistoryAtom, SessionAtom } from '../../types'
 import { createRefresher, type RefresherDeps } from './refresher'
 import type { HistoryLoad, LiveOverlay, Loaded, SessionLoad, Sources } from './sources'
-import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
+import { HISTORY_MAX_AGE_MS, LIVE_COALESCE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 
 type Timer = { at: number; period?: number; fn: () => void; cancelled: boolean }
 
@@ -24,6 +24,7 @@ function setup(overrides: { open?: boolean } = {}) {
     }),
     historyResult: (): Loaded<HistoryLoad> => ({ status: 'ready', aggregate: { h: state.historyCalls } }),
     live: null as LiveOverlay | null,
+    liveReads: 0,
     gate: null as Promise<void> | null,
     sessionIdError: null as Error | null,
   }
@@ -37,7 +38,10 @@ function setup(overrides: { open?: boolean } = {}) {
       state.historyCalls++
       return state.historyResult()
     },
-    liveSession: () => state.live,
+    liveSession: () => {
+      state.liveReads++
+      return state.live
+    },
   }
   const add = (ms: number, fn: () => void, period?: number) => {
     const timer: Timer = { at: time + ms, period, fn, cancelled: false }
@@ -104,16 +108,45 @@ describe('refresher', () => {
   })
 
   test('tool.check updates the figures from memory with no store read', async () => {
-    const { refresher, state, settle } = setup()
+    const { refresher, state, advance, settle } = setup()
     refresher.requestRefresh('session.measure')
     await settle()
     expect(state.sessionCalls).toBe(1)
+    await advance(LIVE_COALESCE_MS)
     state.live = { sessionFigures: { live: true } as unknown as LiveOverlay['sessionFigures'], aggregate: { live: true } }
     refresher.requestRefresh('tool.check')
     await settle()
     expect(state.sessionCalls).toBe(1)
     expect(state.session?.sessionFigures).toEqual({ live: true })
     expect(state.session?.aggregate).toEqual({ live: true })
+  })
+
+  test('a burst of captured events recomputes once at once and once more after the window', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    state.live = { sessionFigures: {} as LiveOverlay['sessionFigures'], aggregate: {} }
+    await advance(LIVE_COALESCE_MS)
+    state.liveReads = 0
+    for (let i = 0; i < 10; i++) refresher.requestRefresh('tool.check')
+    await settle()
+    expect(state.liveReads).toBe(1)
+    await advance(LIVE_COALESCE_MS)
+    expect(state.liveReads).toBe(2)
+    await advance(LIVE_COALESCE_MS * 4)
+    expect(state.liveReads).toBe(2)
+  })
+
+  test('a single captured event leaves no trailing recompute', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    state.live = { sessionFigures: {} as LiveOverlay['sessionFigures'], aggregate: {} }
+    await advance(LIVE_COALESCE_MS)
+    state.liveReads = 0
+    refresher.requestRefresh('tool.check')
+    await advance(LIVE_COALESCE_MS * 4)
+    expect(state.liveReads).toBe(1)
   })
 
   test('an unseeded overlay falls back to a store read once a session is shown', async () => {
