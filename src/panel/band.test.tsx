@@ -27,7 +27,7 @@ test('open: a round box with the title, tab row, scope toggle and the active tab
   expect(await ui.find({ type: 'Text', text: '◆ obs' })).toBeDefined()
   expect((await ui.find({ key: 'tab:1' }))?.text).toBe('Session')
   expect((await ui.find({ key: 'tab:4' }))?.text).toBe('History')
-  expect((await ui.find({ key: 'scope' }))?.text).toBe('[Session ⇄ History]')
+  expect((await ui.find({ key: 'scope' }))?.text).toBe('[Session  ⇄  History]')
   expect(await ui.find({ type: 'Text', text: /Agent tree/ })).toBeDefined()
   await ui.unmount()
 })

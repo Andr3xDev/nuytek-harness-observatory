@@ -87,7 +87,7 @@ export function registerBand(on: On, deps: BandDeps) {
           </Box>
           {tab !== HISTORY_TAB && (
             <Button key="scope" plain onPress={toggleScope}>
-              [<Text bold={scope === 'session'} color={scope === 'session' ? PALETTE.brand : undefined} dimColor={scope !== 'session'}>Session</Text> ⇄{' '}
+              [<Text bold={scope === 'session'} color={scope === 'session' ? PALETTE.brand : undefined} dimColor={scope !== 'session'}>Session</Text>{'  ⇄  '}
               <Text bold={scope === 'history'} color={scope === 'history' ? PALETTE.brand : undefined} dimColor={scope !== 'history'}>History</Text>]
             </Button>
           )}
