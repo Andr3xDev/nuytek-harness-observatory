@@ -7,6 +7,7 @@ import type { Writer } from '../store/write/writer'
 import { parseJsonl } from './analysis/parse'
 import { buildRollup, isRollupFresh } from './analysis/rollup'
 import { summarizeSession } from './analysis/session'
+import type { SessionInput } from './analysis/types'
 
 export const READ_CONCURRENCY = 8
 
@@ -17,6 +18,8 @@ export type LoadHistoryOptions = {
   sessionIds?: readonly string[]
   pendingEvents?: Readonly<Record<string, readonly EventRecord[]>>
   liveAgents?: Readonly<Record<string, readonly LiveAgent[]>>
+  /** Sees the exact input a session was summarized from; the live panel keeps it to extend in memory. */
+  onSessionInput?: (sessionId: string, input: SessionInput) => void
 }
 export type HistoryResult = { sessions: SessionFigures[]; warnings: number; rollupWriteFailures: number }
 
@@ -106,7 +109,9 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     const paths = [mainSnapshotPathOf(sessionId), ...[...agentIds].map(agentSnapshotPathOf)]
     const snapshots = (await Promise.all(paths.map((path) => readSnapshot(fs, path, listing)))).flatMap((snapshot) => (snapshot ? [snapshot] : []))
 
-    const figures = summarizeSession({ events, snapshots, pendingEvents: pending, liveAgents: live }, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
+    const input = { events, snapshots, pendingEvents: pending, liveAgents: live }
+    options.onSessionInput?.(sessionId, input)
+    const figures = summarizeSession(input, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
     return {
       sessionId,
       figures: { ...figures, coverage: { ...figures.coverage, skippedNewerSchema } },

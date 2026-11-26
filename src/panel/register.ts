@@ -69,6 +69,7 @@ export const createPanel = (capture: Capture) => {
     state.refresher ??= createRefresher({
       sources: createSources(
         createLiveLoaders({
+          now: () => Date.now(),
           // No writer: the panel never writes the store, rollups stay the report command's cache.
           loadSessions: async (options) => (await loadHistory({ fs }, { now: Date.now(), ...options })).sessions,
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),

@@ -19,8 +19,11 @@ export type RefresherDeps = {
   bumpTick: () => void
 }
 
-// Events that still refresh while the panel is closed, for the always-on band line.
-const CLOSED_PANEL_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report'])
+// Events that read the store (floored to one read per interval), also while the panel is closed for the
+// always-on band line. Any other event only updates the figures in memory.
+const STORE_READ_EVENTS: ReadonlySet<string> = new Set(['session.measure', 'agent.spawn', 'agent.report'])
+// Store reads that are not capture events: the open-panel timer and opening the panel.
+const OPEN_ONLY_READS: ReadonlySet<string> = new Set(['timer', 'obs.open'])
 
 export function createRefresher(deps: RefresherDeps) {
   let inFlight = false
@@ -81,9 +84,21 @@ export function createRefresher(deps: RefresherDeps) {
     })
   }
 
+  /** Recomputes the figures from in-memory events; no store read. An unseeded session waits for a store read. */
+  async function applyLive(): Promise<void> {
+    const live = deps.sources.liveSession(await deps.getSessionId())
+    const previous = deps.session.get()
+    if (!previous) return
+    if (!live) return schedule()
+    deps.session.set({ ...previous, sessionFigures: live.sessionFigures, aggregate: live.aggregate })
+  }
+
   function requestRefresh(type: string): void {
-    if (!deps.isOpen() && !(CLOSED_PANEL_EVENTS.has(type) && deps.isBandEnabled())) return
-    schedule()
+    const open = deps.isOpen()
+    if (!open && !deps.isBandEnabled()) return
+    // Rejections stay contained: callers fire this without awaiting.
+    void applyLive().catch(() => undefined)
+    if (STORE_READ_EVENTS.has(type) || (open && OPEN_ONLY_READS.has(type))) schedule()
   }
 
   function stopTimer(): void {

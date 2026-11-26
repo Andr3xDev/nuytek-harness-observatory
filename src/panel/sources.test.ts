@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
-import type { SessionFigures } from '../core/figures'
+import type { EventRecord, SessionFigures } from '../core/figures'
 import { summarizeSession } from '../report/analysis'
+import { CTX, NOW, sessionStart, spawn, verdict } from '../report/analysis/test-fixtures'
 import { createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
 
 const figures = { agents: [] } as unknown as SessionFigures
@@ -12,6 +13,7 @@ describe('sources failure wrapper', () => {
     const sources = createSources({
       loadSession: async () => ({ sessionFigures: figures, aggregate: { a: 1 }, liveAgentIds: ['x'] }),
       loadHistory: async () => ({ aggregate: { h: 1 } }),
+      liveSession: () => null,
     })
     expect(await sources.loadSessionAggregate('s1')).toEqual({
       status: 'ready',
@@ -28,13 +30,14 @@ describe('sources failure wrapper', () => {
         throw new Error('sync boom')
       },
       loadHistory: () => Promise.reject(new Error('async boom')),
+      liveSession: () => null,
     })
     expect(await sources.loadSessionAggregate('s1')).toEqual({ status: 'unavailable', reason: 'sync boom' })
     expect(await sources.loadHistoryAggregate()).toEqual({ status: 'unavailable', reason: 'async boom' })
   })
 
   test('a non-Error rejection keeps a string reason', async () => {
-    const sources = createSources({ loadSession: () => Promise.reject('plain'), loadHistory: () => Promise.reject(42) })
+    const sources = createSources({ loadSession: () => Promise.reject('plain'), loadHistory: () => Promise.reject(42), liveSession: () => null })
     expect(await sources.loadSessionAggregate('s1')).toEqual({ status: 'unavailable', reason: 'plain' })
     expect(await sources.loadHistoryAggregate()).toEqual({ status: 'unavailable', reason: '42' })
   })
@@ -47,6 +50,7 @@ describe('live loaders', () => {
   const build = (overrides: Partial<LiveLoaderDeps> = {}) => {
     const calls: Parameters<LiveLoaderDeps['loadSessions']>[0][] = []
     const deps: LiveLoaderDeps = {
+      now: () => 1,
       loadSessions: async options => (calls.push(options), [stored]),
       pendingEvents: () => pending,
       listAgents: async () => [{ id: 'a1', usage: [], cost: { usd: 0.5 } }],
@@ -91,5 +95,68 @@ describe('live loaders', () => {
     const usage = [{ input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4, model: 'm' }]
     expect(liveAgentsOf([{ id: 'a', usage }])[0]).toMatchObject({ agentId: 'a', costUsd: null })
     expect(liveAgentsOf([{ id: 'a', usage }])[0]?.usage).toHaveLength(1)
+  })
+})
+
+describe('live session overlay', () => {
+  const start = sessionStart()
+  const first = spawn('a1')
+  const second = spawn('a2')
+  const denied = verdict('t1', 'deny')
+
+  // Seeds the overlay the way the real store loader does: through `onSessionInput`.
+  const seeded = (storedEvents: EventRecord[], pendingNow: () => EventRecord[]) => {
+    return createLiveLoaders({
+      now: () => NOW,
+      loadSessions: async options => {
+        options.onSessionInput?.('s1', { events: storedEvents, snapshots: [], pendingEvents: options.pendingEvents?.s1 })
+        return [summarizeSession({ events: storedEvents, snapshots: [] }, CTX)]
+      },
+      pendingEvents: pendingNow,
+      listAgents: async () => [],
+      readContext: async () => null,
+    })
+  }
+
+  test('is empty until a store read seeds it, and for another session id', async () => {
+    const loaders = seeded([start], () => [])
+    expect(loaders.liveSession('s1')).toBeNull()
+    await loaders.loadSession('s1')
+    expect(loaders.liveSession('s1')).not.toBeNull()
+    expect(loaders.liveSession('s2')).toBeNull()
+  })
+
+  test('counts new pending events without a store read and dedupes ids seen in both', async () => {
+    let pending: EventRecord[] = []
+    const loaders = seeded([start, first], () => pending)
+    await loaders.loadSession('s1')
+    expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(1)
+
+    pending = [first, second, denied]
+    const live = loaders.liveSession('s1')?.sessionFigures
+    expect(live?.agents.map(agent => agent.agentId)).toEqual(['a1', 'a2'])
+    expect(live?.denies).toBe(1)
+  })
+
+  test('keeps events that left the pending list after a flush', async () => {
+    let pending: EventRecord[] = [second]
+    const loaders = seeded([start, first], () => pending)
+    await loaders.loadSession('s1')
+    expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(2)
+
+    pending = []
+    expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(2)
+  })
+
+  test('a new store read resets the accumulated events', async () => {
+    let pending: EventRecord[] = []
+    const loaders = seeded([start], () => pending)
+    await loaders.loadSession('s1')
+    pending = [first]
+    expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(1)
+
+    pending = []
+    await loaders.loadSession('s1')
+    expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(0)
   })
 })

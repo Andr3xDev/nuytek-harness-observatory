@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { HistoryAtom, SessionAtom } from '../../types'
 import { createRefresher, type RefresherDeps } from './refresher'
-import type { HistoryLoad, Loaded, SessionLoad, Sources } from './sources'
+import type { HistoryLoad, LiveOverlay, Loaded, SessionLoad, Sources } from './sources'
 import { HISTORY_MAX_AGE_MS, OPEN_TIMER_MS, REFRESH_MIN_INTERVAL_MS } from './timing'
 
 type Timer = { at: number; period?: number; fn: () => void; cancelled: boolean }
@@ -24,6 +24,7 @@ function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
       liveAgentIds: [],
     }),
     historyResult: (): Loaded<HistoryLoad> => ({ status: 'ready', aggregate: { h: state.historyCalls } }),
+    live: null as LiveOverlay | null,
     gate: null as Promise<void> | null,
     sessionIdError: null as Error | null,
   }
@@ -37,6 +38,7 @@ function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
       state.historyCalls++
       return state.historyResult()
     },
+    liveSession: () => state.live,
   }
   const add = (ms: number, fn: () => void, period?: number) => {
     const timer: Timer = { at: time + ms, period, fn, cancelled: false }
@@ -78,7 +80,7 @@ function setup(overrides: { open?: boolean; bandEnabled?: boolean } = {}) {
 }
 
 describe('refresher', () => {
-  test('timer tick increments tick every 5 s and reloads', async () => {
+  test('timer tick increments tick every 3 s and reloads', async () => {
     const { refresher, state, advance } = setup()
     refresher.startTimer()
     await advance(OPEN_TIMER_MS)
@@ -88,11 +90,11 @@ describe('refresher', () => {
     expect(state.tick).toBe(2)
   })
 
-  test('a burst of tool.check within 3 s starts one reload plus one trailing', async () => {
+  test('a burst of session.measure within 3 s starts one reload plus one trailing', async () => {
     const { refresher, state, advance, settle } = setup()
-    refresher.requestRefresh('tool.check')
-    refresher.requestRefresh('tool.check')
-    refresher.requestRefresh('tool.check')
+    refresher.requestRefresh('session.measure')
+    refresher.requestRefresh('session.measure')
+    refresher.requestRefresh('session.measure')
     await settle()
     expect(state.sessionCalls).toBe(1)
     await advance(REFRESH_MIN_INTERVAL_MS - 1)
@@ -100,6 +102,33 @@ describe('refresher', () => {
     await advance(1)
     expect(state.sessionCalls).toBe(2)
     await advance(REFRESH_MIN_INTERVAL_MS * 3)
+    expect(state.sessionCalls).toBe(2)
+  })
+
+  test('tool.check updates the figures from memory with no store read', async () => {
+    const { refresher, state, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    expect(state.sessionCalls).toBe(1)
+    state.live = { sessionFigures: { live: true } as unknown as LiveOverlay['sessionFigures'], aggregate: { live: true } }
+    refresher.requestRefresh('tool.check')
+    await settle()
+    expect(state.sessionCalls).toBe(1)
+    expect(state.session?.sessionFigures).toEqual({ live: true })
+    expect(state.session?.aggregate).toEqual({ live: true })
+  })
+
+  test('an unseeded overlay falls back to a store read once a session is shown', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('tool.check')
+    await settle()
+    expect(state.sessionCalls).toBe(0)
+    refresher.requestRefresh('session.measure')
+    await settle()
+    state.live = null
+    await advance(REFRESH_MIN_INTERVAL_MS)
+    refresher.requestRefresh('tool.check')
+    await settle()
     expect(state.sessionCalls).toBe(2)
   })
 
