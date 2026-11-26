@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { appendArgv, maintainArgv, upsertArgv } from './scripts'
+import { appendArgv, initArgv, maintainArgv, upsertArgv } from './scripts'
 import { MAINTAIN_TIMEOUT_MS, WRITE_TIMEOUT_MS, createWriter, type ProcessRunner, type RunCall } from './writer'
 
 const OK = { exitCode: 0, stdout: '', stderr: '' }
@@ -21,6 +21,21 @@ describe('writer', () => {
     expect(calls).toEqual([
       { argv: appendArgv('events/s1.jsonl'), stdin: '{"a":1}\n', timeoutMs: WRITE_TIMEOUT_MS },
     ])
+  })
+
+  test('init runs the fixed init argv with no stdin; failure is logged, not thrown', async () => {
+    const { run, calls } = recordingRunner()
+    expect(await createWriter(run).init()).toBe(true)
+    expect(calls).toEqual([{ argv: initArgv(), timeoutMs: WRITE_TIMEOUT_MS }])
+
+    const failing = createWriter(async () => {
+      throw new Error('spawn failed')
+    })
+    expect(await failing.init()).toBe(false)
+    expect(failing.failures).toHaveLength(1)
+    const nonZero = createWriter(recordingRunner({ exitCode: 1, stdout: '', stderr: 'no home' }).run)
+    expect(await nonZero.init()).toBe(false)
+    expect(nonZero.failures).toEqual(['exit 1: no home'])
   })
 
   test('upsert runs the fixed upsert argv with the json on stdin', async () => {

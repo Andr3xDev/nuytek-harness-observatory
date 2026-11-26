@@ -1,5 +1,5 @@
 import { validateAppendPath, validateMaintainArgs, validateUpsertPath } from './paths'
-import { appendArgv, maintainArgv, upsertArgv } from './scripts'
+import { appendArgv, initArgv, maintainArgv, upsertArgv } from './scripts'
 
 export const WRITE_TIMEOUT_MS = 5_000
 export const MAINTAIN_TIMEOUT_MS = 15_000
@@ -9,6 +9,8 @@ export type RunResult = { exitCode: number; stdout: string; stderr: string }
 export type ProcessRunner = (argv: string[], options: Omit<RunCall, 'argv'>) => Promise<RunResult>
 
 export type Writer = {
+  /** Creates the store root so the fail-closed `cd` of the other scripts succeeds on a first run. */
+  init: () => Promise<boolean>
   append: (path: string, text: string) => Promise<boolean>
   upsert: (path: string, text: string) => Promise<boolean>
   maintain: (days: string, eventsFile: string, snapshotFile: string) => Promise<boolean>
@@ -32,6 +34,7 @@ export const createWriter = (run: ProcessRunner): Writer => {
 
   return {
     failures,
+    init: () => execute(initArgv(), { timeoutMs: WRITE_TIMEOUT_MS }),
     append: async (path, text) =>
       validateAppendPath(path).ok ? execute(appendArgv(path), { stdin: text, timeoutMs: WRITE_TIMEOUT_MS }) : false,
     upsert: async (path, text) =>

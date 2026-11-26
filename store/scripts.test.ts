@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'claude-code/testing'
 import {
   APPEND_SCRIPT,
+  INIT_SCRIPT,
   MAINTAIN_SCRIPT,
   UPSERT_SCRIPT,
   appendArgv,
+  initArgv,
   maintainArgv,
   upsertArgv,
 } from './scripts'
@@ -21,6 +23,15 @@ describe('script constants', () => {
       expect(script).toStartWith(SAFE_PREFIX)
     })
   }
+
+  test('INIT guards an empty HOME and creates only the fixed root, with no cd or interpolation', () => {
+    expect(INIT_SCRIPT).toStartWith('umask 077;')
+    expect(INIT_SCRIPT).toContain('[ -n "$HOME" ] || exit 1')
+    expect(INIT_SCRIPT).toEndWith('mkdir -p -- "$HOME/.claude/observability"')
+    expect(INIT_SCRIPT).not.toContain('cd ')
+    expect(INIT_SCRIPT).not.toContain('$1')
+    expect(initArgv()).toEqual(['sh', '-c', INIT_SCRIPT, 'observatory'])
+  })
 
   test('APPEND creates the parent directory then appends stdin to $1', () => {
     expect(APPEND_SCRIPT).toContain('mkdir -p -- "${1%/*}"')

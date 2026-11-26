@@ -22,10 +22,16 @@ const setup = (profile = false) => {
   }
   const batcher = createBatcher(sink, { every: () => () => {} })
   const maintainCalls: string[][] = []
+  const order: string[] = []
   const runtime: Runtime = {
     batcher,
     writer: {
+      init: async () => {
+        order.push('init')
+        return true
+      },
       maintain: async (...args) => {
+        order.push('maintain')
         maintainCalls.push(args)
         return true
       },
@@ -43,7 +49,7 @@ const setup = (profile = false) => {
     await batcher.flush()
     return appended.flatMap((text) => text.split('\n').filter(Boolean).map((line) => JSON.parse(line) as ObsEvent))
   }
-  return { world, host, capture, runtime, events, maintainCalls }
+  return { world, host, capture, runtime, events, maintainCalls, order }
 }
 
 const passThrough = <R>(result: R) => async () => result
@@ -124,6 +130,12 @@ describe('session lifecycle', () => {
     await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
     expect((await events())[0]).toMatchObject({ type: 'session.start', harnessProfile: true, cwd: '/w', branch: 'main' })
     expect(maintainCalls).toEqual([['60', 's1.jsonl', 'main-s1.json']])
+  })
+
+  test('session.start creates the store root before maintenance runs', async () => {
+    const { host, capture, order } = setup(true)
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    expect(order).toEqual(['init', 'maintain'])
   })
 
   test('session.end flushes before returning and carries estimates only with the profile on', async () => {

@@ -59,7 +59,7 @@ export type SnapshotLister = { listSnapshots: () => Promise<StoredSnapshot[]> }
 /** Process-wide collaborators, built once from the first host a hook receives. */
 export type Runtime = {
   batcher: Batcher
-  writer: Pick<Writer, 'maintain'>
+  writer: Pick<Writer, 'init' | 'maintain'>
   branch: BranchProvider
 }
 
@@ -190,6 +190,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         lastCwd = state.cwd
         bashCalls = createBashCallTracker(profile)
         previousModel = NO_MODEL
+        await rt.writer.init()
         await rt.branch.refresh(state.cwd)
         const sample = await takeSample(host)
         baseline = sample ? toReading(sample) : null
