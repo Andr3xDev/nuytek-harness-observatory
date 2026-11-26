@@ -16,7 +16,7 @@
     "harnessProfile": {
       "type": "boolean",
       "title": "Harness profile",
-      "description": "Also capture harness-specific fields (guard, skillsInjected, status, parserVersion).",
+      "description": "Also capture harness-specific fields (skillsInjected).",
       "default": false
     }
   }

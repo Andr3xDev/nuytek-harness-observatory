@@ -54,9 +54,6 @@ export const spawn = (agentId: string, overrides: Partial<AgentSpawnEvent> = {})
   ...envelope('agent.spawn', { agentId }),
   parentAgentId: null,
   subagentType: 'builder',
-  promptId: `p-${agentId}`,
-  promptBytes: 10,
-  promptSha: 'sha',
   skillsInjected: null,
   ...overrides,
 })
@@ -65,10 +62,7 @@ export const report = (agentId: string, overrides: Partial<AgentReportEvent> = {
   ...envelope('agent.report', { agentId }),
   parentAgentId: null,
   subagentType: 'builder',
-  reportExcerpt: 'done',
   engineStatus: 'completed',
-  status: null,
-  parserVersion: null,
   ...overrides,
 })
 
@@ -79,16 +73,10 @@ export const turn = (agentId: string | null, overrides: Partial<TurnCompleteEven
   ...overrides,
 })
 
-export const verdict = (toolUseId: string, decision: ToolVerdictEvent['decision'], overrides: Partial<ToolVerdictEvent> = {}): ToolVerdictEvent => ({
+export const verdict = (toolUseId: string, overrides: Partial<ToolVerdictEvent> = {}): ToolVerdictEvent => ({
   ...envelope('tool.verdict', {}),
   toolName: 'Bash',
   toolUseId,
-  decision,
-  reason: null,
-  rule: null,
-  hook: null,
-  plugin: null,
-  guard: null,
   ...overrides,
 })
 

@@ -19,9 +19,4 @@ export const RESUME_SWEEP_WINDOW_MS = 7 * MS_PER_DAY
 const HISTORY_WINDOW_DAYS = 7
 export const HISTORY_WINDOW_MS = HISTORY_WINDOW_DAYS * MS_PER_DAY
 
-export const REPORT_EXCERPT_MAX_BYTES = 3_072
-
 export const RECENT_AGENTS_CAP = 20
-
-/** Bump when the `status:` / `SKILLS:` parsing rules change. */
-export const PARSER_VERSION = 1

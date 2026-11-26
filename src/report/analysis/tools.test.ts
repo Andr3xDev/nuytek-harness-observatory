@@ -26,7 +26,7 @@ describe('summarizeSession tools', () => {
   })
 
   test('groups MCP calls under their server', () => {
-    const tools = summarize([verdict('t1', 'allow', { toolName: 'mcp__srv__lookup', mcpServer: 'srv' })])
+    const tools = summarize([verdict('t1', { toolName: 'mcp__srv__lookup', mcpServer: 'srv' })])
 
     expect(Object.keys(tools.mcp)).toEqual(['srv'])
     expect(Object.values(tools.mcp.srv ?? {})).toEqual([1])
@@ -34,7 +34,7 @@ describe('summarizeSession tools', () => {
 
   test('counts a repeated tool use id once and ignores a non-MCP verdict', () => {
     const mcp = { toolName: 'mcp__srv__lookup', mcpServer: 'srv' }
-    const tools = summarize([verdict('t1', 'allow', mcp), verdict('t1', 'deny', mcp), verdict('t2', 'allow')])
+    const tools = summarize([verdict('t1', mcp), verdict('t1', mcp), verdict('t2')])
 
     expect(tools.mcp).toEqual({ srv: { mcp__srv__lookup: 1 } })
   })

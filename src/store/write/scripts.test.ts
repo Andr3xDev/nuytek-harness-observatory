@@ -34,7 +34,7 @@ describe('script constants', () => {
 
   test('MAINTAIN limits find to the known entries and regular files', () => {
     expect(MAINTAIN_SCRIPT).toContain('find events snapshots -type f -mtime +"$1"')
-    expect(MAINTAIN_SCRIPT).toContain("-maxdepth 1 -type f -name 'prompts-*.jsonl' -mtime +\"$1\"")
+    expect(MAINTAIN_SCRIPT).not.toContain('prompts')
     expect(MAINTAIN_SCRIPT).toContain('! -name "$2" ! -name "$3"')
     expect(MAINTAIN_SCRIPT).not.toContain('find /')
     expect(MAINTAIN_SCRIPT).not.toContain('find ~')

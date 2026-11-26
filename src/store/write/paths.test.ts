@@ -31,10 +31,6 @@ describe('isValidAppendPath', () => {
     expect(isValidAppendPath('events/abc-123.jsonl')).toBe(true)
   })
 
-  test('accepts a dated prompts file', () => {
-    expect(isValidAppendPath('prompts-2026-11-25.jsonl')).toBe(true)
-  })
-
   test('rejects snapshots/ targets', () => {
     expect(isValidAppendPath('snapshots/a1.json')).toBe(false)
   })
@@ -53,9 +49,8 @@ describe('isValidUpsertPath', () => {
     expect(isValidUpsertPath('snapshots/main-s1.json')).toBe(true)
   })
 
-  test('rejects events/ and prompts targets', () => {
+  test('rejects events/ targets', () => {
     expect(isValidUpsertPath('events/a.jsonl')).toBe(false)
-    expect(isValidUpsertPath('prompts-2026-11-25.jsonl')).toBe(false)
   })
 
   test('rejects traversal, leading dash, extra segments and absolute paths', () => {

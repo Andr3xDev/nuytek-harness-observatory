@@ -2,7 +2,7 @@
 
 Claude Code plugin that records session, agent, tool-verdict and cost telemetry to local files under `~/.claude/observability/` and shows it in a live panel. It runs as hooks only: no model calls, no tool-call interception, no network.
 
-Read [Privacy](#privacy) before installing: prompts and Bash commands are stored unredacted.
+Read [Privacy](#privacy) before installing. Prompts, Bash commands and report text are never stored.
 
 ## Install
 
@@ -63,11 +63,9 @@ Set through `/config` or `pluginConfigs` in Claude Code settings.
 
 ### Harness profile
 
-`harnessProfile` adds these fields, which are `null` when it is off:
+`harnessProfile` adds one field, which is `null` when it is off:
 
-- `agent.spawn.skillsInjected`: skills parsed from the `SKILLS:` block of the delegation prompt.
-- `agent.report.status` and `parserVersion`: the `status:` line of the report envelope.
-- `tool.verdict.guard`: the guard name parsed from a `Blocked by <guard>:` reason.
+- `agent.spawn.skillsInjected`: skills parsed from the `SKILLS:` block of the delegation prompt. Only the skill paths are stored, not the prompt.
 
 Record shape and `schema` do not change between modes.
 
@@ -80,18 +78,17 @@ Everything lives under `~/.claude/observability/`. Directories are created with 
 | `events/<sessionId>.jsonl` | One event per line for the session. | Appended |
 | `snapshots/main-<sessionId>.json` | Latest state of the session's main loop. | Replaced in place |
 | `snapshots/<agentId>.json` | Latest state of one subagent. | Replaced in place |
-| `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
 
 At session start the plugin also runs `chmod -R go-rwx` over the store root, and retention deletes regular files older than `retentionDays` from these locations. Retention keeps the current session's events file and main snapshot, and never touches anything outside these locations.
 
 ## Privacy
 
-The plugin does not redact anything. By design it stores, as-is:
+The plugin never stores prompt text, Bash commands or agent report text. It stores only:
 
-- The full text of every subagent prompt (`prompts-*.jsonl`).
-- The full Bash command of every tool verdict (`events/`).
-- Agent report excerpts, up to 3 KB each.
+- Numbers and names: tokens, cost, model, effort, timings, agent ids and types, tool names and tool-use ids, MCP server names, skill and command names.
+- The working directory and git branch of each session.
+- Skill paths from the `SKILLS:` block of a delegation prompt, only with `harnessProfile` on.
 
-Secrets typed into a prompt or a command (tokens, passwords, keys) end up in these files. The only protection is the file modes (`0600` files, `0700` directories). Nothing leaves your machine.
+Files use mode `0600` and directories `0700`. Nothing leaves your machine.
 
 To remove the data, delete `~/.claude/observability/` yourself. The plugin never deletes it as a whole, and recreates it on the next session.

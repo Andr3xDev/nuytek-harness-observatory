@@ -56,8 +56,6 @@ const setup = (profile = false) => {
 
 const passThrough = <R>(result: R) => async () => result
 
-const denied = { decision: 'deny' as const, reason: 'Blocked by infra-agent-bash-guard: no', rule: 'r', hook: 'h' }
-
 const bashCheck = { tool: 'Bash', input: { command: 'rm -rf build' }, tool_use_id: 'tu1', agentId: 'a1' }
 
 describe('fail-open observe', () => {
@@ -66,8 +64,9 @@ describe('fail-open observe', () => {
     runtime.batcher.pushEvent = () => {
       throw new Error('writer down')
     }
-    const result = await capture.toolCheck(host, bashCheck, passThrough(denied))
-    expect(result).toBe(denied)
+    const hostResult = { decision: 'allow' as const }
+    const result = await capture.toolCheck(host, bashCheck, passThrough(hostResult))
+    expect(result).toBe(hostResult)
   })
 
   test('a query without tool_use_id records nothing', async () => {
@@ -78,25 +77,13 @@ describe('fail-open observe', () => {
 })
 
 describe('tool.check', () => {
-  test('a denied subagent Bash call writes one verdict with agentId and the full command', async () => {
+  test('a subagent Bash call writes one verdict with agentId, tool and no command', async () => {
     const { host, capture, events } = setup(true)
-    await capture.toolCheck(host, bashCheck, passThrough(denied))
+    await capture.toolCheck(host, bashCheck, passThrough({}))
     const verdicts = (await events()).filter((e) => e.type === 'tool.verdict')
     expect(verdicts).toHaveLength(1)
-    expect(verdicts[0]).toMatchObject({
-      decision: 'deny',
-      agentId: 'a1',
-      command: 'rm -rf build',
-      guard: 'infra-agent-bash-guard',
-      rule: 'r',
-      hook: 'h',
-    })
-  })
-
-  test('guard stays null with the profile off but the reason is stored', async () => {
-    const { host, capture, events } = setup(false)
-    await capture.toolCheck(host, bashCheck, passThrough(denied))
-    expect((await events())[0]).toMatchObject({ guard: null, reason: denied.reason })
+    expect(verdicts[0]).toMatchObject({ agentId: 'a1', toolName: 'Bash', toolUseId: 'tu1' })
+    expect(verdicts[0]).not.toHaveProperty('command')
   })
 
   test('Read of a SKILL.md and a Skill call write skill.use read and invoked with the agent', async () => {
@@ -184,12 +171,13 @@ describe('session lifecycle', () => {
 })
 
 describe('agents and turns', () => {
-  test('a spawn writes the event and the prompt record; a denied spawn writes nothing', async () => {
+  test('a spawn writes the event without prompt data; a denied spawn writes nothing', async () => {
     const { host, capture, events } = setup()
     await capture.agentSpawn(host, { prompt: 'do it', subagentType: 'builder' }, passThrough({ agentId: 'a1' }))
     await capture.agentSpawn(host, { prompt: 'no', subagentType: 'builder' }, passThrough({ deny: 'nope' }))
     const spawns = (await events()).filter((e) => e.type === 'agent.spawn')
-    expect(spawns).toMatchObject([{ agentId: 'a1', promptId: 'pr-a1', promptBytes: 5 }])
+    expect(spawns).toMatchObject([{ agentId: 'a1' }])
+    expect(spawns[0]).not.toHaveProperty('promptId')
   })
 
   test('a main turn is costed as the session delta minus the subagent delta', async () => {

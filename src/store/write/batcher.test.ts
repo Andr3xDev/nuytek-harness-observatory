@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
-import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent, type PromptRecord } from '../../core/schema'
+import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent } from '../../core/schema'
 import { snapshot as snapshotFixture } from '../../core/test-fixtures'
 import { createBatcher, type BatchClock, type BatchSink } from './batcher'
 
@@ -18,17 +18,6 @@ const event = (sessionId: string, id: string): ObsEvent => ({
 
 const snapshot = (agentId: string, tokenCount: number): AgentSnapshot => snapshotFixture(agentId, { tokenCount })
 
-const prompt: PromptRecord = {
-  schema: SCHEMA_VERSION,
-  promptId: 'pr-a1',
-  sessionId: 's1',
-  ts: 1,
-  agentId: 'a1',
-  subagentType: 'builder',
-  sha: 'abc',
-  bytes: 3,
-  text: 'hey',
-}
 
 const fakeClock = () => {
   const registered: Array<{ ms: number; fn: () => void }> = []
@@ -69,12 +58,11 @@ describe('batcher flush', () => {
     batcher.pushEvent(event('s1', 'e1'))
     batcher.pushEvent(event('s1', 'e2'))
     batcher.pushEvent(event('s2', 'e3'))
-    batcher.pushPrompt('2026-11-25', prompt)
     batcher.setSnapshot('a1.json', snapshot('a1', 5))
     await batcher.flush()
 
     const appends = calls.filter((c) => c.kind === 'append')
-    expect(appends.map((c) => c.path).sort()).toEqual(['events/s1.jsonl', 'events/s2.jsonl', 'prompts-2026-11-25.jsonl'])
+    expect(appends.map((c) => c.path).sort()).toEqual(['events/s1.jsonl', 'events/s2.jsonl'])
     const s1 = appends.find((c) => c.path === 'events/s1.jsonl')
     expect((linesOf(s1?.text ?? '') as ObsEvent[]).map((e) => e.id)).toEqual(['e1', 'e2'])
     expect(calls.filter((c) => c.kind === 'upsert')).toHaveLength(1)
@@ -282,7 +270,7 @@ describe('batcher flush', () => {
   test('reaching the batch byte cap triggers a flush without an explicit call', async () => {
     const { sink, calls } = recordingSink()
     const batcher = createBatcher(sink, fakeClock().clock)
-    batcher.pushPrompt('2026-11-25', { ...prompt, text: 'x'.repeat(MAX_BATCH_BYTES) })
+    batcher.pushEvent({ ...event('s1', 'big'), type: 'session.end', reason: 'x'.repeat(MAX_BATCH_BYTES) })
     await settle()
     expect(calls).toHaveLength(1)
   })
@@ -361,7 +349,6 @@ describe('pendingEvents', () => {
     batcher.pushEvent(event('s1', 'e1'))
     batcher.pushEvent(event('s2', 'x1'))
     batcher.pushEvent(event('s1', 'e2'))
-    batcher.pushPrompt('2026-11-25', prompt)
     batcher.setSnapshot('a1.json', snapshot('a1', 1))
     expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1', 'e2'])
   })

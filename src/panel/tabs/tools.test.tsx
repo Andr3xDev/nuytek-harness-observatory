@@ -20,7 +20,7 @@ describe('tools tab', () => {
     const lines = toolsLines(context('wide', { session: withTools({ skills }) }))
     const rows = lines.filter((line) => line.text.startsWith('skill-'))
     expect(rows).toHaveLength(20)
-    expect(lines.filter((line) => line.text ==='+5 more')).toHaveLength(1)
+    expect(lines.filter((line) => line.text === '+5 more')).toHaveLength(1)
   })
 
   test('MCP calls group by server and tool; commands show with a slash', () => {

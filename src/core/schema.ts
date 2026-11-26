@@ -26,20 +26,9 @@ export type Envelope<T extends string> = {
   branch: string | null
 }
 
-export type ToolDecision = 'allow' | 'deny' | 'ask'
-
 export type ToolVerdictEvent = Envelope<'tool.verdict'> & {
   toolName: string
   toolUseId: string
-  decision: ToolDecision
-  reason: string | null
-  rule: string | null
-  hook: string | null
-  plugin: string | null
-  /** Profile field: `null` with the profile off. */
-  guard: string | null
-  /** Bash only, unredacted. */
-  command?: string
   /** MCP tools only. */
   mcpServer?: string
 }
@@ -47,9 +36,6 @@ export type ToolVerdictEvent = Envelope<'tool.verdict'> & {
 export type AgentSpawnEvent = Envelope<'agent.spawn'> & {
   parentAgentId: string | null
   subagentType: string
-  promptId: string
-  promptBytes: number
-  promptSha: string
   /** Profile field: `null` with the profile off, `[]` with it on and no block. */
   skillsInjected: string[] | null
 }
@@ -57,13 +43,8 @@ export type AgentSpawnEvent = Envelope<'agent.spawn'> & {
 export type AgentReportEvent = Envelope<'agent.report'> & {
   parentAgentId: string | null
   subagentType: string
-  reportExcerpt: string
   /** The engine's end state; `null` only if the host omits it. */
   engineStatus: string | null
-  /** Profile field: parsed from the envelope `status:` line. */
-  status: string | null
-  /** Profile field: `null` with the profile off. */
-  parserVersion: number | null
 }
 
 export type TurnCompleteEvent = Envelope<'turn.complete'> & {
@@ -152,17 +133,4 @@ export type AgentSnapshot = {
   taskStatus: string | null
   closed: boolean
   closedReason: ClosedReason | null
-}
-
-/** One line of `prompts-YYYY-MM-DD.jsonl`; `promptId`, `sha`, `bytes` match the `agent.spawn` event. */
-export type PromptRecord = {
-  schema: Schema
-  promptId: string
-  sessionId: string
-  ts: number
-  agentId: string
-  subagentType: string
-  sha: string
-  bytes: number
-  text: string
 }

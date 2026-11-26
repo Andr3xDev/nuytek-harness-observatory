@@ -1,6 +1,6 @@
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
-import type { AgentSnapshot, ObsEvent, PromptRecord } from '../../core/schema'
-import { eventsPathOf, promptsPathOf, snapshotPathOf } from '../layout'
+import type { AgentSnapshot, ObsEvent } from '../../core/schema'
+import { eventsPathOf, snapshotPathOf } from '../layout'
 import { isValidAppendPath, isValidUpsertPath } from './paths'
 
 export type BatchSink = {
@@ -14,7 +14,6 @@ type Entry = { path: string; line: string; bytes: number; event?: ObsEvent }
 
 export type Batcher = {
   pushEvent: (event: ObsEvent) => void
-  pushPrompt: (date: string, record: PromptRecord) => void
   /** `file` is the snapshot file name, for example `a1.json`; the latest call per file wins. */
   setSnapshot: (file: string, snapshot: AgentSnapshot) => void
   /**
@@ -156,7 +155,6 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
       Object.freeze(event)
       enqueue(entryOf(eventsPathOf(event.sessionId), `${JSON.stringify(event)}\n`, event))
     },
-    pushPrompt: (date, record) => enqueue(entryOf(promptsPathOf(date), `${JSON.stringify(record)}\n`)),
     setSnapshot: (file, snapshot) => {
       if (!isValidUpsertPath(snapshotPathOf(file))) return
       startTimerOnce()

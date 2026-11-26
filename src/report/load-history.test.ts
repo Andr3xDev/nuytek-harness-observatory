@@ -22,13 +22,13 @@ const load = (files: FakeFiles, options: Partial<Parameters<typeof loadHistory>[
 
 describe('loadHistory live sessions', () => {
   test('pending events are merged into the stored session', async () => {
-    const { result } = load(closedSession('s1'), { pendingEvents: { s1: [verdict('t9', 'allow', { sessionId: 's1', mcpServer: 'srv' })] } })
+    const { result } = load(closedSession('s1'), { pendingEvents: { s1: [verdict('t9', { sessionId: 's1', mcpServer: 'srv' })] } })
 
     expect((await result)[0]?.tools.mcp.srv).toBeDefined()
   })
 
   test('a session with pending events and no events file is included when named in sessionIds', async () => {
-    const { result } = load({}, { sessionIds: ['s9'], pendingEvents: { s9: [sessionStart({ sessionId: 's9' }), verdict('t1', 'allow', { sessionId: 's9', mcpServer: 'srv' })] } })
+    const { result } = load({}, { sessionIds: ['s9'], pendingEvents: { s9: [sessionStart({ sessionId: 's9' }), verdict('t1', { sessionId: 's9', mcpServer: 'srv' })] } })
 
     expect(await result).toMatchObject([{ sessionId: 's9', tools: { mcp: { srv: { Bash: 1 } } } }])
   })
@@ -76,7 +76,7 @@ describe('loadHistory events cache', () => {
     expect(eventReads(fake)).toBe(1)
     expect(second).toEqual(first)
 
-    files['events/s1.jsonl'] = { content: jsonl([...closedEvents('s1'), verdict('t1', 'allow', { sessionId: 's1', mcpServer: 'srv' })]), mtimeMs: STALE_MTIME_MS }
+    files['events/s1.jsonl'] = { content: jsonl([...closedEvents('s1'), verdict('t1', { sessionId: 's1', mcpServer: 'srv' })]), mtimeMs: STALE_MTIME_MS }
     const third = await loadHistory({ fs: fake.fs, eventsCache }, { sessionIds: ['s1'] })
     expect(eventReads(fake)).toBe(2)
     expect(third[0]?.tools.mcp.srv).toBeDefined()

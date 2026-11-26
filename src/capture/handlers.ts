@@ -1,5 +1,4 @@
 import { FLUSH_INTERVAL_MS } from '../core/constants'
-import { isoDay } from '../core/format'
 import { isRecord } from '../core/guards'
 import type { ObsEvent, SkillUseKind } from '../core/schema'
 import { mapUsage } from '../core/usage'
@@ -26,7 +25,6 @@ import {
   type EnvelopeContext,
   type ReportInput,
   type TurnInput,
-  type VerdictResult,
 } from './events/records'
 import type { BranchProvider } from './session/branch'
 import {
@@ -273,9 +271,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         if (result.deny !== undefined || result.agentId === undefined) return
         const rt = runtimeOf(host)
         const ctx = contextOf(await sessionOf(host), rt)
-        const { event, prompt } = await buildSpawnRecord(e, { agentId: result.agentId }, profile, ctx)
-        rt.batcher.pushEvent(event)
-        rt.batcher.pushPrompt(isoDay(ctx.now), prompt)
+        rt.batcher.pushEvent(buildSpawnRecord(e, { agentId: result.agentId }, profile, ctx))
       }),
 
     agentReport: <E extends ReportInput, R>(host: H, e: E, next: Next<E, R>) =>
@@ -283,7 +279,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const rt = runtimeOf(host)
         const state = await sessionOf(host)
         const ctx = contextOf(state, rt)
-        rt.batcher.pushEvent(buildReportRecord(e, profile, ctx))
+        rt.batcher.pushEvent(buildReportRecord(e, ctx))
         const sample = await takeSample(host)
         if (sample) {
           for (const write of state.tracker.closeAgent(e.agentId, { ...sample, branch: ctx.branch, now: ctx.now })) {
@@ -350,15 +346,12 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         rt.batcher.pushEvent(buildReconciliationRecord(result, ctx))
       }),
 
-    toolCheck: <E extends ToolCheckInput, R extends VerdictResult>(host: H, e: E, next: Next<E, R>) =>
-      observe(e, next, async (result) => {
+    toolCheck: <E extends ToolCheckInput, R>(host: H, e: E, next: Next<E, R>) =>
+      observe(e, next, async () => {
         if (e.tool_use_id === undefined) return
         const rt = runtimeOf(host)
         const ctx = contextOf(await sessionOf(host), rt)
-        const input = isRecord(e.input) ? e.input : {}
-        rt.batcher.pushEvent(
-          buildVerdictRecord({ tool: e.tool, input, tool_use_id: e.tool_use_id, agentId: e.agentId }, result, profile, ctx),
-        )
+        rt.batcher.pushEvent(buildVerdictRecord({ tool: e.tool, tool_use_id: e.tool_use_id, agentId: e.agentId }, ctx))
         const skillUse = skillUseOf(e.tool, e.input)
         if (skillUse) rt.batcher.pushEvent(buildSkillUse({ ...skillUse, agentId: e.agentId ?? null }, ctx))
       }),

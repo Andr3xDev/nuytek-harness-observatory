@@ -6,7 +6,6 @@ type Hook = (host: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) 
 type AnyRecord = Record<string, unknown> & { type?: string; schema?: unknown }
 
 const SPAWN_PROMPT = 'Build it.\nSKILLS:\n- /skills/alpha/SKILL.md\n- /skills/beta/SKILL.md\n'
-const DENY_REASON = 'Blocked by infra-agent-bash-guard: no rm'
 const USAGE = { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 30, cache_creation_input_tokens: 40, model: 'm' }
 
 const runSession = async (options: PluginOptions) => {
@@ -19,7 +18,6 @@ const runSession = async (options: PluginOptions) => {
 
   const world = { usd: 0, agents: [] as unknown[] }
   const events: AnyRecord[] = []
-  const prompts: AnyRecord[] = []
   const snapshots: AnyRecord[] = []
   const host = {
     session: { id: async () => 's1', usage: async () => ({ startedAt: 1, cost: { usd: world.usd } }) },
@@ -32,7 +30,6 @@ const runSession = async (options: PluginOptions) => {
         const path = argv[4] ?? ''
         const lines = (init?.stdin ?? '').split('\n').filter(Boolean).map((line) => JSON.parse(line) as AnyRecord)
         if (path.startsWith('events/')) events.push(...lines)
-        else if (path.startsWith('prompts-')) prompts.push(...lines)
         else if (path.startsWith('snapshots/')) snapshots.push(...lines)
         return { exitCode: 0, stdout: '', stderr: '' }
       },
@@ -44,7 +41,7 @@ const runSession = async (options: PluginOptions) => {
   await fire('agent.spawn', { prompt: SPAWN_PROMPT, subagentType: 'builder' }, { agentId: 'a1', model: 'm' })
   world.usd = 0.5
   world.agents = [{ id: 'a1', type: 'builder', taskStatus: 'running', tokenCount: 5, cost: { usd: 0.2 }, usage: [USAGE] }]
-  await fire('tool.check', { tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 't1', agentId: 'a1' }, { decision: 'deny', reason: DENY_REASON, hook: 'h' })
+  await fire('tool.check', { tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 't1', agentId: 'a1' }, { decision: 'deny' })
   await fire('tool.check', { tool: 'mcp__srv__lookup', input: {}, tool_use_id: 't2' }, { decision: 'allow' })
   await fire('tool.check', { tool: 'Read', input: { file_path: '/s/skills/foo/SKILL.md' }, tool_use_id: 't3', agentId: 'a1' }, { decision: 'allow' })
   await fire('agent.report', { agentId: 'a1', subagentType: 'builder', status: 'completed', text: 'done\nstatus: DONE' })
@@ -54,7 +51,7 @@ const runSession = async (options: PluginOptions) => {
   await fire('session.measure', { cost: { usd: 0.5 }, context: {}, rateLimits: [], changed: [] })
   await fire('tool.check', { tool: 'Bash', input: { command: 'ls' }, tool_use_id: 't4' }, { decision: 'allow' })
   await fire('session.end', { sessionId: 's1', reason: 'other' })
-  return { events, prompts, snapshots }
+  return { events, snapshots }
 }
 
 const ofType = (events: AnyRecord[], type: string): AnyRecord[] => events.filter((e) => e.type === type)
@@ -70,19 +67,19 @@ describe('profile on/off parity', () => {
     const on = await runSession({ harnessProfile: true })
     const off = await runSession({})
     for (const run of [on, off]) {
-      for (const record of [...run.events, ...run.prompts, ...run.snapshots]) expect(record.schema).toBe(1)
+      for (const record of [...run.events, ...run.snapshots]) expect(record.schema).toBe(1)
     }
     expect(fieldNamesByType(on.events)).toEqual(fieldNamesByType(off.events))
   })
 
   test('profile off: profile fields are null or absent and generic capture is populated', async () => {
-    const { events, prompts } = await runSession({})
+    const { events } = await runSession({})
     expect(ofType(events, 'session.start')[0]).toMatchObject({ harnessProfile: false })
-    expect(ofType(events, 'agent.spawn')[0]).toMatchObject({ skillsInjected: null, promptId: 'pr-a1', agentId: 'a1' })
-    expect(prompts[0]).toMatchObject({ promptId: 'pr-a1', text: SPAWN_PROMPT })
-    expect(ofType(events, 'agent.report')[0]).toMatchObject({ engineStatus: 'completed', status: null, parserVersion: null })
+    expect(ofType(events, 'agent.spawn')[0]).toMatchObject({ skillsInjected: null, agentId: 'a1' })
+    expect(ofType(events, 'agent.report')[0]).toMatchObject({ engineStatus: 'completed' })
     const verdicts = ofType(events, 'tool.verdict')
-    expect(verdicts[0]).toMatchObject({ decision: 'deny', guard: null, reason: DENY_REASON, command: 'rm -rf x', agentId: 'a1' })
+    expect(verdicts[0]).toMatchObject({ toolName: 'Bash', agentId: 'a1' })
+    expect(verdicts[0]).not.toHaveProperty('command')
     expect(verdicts[1]).toMatchObject({ mcpServer: 'srv' })
     expect(ofType(events, 'skill.use')[0]).toMatchObject({ skill: 'foo', kind: 'read', agentId: 'a1' })
     expect(ofType(events, 'command.run')[0]).toMatchObject({ name: 'status' })
@@ -101,7 +98,6 @@ describe('profile on/off parity', () => {
     const { events } = await runSession({ harnessProfile: true })
     expect(ofType(events, 'session.start')[0]).toMatchObject({ harnessProfile: true })
     expect(ofType(events, 'agent.spawn')[0]).toMatchObject({ skillsInjected: ['/skills/alpha/SKILL.md', '/skills/beta/SKILL.md'] })
-    expect(ofType(events, 'agent.report')[0]).toMatchObject({ engineStatus: 'completed', status: 'DONE', parserVersion: 1 })
-    expect(ofType(events, 'tool.verdict')[0]).toMatchObject({ guard: 'infra-agent-bash-guard' })
+    expect(ofType(events, 'agent.report')[0]).toMatchObject({ engineStatus: 'completed' })
   })
 })
