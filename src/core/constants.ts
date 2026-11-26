@@ -16,5 +16,8 @@ export const RESUME_SWEEP_WINDOW_MS = 7 * MS_PER_DAY
 
 export const REPORT_EXCERPT_MAX_BYTES = 3_072
 
+/** Most recent agent runs the history aggregate keeps. */
+export const RECENT_AGENTS_CAP = 20
+
 /** Bump when the `status:` / `SKILLS:` parsing rules change. */
 export const PARSER_VERSION = 1

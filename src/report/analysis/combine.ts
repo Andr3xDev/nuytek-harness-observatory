@@ -1,7 +1,8 @@
+import { RECENT_AGENTS_CAP } from '../../core/constants'
 import { emptyFigure } from '../../core/figures'
 import { cacheRatio } from './issue'
 import { createRecord } from './session'
-import type { AggregateFigures, Figure, ProfileFigures, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
+import type { AggregateFigures, Figure, ProfileFigures, RecentAgent, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
 
 type Counts = Record<string, number>
 
@@ -92,7 +93,8 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
   const total = emptyFigure()
   const types = createRecord<TypeFigures>()
   const models = createRecord<TokenCounts & { tokens: number }>()
-  const typeModels = new Map<string, AggregateFigures['byTypeModel'][number]>()
+  const typeModels = new Map<string, AggregateFigures['byTypeModelEffort'][number]>()
+  const recent: RecentAgent[] = []
   const issues = createRecord<Figure>()
   const engineStatusMix = createRecord<number>()
   let denies = 0
@@ -119,13 +121,28 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
     for (const [issue, figures] of Object.entries(session.byIssue)) addFigure(getOrInit(issues, issue, emptyFigure), figures)
     for (const agent of session.agents) {
       const model = agent.model ?? null
-      const key = JSON.stringify([agent.subagentType, model])
-      const merged = typeModels.get(key) ?? { ...emptyFigure(), type: agent.subagentType, model, spawns: 0 }
+      const effort = agent.effort ?? null
+      const key = JSON.stringify([agent.subagentType, model, effort])
+      const merged = typeModels.get(key) ?? { ...emptyFigure(), type: agent.subagentType, model, effort, spawns: 0 }
       typeModels.set(key, merged)
       addFigure(merged, agent)
       merged.spawns += 1
+      if (agent.startedAt !== undefined) {
+        recent.push({
+          sessionId: session.sessionId,
+          agentId: agent.agentId,
+          type: agent.subagentType,
+          model,
+          effort,
+          startedAt: agent.startedAt,
+          tokens: agent.tokens,
+          costUsd: agent.costUsd,
+          hasUnknownPrice: agent.hasUnknownPrice,
+        })
+      }
     }
   }
+  recent.sort((left, right) => right.startedAt - left.startedAt)
 
   const totalSpawns = Object.values(types).reduce((sum, type) => sum + type.spawns, 0)
   const startedAt = sessions.flatMap((session) => (session.startedAt === null ? [] : [session.startedAt]))
@@ -151,11 +168,12 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
       (row) => row.tokens,
       (row) => row.type,
     ),
-    byTypeModel: byDescending(
+    byTypeModelEffort: byDescending(
       [...typeModels.values()],
       (row) => row.tokens,
-      (row) => `${row.type} ${row.model ?? ''}`,
+      (row) => `${row.type} ${row.model ?? ''} ${row.effort ?? ''}`,
     ),
+    recentAgents: recent.slice(0, RECENT_AGENTS_CAP),
     byModel: byDescending(
       Object.entries(models).map(([model, figures]) => ({ model, ...figures })),
       (row) => row.tokens,

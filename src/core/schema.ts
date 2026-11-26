@@ -160,6 +160,8 @@ export type AgentSnapshot = {
   parentAgentId: string | null
   subagentType: string
   model: string
+  /** The effort set for the agent, a level or a budget as written; absent when it takes the session's. */
+  effort?: string | number
   branch: string | null
   startedAt: number
   updatedAt: number

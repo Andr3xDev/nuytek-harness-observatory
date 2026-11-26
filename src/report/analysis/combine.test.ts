@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
+import { RECENT_AGENTS_CAP } from '../../core/constants'
 import { combineSessions } from './combine'
 import { summarizeSession } from './session'
 import { CTX, commandRun, sessionEnd, sessionStart, snapshot, spawn, report, skillUse, turn, usage, verdict } from './test-fixtures'
@@ -55,11 +56,41 @@ describe('combineSessions by type and model', () => {
     )
     const b = summarize([spawn('a4', { sessionId: 'sb' })], [agentSnapshot('a4', 'sb', { usage: [usage(200, 0, 0, 0, 'haiku')] })])
 
-    expect(combineSessions([a, b]).byTypeModel.map(({ type, model, spawns, tokens }) => ({ type, model, spawns, tokens }))).toEqual([
+    expect(combineSessions([a, b]).byTypeModelEffort.map(({ type, model, spawns, tokens }) => ({ type, model, spawns, tokens }))).toEqual([
       { type: 'builder', model: 'haiku', spawns: 2, tokens: 300 },
       { type: 'builder', model: 'opus', spawns: 1, tokens: 300 },
       { type: 'builder', model: null, spawns: 1, tokens: 50 },
     ])
+  })
+
+  test('splits the same type and model by effort, a missing effort staying null', () => {
+    const figures = summarize(
+      [spawn('a1'), spawn('a2'), spawn('a3')],
+      [
+        tokensSnapshot('a1', 's1', 100, 'builder', { effort: 'high' }),
+        tokensSnapshot('a2', 's1', 200, 'builder', { effort: 'high' }),
+        tokensSnapshot('a3', 's1', 50),
+      ],
+    )
+
+    expect(combineSessions([figures]).byTypeModelEffort.map(({ effort, spawns, tokens }) => ({ effort, spawns, tokens }))).toEqual([
+      { effort: 'high', spawns: 2, tokens: 300 },
+      { effort: null, spawns: 1, tokens: 50 },
+    ])
+  })
+})
+
+describe('combineSessions recent agents', () => {
+  test('lists the newest runs first across sessions and caps the list', () => {
+    const many = Array.from({ length: RECENT_AGENTS_CAP + 5 }, (_, index) => spawn(`a${index}`, { sessionId: 'sa', ts: 1000 + index }))
+    const a = summarize(many)
+    const b = summarize([spawn('late', { sessionId: 'sb', ts: 9000 })])
+
+    const recent = combineSessions([a, b]).recentAgents
+
+    expect(recent).toHaveLength(RECENT_AGENTS_CAP)
+    expect(recent[0]).toMatchObject({ agentId: 'late', sessionId: 'sb', startedAt: 9000 })
+    expect(recent[1]?.agentId).toBe(`a${RECENT_AGENTS_CAP + 4}`)
   })
 })
 

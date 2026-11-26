@@ -79,6 +79,15 @@ describe('main snapshot cost floor', () => {
 })
 
 describe('snapshot content', () => {
+  test('the agent effort is stored as given and the key is left out when none was set', () => {
+    const writes = createSnapshotTracker('s1').cycle(
+      input({ agents: [agent('a1', { effort: 'high' }), agent('a2', { effort: 4000 }), agent('a3')] }),
+    )
+    expect(byFile(writes, 'a1.json')?.effort).toBe('high')
+    expect(byFile(writes, 'a2.json')?.effort).toBe(4000)
+    expect(byFile(writes, 'a3.json')).not.toHaveProperty('effort')
+  })
+
   test('a subagent snapshot has every field, camelCase usage and closed false', () => {
     const writes = createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', { parentId: 'p1' })] }))
     const snap = byFile(writes, 'a1.json')

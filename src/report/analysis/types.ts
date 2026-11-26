@@ -12,6 +12,15 @@ import type {
   TypeFigures,
 } from '../../core/figures'
 
+export type RecentAgent = Pick<Figure, 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
+  sessionId: string
+  agentId: string
+  type: string
+  model: string | null
+  effort: string | number | null
+  startedAt: number
+}
+
 export type {
   AgentFigures,
   EventRecord,
@@ -66,8 +75,10 @@ export type AggregateFigures = {
       cacheRatio: number | null
     }
   >
-  /** One row per agent type and model; `model` is null when none was recorded. */
-  byTypeModel: Array<Figure & { type: string; model: string | null; spawns: number }>
+  /** One row per agent type, model and effort; `model` and `effort` are null when none was recorded. */
+  byTypeModelEffort: Array<Figure & { type: string; model: string | null; effort: string | number | null; spawns: number }>
+  /** The latest agent runs across the sessions, newest first, capped at `RECENT_AGENTS_CAP`. */
+  recentAgents: RecentAgent[]
   byModel: Array<{ model: string } & TokenCounts & { tokens: number }>
   byIssue: Array<{ issue: string } & Figure>
   engineStatusMix: Record<string, number>

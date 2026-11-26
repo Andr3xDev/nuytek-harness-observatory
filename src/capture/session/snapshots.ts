@@ -16,6 +16,7 @@ export type SnapshotAgent = {
   usage?: HostUsage[]
   cost?: { usd: number; hasUnknownPrice?: boolean }
   model?: string
+  effort?: string | number
 }
 
 export type SnapshotCycleInput = {
@@ -71,6 +72,7 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
       parentAgentId: agent.parentId ?? null,
       subagentType: agent.type,
       model: agent.model ?? usage.at(-1)?.model ?? '',
+      ...(agent.effort !== undefined && { effort: agent.effort }),
       branch: input.branch,
       startedAt: input.startedAt,
       updatedAt: input.now,

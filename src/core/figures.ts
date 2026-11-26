@@ -22,6 +22,10 @@ export type AgentFigures = Figure & {
   subagentType: string
   /** Absent in rollups stored before this field existed; `null` when no usage or snapshot named one. */
   model?: string | null
+  /** The effort set for the agent (level or budget); absent in older rollups, `null` when it took the session's. */
+  effort?: string | number | null
+  /** Spawn time; absent in older rollups. */
+  startedAt?: number
   engineStatus: 'running' | 'completed' | 'failed' | 'stopped' | 'unknown'
   durationMs: number
 }

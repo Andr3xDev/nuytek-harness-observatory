@@ -276,6 +276,8 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
       parentAgentId: agent.spawn.parentAgentId,
       subagentType: agent.spawn.subagentType,
       model: source.usage.at(-1)?.model || snapshot?.model || null,
+      effort: snapshot?.effort ?? null,
+      startedAt: agent.spawn.ts,
       engineStatus: engineStatusOf(agent.report),
       durationMs: agent.durationMs,
     }
