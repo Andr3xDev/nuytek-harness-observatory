@@ -1,21 +1,8 @@
 import { RECENT_AGENTS_CAP } from '../../core/constants'
-import { emptyFigure } from '../../core/figures'
-import { createRecord } from './session'
-import type { AggregateFigures, Figure, ProfileFigures, RecentAgent, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
+import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, zeroTokens } from '../../core/figures'
+import type { AggregateFigures, ProfileFigures, RecentAgent, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
 
 type Counts = Record<string, number>
-
-const addFigure = (target: Figure, part: Figure): void => {
-  target.input += part.input
-  target.output += part.output
-  target.cacheRead += part.cacheRead
-  target.cacheCreation += part.cacheCreation
-  target.tokens += part.tokens
-  target.costUsd += part.costUsd
-  target.hasUnknownPrice ||= part.hasUnknownPrice
-}
-
-const getOrInit = <T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
 
 const addCounts = (target: Counts, part: Counts): void => {
   for (const [key, count] of Object.entries(part)) target[key] = (target[key] ?? 0) + count
@@ -72,44 +59,38 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
       merged.spawns += figures.spawns
     }
     for (const [model, figures] of Object.entries(session.byModel)) {
-      const merged = getOrInit(models, model, () => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, tokens: 0 }))
-      merged.input += figures.input
-      merged.output += figures.output
-      merged.cacheRead += figures.cacheRead
-      merged.cacheCreation += figures.cacheCreation
+      const merged = getOrInit(models, model, () => ({ ...zeroTokens(), tokens: 0 }))
+      addTokens(merged, figures)
       merged.tokens += figures.tokens
     }
     for (const agent of session.agents) {
-      const model = agent.model ?? null
-      const effort = agent.effort ?? null
+      const { model, effort } = agent
       const key = JSON.stringify([agent.subagentType, model, effort])
       const merged = typeModels.get(key) ?? { ...emptyFigure(), type: agent.subagentType, model, effort, spawns: 0 }
       typeModels.set(key, merged)
       addFigure(merged, agent)
       merged.spawns += 1
-      if (agent.startedAt !== undefined) {
-        recent.push({
-          sessionId: session.sessionId,
-          agentId: agent.agentId,
-          type: agent.subagentType,
-          model,
-          effort,
-          startedAt: agent.startedAt,
-          input: agent.input,
-          output: agent.output,
-          cacheRead: agent.cacheRead,
-          cacheCreation: agent.cacheCreation,
-          tokens: agent.tokens,
-          costUsd: agent.costUsd,
-          hasUnknownPrice: agent.hasUnknownPrice,
-        })
-      }
+      recent.push({
+        sessionId: session.sessionId,
+        agentId: agent.agentId,
+        type: agent.subagentType,
+        model,
+        effort,
+        startedAt: agent.startedAt,
+        input: agent.input,
+        output: agent.output,
+        cacheRead: agent.cacheRead,
+        cacheCreation: agent.cacheCreation,
+        tokens: agent.tokens,
+        costUsd: agent.costUsd,
+        hasUnknownPrice: agent.hasUnknownPrice,
+      })
     }
   }
   recent.sort((left, right) => right.startedAt - left.startedAt)
 
   const startedAt = sessions.flatMap((session) => (session.startedAt === null ? [] : [session.startedAt]))
-  const lastEventAt = sessions.flatMap((session) => session.lastEventAt ?? session.endedAt ?? [])
+  const lastEventAt = sessions.flatMap((session) => session.lastEventAt === null ? [] : [session.lastEventAt])
 
   return {
     sessions: sessions.length,

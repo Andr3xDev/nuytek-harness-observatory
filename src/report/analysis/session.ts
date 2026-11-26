@@ -1,4 +1,4 @@
-import { emptyFigure } from '../../core/figures'
+import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, zeroTokens } from '../../core/figures'
 import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord } from '../../core/schema'
 import { mergeLiveEvents } from './live'
 import { modelOf } from './model'
@@ -13,7 +13,6 @@ import {
   type SessionInput,
   type SessionState,
   type SkillFigures,
-  type TokenCounts,
   type ToolFigures,
   type TypeFigures,
 } from './types'
@@ -27,22 +26,6 @@ const FINAL_ENGINE_STATUSES = ['completed', 'failed', 'stopped']
 type AgentRecord = { spawn: AgentSpawnEvent; report: AgentReportEvent | null }
 type Source = { usage: readonly UsageRecord[]; costUsd: number; hasUnknownPrice: boolean }
 
-const zeroTokens = (): TokenCounts => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 })
-
-const addTokens = (target: TokenCounts, part: TokenCounts): void => {
-  target.input += part.input
-  target.output += part.output
-  target.cacheRead += part.cacheRead
-  target.cacheCreation += part.cacheCreation
-}
-
-const addFigure = (target: Figure, part: Figure): void => {
-  addTokens(target, part)
-  target.tokens += part.tokens
-  target.costUsd += part.costUsd
-  target.hasUnknownPrice ||= part.hasUnknownPrice
-}
-
 const figureOf = ({ usage, costUsd, hasUnknownPrice }: Source): Figure => {
   const figure: Figure = { ...emptyFigure(), costUsd, hasUnknownPrice }
   for (const record of usage) addTokens(figure, record)
@@ -50,10 +33,6 @@ const figureOf = ({ usage, costUsd, hasUnknownPrice }: Source): Figure => {
   return figure
 }
 
-/** Records keyed by event text must not inherit `constructor`, `__proto__` and friends. */
-export const createRecord = <T>(): Record<string, T> => Object.create(null) as Record<string, T>
-
-const getOrInit = <T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
 const bump = (record: Record<string, number>, key: string): void => {
   record[key] = (record[key] ?? 0) + 1
 }

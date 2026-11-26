@@ -22,6 +22,9 @@ export const agent = (agentId: string, overrides: Partial<AgentFigures> = {}): A
   agentId,
   parentAgentId: null,
   subagentType: 'builder',
+  model: null,
+  effort: null,
+  startedAt: 1,
   engineStatus: 'completed',
   ...overrides,
 })
@@ -54,8 +57,10 @@ export const sessionFigures = (agents: AgentFigures[] = [], overrides: Partial<S
     harnessProfile: false,
     startedAt: 1,
     endedAt: null,
+    lastEventAt: 1,
     total: figure(5000, 0.5),
     main: figure(2000, 0.2),
+    mainModel: null,
     byType: {},
     byModel: { m1: { input: 3000, output: 0, cacheRead: 0, cacheCreation: 0, tokens: 3000 } },
     agents,
@@ -82,7 +87,7 @@ export const context = (tier: keyof typeof WIDTHS, overrides: Partial<TabContext
   ...overrides,
 })
 
-export const textOf = (lines: ReadonlyArray<{ text: string }>): string => lines.map(line => line.text).join('\n')
+export const textOf = (lines: ReadonlyArray<{ text: string }>): string => lines.map((line) => line.text).join('\n')
 
 export const bandTarget = (bodyColumns: number, hasSurvey = false) =>
   ({
