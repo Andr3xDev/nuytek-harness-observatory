@@ -1,0 +1,37 @@
+import { describe, expect, test } from 'claude-code/testing'
+import { handleObs, type ObsDeps } from './obs-command'
+
+describe('handleObs', () => {
+  const setup = (overrides: Partial<ObsDeps> = {}) => {
+    const calls: string[] = []
+    const deps: ObsDeps = {
+      isOpen: () => false,
+      setOpen: async (open) => void calls.push(`open:${open}`),
+      ...overrides,
+    }
+    return { deps, calls }
+  }
+
+  test('toggle on a closed panel opens it', async () => {
+    const { deps, calls } = setup()
+    expect(await handleObs(deps)).toEqual({ text: 'Observatory opened.', isTextDisplayOnly: true })
+    expect(calls).toEqual(['open:true'])
+  })
+
+  test('toggle on an open panel closes it and opens nothing', async () => {
+    const { deps, calls } = setup({ isOpen: () => true })
+    expect(await handleObs(deps)).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
+    expect(calls).toEqual(['open:false'])
+  })
+
+  test('an async isOpen decides the toggle', async () => {
+    const { deps, calls } = setup({ isOpen: async () => true })
+    expect(await handleObs(deps)).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
+    expect(calls).toEqual(['open:false'])
+  })
+
+  test('a failing store write answers with plain text instead of throwing', async () => {
+    const { deps } = setup({ setOpen: () => Promise.reject(new Error('store down')) })
+    expect(await handleObs(deps)).toEqual({ text: 'Observatory toggle failed.', isTextDisplayOnly: true })
+  })
+})
