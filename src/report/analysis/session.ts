@@ -141,8 +141,8 @@ export function summarizeSession(input: SessionInput): SessionFigures {
       agentId,
       parentAgentId: agent.spawn.parentAgentId,
       subagentType: agent.spawn.subagentType,
-      model: modelOf(source.usage, snapshot?.model),
-      effort: snapshot?.effort ?? null,
+      model: modelOf(source.usage, live?.model ?? snapshot?.model),
+      effort: live?.effort ?? snapshot?.effort ?? null,
       startedAt: agent.spawn.ts,
       engineStatus: engineStatusOf(agent.report),
     }

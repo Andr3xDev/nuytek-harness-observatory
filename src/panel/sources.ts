@@ -50,7 +50,14 @@ export function createSources(loaders: { loadSession: SessionLoader; loadHistory
 }
 
 /** One `$.agent.list()` row, as the host returns it (snake_case usage). */
-export type LiveAgentRow = { id: string; usage?: HostUsage[]; cost?: { usd: number; hasUnknownPrice?: true } }
+export type LiveAgentRow = {
+  id: string
+  usage?: HostUsage[]
+  cost?: { usd: number; hasUnknownPrice?: true }
+  model?: string
+  effort?: string | number
+  lastRequest?: { model: string; effort?: string | number }
+}
 
 export type LiveLoaderDeps = {
   now: () => number
@@ -67,6 +74,8 @@ export const liveAgentsOf = (rows: readonly LiveAgentRow[]): LiveAgent[] =>
     usage: (row.usage ?? []).map(mapUsage),
     costUsd: row.cost?.usd ?? null,
     hasUnknownPrice: row.cost === undefined || row.cost.hasUnknownPrice === true,
+    model: row.model ?? row.lastRequest?.model,
+    effort: row.effort ?? row.lastRequest?.effort,
   }))
 
 /** The real loaders: the session overlays unflushed events and running agents on the stored figures. */

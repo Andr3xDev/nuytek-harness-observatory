@@ -103,6 +103,11 @@ describe('live loaders', () => {
     ])
   })
 
+  test('model and effort come from the row, falling back to its last request', () => {
+    expect(liveAgentsOf([{ id: 'a', model: 'm1', effort: 'high', lastRequest: { model: 'm2', effort: 'low' } }])).toMatchObject([{ model: 'm1', effort: 'high' }])
+    expect(liveAgentsOf([{ id: 'a', lastRequest: { model: 'm2', effort: 'low' } }])).toMatchObject([{ model: 'm2', effort: 'low' }])
+  })
+
   test('a cost flagged with an unknown price keeps its usd and the flag', () => {
     expect(liveAgentsOf([{ id: 'a', cost: { usd: 0.4, hasUnknownPrice: true } }])).toMatchObject([{ costUsd: 0.4, hasUnknownPrice: true }])
   })

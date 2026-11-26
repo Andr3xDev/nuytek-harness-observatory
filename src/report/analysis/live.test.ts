@@ -58,6 +58,19 @@ describe('summarizeSession live agent overlay', () => {
     expect(figures.total.hasUnknownPrice).toBe(true)
   })
 
+  test('a running agent with no snapshot shows the live model and effort', () => {
+    const figures = summarizeSession({ events, snapshots: [], liveAgents: [liveAgent('a1', { model: 'live-model', effort: 'high' })] })
+
+    expect(figures.agents[0]).toMatchObject({ model: 'live-model', effort: 'high' })
+  })
+
+  test('live model and effort win over the snapshot', () => {
+    const withMeta = [snapshot('a1', { usage: [], model: 'old-model', effort: 'low' })]
+    const figures = summarizeSession({ events, snapshots: withMeta, liveAgents: [liveAgent('a1', { usage: [], model: 'live-model', effort: 'high' })] })
+
+    expect(figures.agents[0]).toMatchObject({ model: 'live-model', effort: 'high' })
+  })
+
   test('a finished agent keeps its stored snapshot even with a stale live row', () => {
     const figures = summarizeSession({ events: [...events, report('a1')], snapshots: stored, liveAgents: [liveAgent('a1')] })
 

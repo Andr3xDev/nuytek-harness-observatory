@@ -31,7 +31,15 @@ export const createRecord = <T>(): Record<string, T> => Object.create(null) as R
 export const getOrInit = <T>(record: Record<string, T>, key: string, make: () => T): T => (record[key] ??= make())
 
 /** Normalized `$.agent.list()` row: the caller maps the host's snake_case usage and `cost.usd`. */
-export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null; hasUnknownPrice: boolean }
+export type LiveAgent = {
+  agentId: string
+  usage: UsageRecord[]
+  costUsd: number | null
+  hasUnknownPrice: boolean
+  /** From the live host row: a running agent has them before its first snapshot. */
+  model?: string
+  effort?: string | number
+}
 
 export type TypeFigures = Figure & { spawns: number }
 export type AgentFigures = Figure & {
