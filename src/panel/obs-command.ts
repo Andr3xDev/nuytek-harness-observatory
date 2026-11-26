@@ -15,10 +15,11 @@ const display = (text: string): ObsResult => ({ text, isTextDisplayOnly: true })
 
 /** Toggles the panel; the caller lets unknown arguments through. */
 export async function handleObs(deps: ObsDeps): Promise<ObsResult> {
-  if (deps.isOpen()) {
-    await deps.setOpen(false)
-    return display('Observatory closed.')
+  const open = !deps.isOpen()
+  try {
+    await deps.setOpen(open)
+  } catch {
+    return display('Observatory toggle failed.')
   }
-  await deps.setOpen(true)
-  return display('Observatory opened.')
+  return display(open ? 'Observatory opened.' : 'Observatory closed.')
 }
