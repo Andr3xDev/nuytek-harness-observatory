@@ -290,13 +290,12 @@ describe('batcher flush', () => {
     expect(calls).toHaveLength(1)
   })
 
-  test('above the buffer cap the oldest events are dropped and counted', async () => {
+  test('above the buffer cap the oldest events are dropped', async () => {
     const { sink, calls } = recordingSink(Array(50).fill(false))
     const batcher = createBatcher(sink, fakeClock().clock)
     const extra = 5
     for (let i = 0; i < MAX_BUFFERED_EVENTS + extra; i++) batcher.pushEvent(event('s1', `e${i}`))
     await settle()
-    expect(batcher.droppedEvents).toBe(extra)
     const pending = batcher.pendingEvents('s1')
     expect(pending).toHaveLength(MAX_BUFFERED_EVENTS)
     expect(pending[0]?.id).toBe(`e${extra}`)

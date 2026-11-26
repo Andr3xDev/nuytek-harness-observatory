@@ -9,7 +9,7 @@ export type BatchSink = {
 
 export type BatchClock = { every: (ms: number, fn: () => void) => () => void }
 
-type Entry = { path: string; line: string; event?: ObsEvent }
+type Entry = { path: string; line: string; bytes: number; event?: ObsEvent }
 
 export type Batcher = {
   pushEvent: (event: ObsEvent) => void
@@ -24,16 +24,17 @@ export type Batcher = {
   flush: (canContinue?: () => boolean) => Promise<void>
   /** Queued and in-flight events of one session, frozen, in append order. */
   pendingEvents: (sessionId: string) => readonly ObsEvent[]
-  readonly droppedEvents: number
 }
 
 const encoder = new TextEncoder()
+const entryOf = (path: string, line: string, event?: ObsEvent): Entry => ({ path, line, bytes: encoder.encode(line).length, event })
+const bytesOf = (entries: readonly Entry[]): number => entries.reduce((sum, entry) => sum + entry.bytes, 0)
 
 export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   let queue: Entry[] = []
   let inflight: Entry[] = []
   let snapshots = new Map<string, string>()
-  let droppedEvents = 0
+  let queuedBytes = 0
   let stopTimer: (() => void) | undefined
   let flushing: Promise<void> | undefined
   // The last run left work unwritten; size-triggered flushes pause until the timer or an explicit flush.
@@ -44,11 +45,9 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   const dropOldestAboveCap = (): void => {
     const excess = queue.length - MAX_BUFFERED_EVENTS
     if (excess <= 0) return
+    queuedBytes -= bytesOf(queue.slice(0, excess))
     queue = queue.slice(excess)
-    droppedEvents += excess
   }
-
-  const queuedBytes = (): number => queue.reduce((sum, entry) => sum + encoder.encode(entry.line).length, 0)
 
   const startTimerOnce = (): void => {
     if (stopTimer) return
@@ -64,10 +63,11 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
 
   const enqueue = (entry: Entry): void => {
     queue.push(entry)
+    queuedBytes += entry.bytes
     startTimerOnce()
     dropOldestAboveCap()
     // A run in flight already loops until the queue is drained, so a joining flush per push would only multiply retries.
-    if (!stalled && !flushing && (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES)) void flush()
+    if (!stalled && !flushing && (queue.length >= MAX_BATCH_EVENTS || queuedBytes >= MAX_BATCH_BYTES)) void flush()
   }
 
   const attempt = async (send: () => Promise<boolean>): Promise<boolean> => {
@@ -83,11 +83,16 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     const batch = queue
     const dirtySnapshots = snapshots
     queue = []
+    queuedBytes = 0
     snapshots = new Map()
     inflight = batch
 
     const byPath = new Map<string, Entry[]>()
-    for (const entry of batch) byPath.set(entry.path, [...(byPath.get(entry.path) ?? []), entry])
+    for (const entry of batch) {
+      const group = byPath.get(entry.path) ?? []
+      group.push(entry)
+      byPath.set(entry.path, group)
+    }
     const failedEntries: Entry[] = []
     for (const [path, entries] of byPath) {
       const ok = await attempt(() => sink.append(path, entries.map((entry) => entry.line).join('')))
@@ -114,6 +119,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
 
     inflight = []
     queue = [...failedEntries, ...queue]
+    queuedBytes += bytesOf(failedEntries)
     dropOldestAboveCap()
   }
 
@@ -143,14 +149,11 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
 
   return {
     flush,
-    get droppedEvents() {
-      return droppedEvents
-    },
     pushEvent: (event) => {
       Object.freeze(event)
-      enqueue({ path: eventsPathOf(event.sessionId), line: `${JSON.stringify(event)}\n`, event })
+      enqueue(entryOf(eventsPathOf(event.sessionId), `${JSON.stringify(event)}\n`, event))
     },
-    pushPrompt: (date, record) => enqueue({ path: promptsPathOf(date), line: `${JSON.stringify(record)}\n` }),
+    pushPrompt: (date, record) => enqueue(entryOf(promptsPathOf(date), `${JSON.stringify(record)}\n`)),
     setSnapshot: (file, snapshot) => {
       startTimerOnce()
       snapshots.set(file, JSON.stringify(snapshot))
