@@ -132,7 +132,22 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
   const startSession = (id: string): CaptureSession => (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
 
-  const sessionOf = async (host: H): Promise<CaptureSession> => session ?? startSession(await host.sessionId())
+  // `/resume` ends the old session without a `session.start` for the resumed one, so the first event
+  // that sees a different host session id adopts it, with a baseline taken at the resume point.
+  const sessionOf = async (host: H): Promise<CaptureSession> => {
+    const id = await host.sessionId()
+    if (session?.id === id) return session
+    const switched = session !== undefined
+    const adopted = startSession(id)
+    // After `/clear` or before any session the existing baseline is already the right one.
+    if (!switched) return adopted
+    previousModel = NO_MODEL
+    lastKnownAgentUsd.clear()
+    bashCalls = createBashCallTracker(profile)
+    const sample = await takeSample(host)
+    baseline = sample ? toReading(sample) : null
+    return adopted
+  }
 
   const contextOf = (state: CaptureSession, rt: Runtime): EnvelopeContext => ({
     sessionId: state.id,

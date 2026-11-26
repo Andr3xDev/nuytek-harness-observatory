@@ -138,6 +138,20 @@ describe('session lifecycle', () => {
     expect(order).toEqual(['init', 'maintain'])
   })
 
+  test('after a resume the first event of the new host session is adopted with a baseline at the resume point', async () => {
+    const { world, host, capture, events } = setup()
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'resume' }, passThrough({}))
+    host.sessionId = async () => 's2'
+    world.usd = 56
+    await capture.toolCheck(host, bashCheck, passThrough({ decision: 'allow' as const }))
+    world.usd = 57
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    const resumed = (await events()).filter((e) => e.sessionId === 's2')
+    expect(resumed.map((e) => e.type)).toEqual(['tool.verdict', 'turn.complete'])
+    expect(resumed[1]).toMatchObject({ costUsd: 1 })
+  })
+
   test('session.end flushes before returning and carries estimates only with the profile on', async () => {
     for (const profile of [true, false]) {
       const { host, capture, events } = setup(profile)
