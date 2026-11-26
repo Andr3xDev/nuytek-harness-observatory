@@ -42,7 +42,7 @@ Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture
 
 The observatory lives in the band above the prompt; there is no side pane. Closed, it draws nothing. Open (`/obs`), it is a bordered box titled `◆ obs` with four tabs: Session, Agents, Tools and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `4`. Close it with `/obs`. Figures update as events arrive, and the open panel re-reads the store every few seconds.
 
-Tabs 1 to 3 always show the current session; the History tab shows the recorded sessions.
+Tabs 1 to 3 always show the current session; the History tab shows the sessions recorded in the last 7 days (`HISTORY_WINDOW_DAYS` in `src/core/constants.ts`), chosen by the last change of each events file. Older sessions stay on disk until retention removes them.
 
 Token columns are split into `In`, `Out` and `Total`; input includes the cached prompt tokens, so `In + Out = Total`. Narrow bands keep only `Total`. The Session tab totals line reads `Tokens: in 5.0k │ out 1.2k │ total 6.2k │ Cost (est.): $0.50`.
 
@@ -77,7 +77,6 @@ Everything lives under `~/.claude/observability/`. Directories are created with 
 |------|---------|------------|
 | `events/<sessionId>.jsonl` | One event per line for the session. | Appended |
 | `snapshots/<sessionId>.json` | Latest state of the session. | Replaced in place |
-| `rollup/<sessionId>.json` | Per-session aggregates used by the panel. | Replaced in place |
 | `prompts-YYYY-MM-DD.jsonl` | Full text of each subagent prompt, one file per day. | Appended |
 
 Retention deletes regular files older than `retentionDays` from these locations at session start. It never touches the current session's files or anything outside them.
@@ -93,7 +92,3 @@ The plugin does not redact anything. By design it stores, as-is:
 Secrets typed into a prompt or a command (tokens, passwords, keys) end up in these files. The only protection is the file modes (`0600` files, `0700` directories). Nothing leaves your machine.
 
 To remove the data, delete `~/.claude/observability/` yourself. The plugin never deletes it as a whole, and recreates it on the next session.
-
-## Code constants
-
-- `CLASSIC_PERMISSION_HOOKS_ENABLED` in `src/capture/flags.ts` (default `false`): registers the classic `PermissionRequest`, `PermissionDenied`, `PostToolUse` and `PostToolUseFailure` hooks and writes `permission.outcome` events. Flip it only after a manual smoke test confirms those hooks fire on the target host.

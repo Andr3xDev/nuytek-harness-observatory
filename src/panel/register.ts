@@ -59,13 +59,13 @@ export const createPanel = (capture: Capture) => {
   }
 
   const ensurePanel = async (host: PanelHost): Promise<void> => {
+    if (state.refresher) return
     const fs = historyFsOf(await host.home(), { list: host.list, read: host.read, readText: host.readText })
-    state.refresher ??= createRefresher({
+    state.refresher = createRefresher({
       sources: createSources(
         createLiveLoaders({
           now: () => Date.now(),
-          // No writer: the panel never writes the store.
-          loadSessions: async (options) => (await loadHistory({ fs }, { now: Date.now(), ...options })).sessions,
+          loadSessions: (options) => loadHistory({ fs }, { now: Date.now(), ...options }),
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
           readMainAgent: async () => (await host.agentType()) ?? null,
@@ -201,8 +201,8 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
     const deps: ObsDeps = {
       isOpen: () => state.open,
       setOpen: async (open) => {
-        state.open = open
         await $.store.set(PANEL_OPEN_STORE_KEY, open)
+        state.open = open
         await update($, panelOpenAtom, () => open)
         if (open) {
           safeRefresh('obs.open')

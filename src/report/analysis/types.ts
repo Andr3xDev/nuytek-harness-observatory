@@ -3,10 +3,7 @@ import type {
   Figure,
   LiveAgent,
   ProfileFigures,
-  SessionFigures,
-  SessionState,
   SnapshotRecord,
-  SourceStat,
   TokenCounts,
   ToolFigures,
   TypeFigures,
@@ -61,14 +58,4 @@ export type AggregateFigures = {
   byModel: Array<{ model: string } & TokenCounts & { tokens: number }>
   tools: ToolFigures
   profile: ProfileFigures | null
-}
-
-export type SessionRollup = {
-  rollupVersion: number
-  schemaVersions: number[]
-  sessionId: string
-  state: SessionState
-  sources: Array<{ path: string } & SourceStat>
-  builtAt: number
-  figures: SessionFigures
 }

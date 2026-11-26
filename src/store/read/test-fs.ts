@@ -1,4 +1,3 @@
-import type { SourceStat } from '../../core/figures'
 import type { HistoryFs } from './history-fs'
 
 export type FakeFiles = Record<string, { content: string; mtimeMs?: number }>
@@ -43,33 +42,6 @@ export const createFakeFs = (files: FakeFiles, failingPaths: readonly string[] =
     },
   }
 
-  const statOf = (path: string): SourceStat => {
-    const file = files[path]
-    if (!file) throw new Error(`no fake file ${path}`)
-    return { size: ENCODER.encode(file.content).length, mtimeMs: file.mtimeMs ?? DEFAULT_MTIME_MS }
-  }
-
   const readPaths = (): string[] => [...calls.read.map((call) => call.path), ...calls.readText]
-  return { fs, files, calls, statOf, readPaths }
-}
-
-/** Records every upsert; with `files` given, a write lands in the fake store so a later load sees it. */
-export const createRecordingWriter = (files?: FakeFiles, behavior: 'ok' | 'false' | 'throw' = 'ok') => {
-  const writes: Array<{ path: string; text: string }> = []
-  let inFlight = 0
-  let maxInFlight = 0
-  const writer = {
-    upsert: async (path: string, text: string): Promise<boolean> => {
-      inFlight += 1
-      maxInFlight = Math.max(maxInFlight, inFlight)
-      await Promise.resolve()
-      inFlight -= 1
-      writes.push({ path, text })
-      if (behavior === 'throw') throw new Error('writer exploded')
-      if (behavior === 'false') return false
-      if (files) files[path] = { content: text }
-      return true
-    },
-  }
-  return { writer, writes, maxInFlight: () => maxInFlight }
+  return { fs, files, calls, readPaths }
 }

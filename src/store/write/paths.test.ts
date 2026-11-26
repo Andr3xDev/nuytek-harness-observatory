@@ -35,9 +35,8 @@ describe('validateAppendPath', () => {
     expect(validateAppendPath('prompts-2026-11-25.jsonl').ok).toBe(true)
   })
 
-  test('rejects snapshots/ and rollup/ targets', () => {
+  test('rejects snapshots/ targets', () => {
     expect(validateAppendPath('snapshots/a1.json').ok).toBe(false)
-    expect(validateAppendPath('rollup/day.json').ok).toBe(false)
   })
 
   test('rejects traversal, absolute, malformed and unknown paths without throwing', () => {
@@ -54,11 +53,8 @@ describe('validateUpsertPath', () => {
     expect(validateUpsertPath('snapshots/main-s1.json').ok).toBe(true)
   })
 
-  test('accepts a rollup file', () => {
-    expect(validateUpsertPath('rollup/2026-11-25_summary.json')).toEqual({
-      ok: true,
-      path: 'rollup/2026-11-25_summary.json',
-    })
+  test('rejects a rollup file', () => {
+    expect(validateUpsertPath('rollup/2026-11-25_summary.json').ok).toBe(false)
   })
 
   test('rejects events/ and prompts targets', () => {

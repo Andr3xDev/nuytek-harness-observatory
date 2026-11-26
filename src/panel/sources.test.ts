@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
+import { HISTORY_WINDOW_MS } from '../core/constants'
 import type { EventRecord, SessionFigures } from '../core/figures'
 import { summarizeSession } from '../report/analysis'
 import { CTX, NOW, sessionStart, spawn } from '../report/analysis/test-fixtures'
@@ -51,7 +52,7 @@ describe('live loaders', () => {
     const calls: Parameters<LiveLoaderDeps['loadSessions']>[0][] = []
     const deps: LiveLoaderDeps = {
       now: () => 1,
-      loadSessions: async options => (calls.push(options), [stored]),
+      loadSessions: async (options) => (calls.push(options), [stored]),
       pendingEvents: () => pending,
       listAgents: async () => [{ id: 'a1', usage: [], cost: { usd: 0.5 } }],
       readMainAgent: async () => 'tech-orchestrator',
@@ -86,10 +87,10 @@ describe('live loaders', () => {
     expect(load.mainAgent).toBeNull()
   })
 
-  test('the history load reads every session', async () => {
-    const { loaders, calls } = build()
+  test('the history load asks only for sessions inside the history window', async () => {
+    const { loaders, calls } = build({ now: () => NOW })
     await loaders.loadHistory()
-    expect(calls[0]).toEqual({})
+    expect(calls[0]).toEqual({ modifiedSince: NOW - HISTORY_WINDOW_MS })
   })
 
   test('host snake_case usage and a missing cost map to a live agent', () => {
@@ -108,7 +109,7 @@ describe('live session overlay', () => {
   const seeded = (storedEvents: EventRecord[], pendingNow: () => EventRecord[]) => {
     return createLiveLoaders({
       now: () => NOW,
-      loadSessions: async options => {
+      loadSessions: async (options) => {
         options.onSessionInput?.('s1', { events: storedEvents, snapshots: [], pendingEvents: options.pendingEvents?.s1 })
         return [summarizeSession({ events: storedEvents, snapshots: [] }, CTX)]
       },
@@ -134,7 +135,7 @@ describe('live session overlay', () => {
 
     pending = [first, second]
     const live = loaders.liveSession('s1')?.sessionFigures
-    expect(live?.agents.map(agent => agent.agentId)).toEqual(['a1', 'a2'])
+    expect(live?.agents.map((agent) => agent.agentId)).toEqual(['a1', 'a2'])
   })
 
   test('keeps events that left the pending list after a flush', async () => {

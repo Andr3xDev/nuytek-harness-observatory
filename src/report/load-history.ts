@@ -2,28 +2,24 @@ import { isSnapshotShape } from '../core/guards'
 import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../core/figures'
 import type { HistoryFs } from '../store/read/history-fs'
 import { listSources, readLines } from '../store/read/reader'
-import { SESSION_ID_PATTERN, agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf, rollupPathOf, sessionIdOfEventsPath } from '../store/layout'
-import type { Writer } from '../store/write/writer'
+import { agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf, sessionIdOfEventsPath } from '../store/layout'
 import { parseJsonl } from './analysis/parse'
-import { buildRollup, isRollupFresh } from './analysis/rollup'
 import { summarizeSession } from './analysis/session'
 import type { SessionInput } from './analysis/types'
 
 export const READ_CONCURRENCY = 8
 
-/** Without a `writer` the load is read-only: no rollup is built or stored. */
-export type HistoryDeps = { fs: HistoryFs; writer?: Pick<Writer, 'upsert'> }
+export type HistoryDeps = { fs: HistoryFs }
 export type LoadHistoryOptions = {
   now: number
   sessionIds?: readonly string[]
+  /** Skips sessions whose events file was last modified before this time, without opening them. */
+  modifiedSince?: number
   pendingEvents?: Readonly<Record<string, readonly EventRecord[]>>
   liveAgents?: Readonly<Record<string, readonly LiveAgent[]>>
   /** Sees the exact input a session was summarized from; the live panel keeps it to extend in memory. */
   onSessionInput?: (sessionId: string, input: SessionInput) => void
 }
-export type HistoryResult = { sessions: SessionFigures[]; warnings: number; rollupWriteFailures: number }
-
-type LoadedSession = { sessionId: string; figures: SessionFigures; cacheable: boolean }
 
 async function mapWithLimit<T, R>(items: readonly T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length)
@@ -46,11 +42,6 @@ const parseJson = (text: string): unknown => {
   }
 }
 
-const readRollup = async (fs: HistoryFs, sessionId: string, listing: SourceListing): Promise<SessionFigures | null> => {
-  const rollup = await fs.readText(rollupPathOf(sessionId)).then(parseJson, () => undefined)
-  return isRollupFresh(rollup, listing) && rollup.sessionId === sessionId ? rollup.figures : null
-}
-
 /** A snapshot that cannot be read is dropped; the session keeps its other figures. */
 const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing): Promise<SnapshotRecord | null> => {
   if (!Object.hasOwn(listing, path)) return null
@@ -58,27 +49,26 @@ const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing)
   return isSnapshotShape(snapshot) ? (snapshot as SnapshotRecord) : null
 }
 
-const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | undefined): string[] => {
-  const ids = requested ?? Object.keys(listing).flatMap((path) => sessionIdOfEventsPath(path) ?? [])
+const sessionIdsOf = (listing: SourceListing, requested: readonly string[] | undefined, modifiedSince: number | undefined): string[] => {
+  const listed = Object.keys(listing).filter((path) => modifiedSince === undefined || (listing[path]?.mtimeMs ?? 0) >= modifiedSince)
+  const ids = requested ?? listed.flatMap((path) => sessionIdOfEventsPath(path) ?? [])
   return [...new Set(ids)].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 }
 
-export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHistoryOptions): Promise<HistoryResult> {
+export async function loadHistory({ fs }: HistoryDeps, options: LoadHistoryOptions): Promise<SessionFigures[]> {
   const { now, pendingEvents = {}, liveAgents = {} } = options
   const listing = await listSources(fs)
-  let warnings = 0
 
-  const loadSession = async (sessionId: string): Promise<LoadedSession | null> => {
+  const loadSession = async (sessionId: string): Promise<SessionFigures | null> => {
     try {
       return await loadSessionOrThrow(sessionId)
     } catch {
       // A parseable but malformed record must not take the whole history down.
-      warnings += 1
       return null
     }
   }
 
-  const loadSessionOrThrow = async (sessionId: string): Promise<LoadedSession | null> => {
+  const loadSessionOrThrow = async (sessionId: string): Promise<SessionFigures | null> => {
     const pending = Object.hasOwn(pendingEvents, sessionId) ? pendingEvents[sessionId] : undefined
     const live = Object.hasOwn(liveAgents, sessionId) ? liveAgents[sessionId] : undefined
     const isLive = (pending?.length ?? 0) > 0 || (live?.length ?? 0) > 0
@@ -87,18 +77,10 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
 
     if (!isLive && !stat) return null
 
-    if (!isLive && stat) {
-      const stored = await readRollup(fs, sessionId, listing)
-      if (stored) return { sessionId, figures: stored, cacheable: false }
-    }
-
     let events: EventRecord[] = []
     if (stat) {
       const read = await readLines(fs, eventsPath, stat.size)
-      if (!read.ok) {
-        warnings += 1
-        return null
-      }
+      if (!read.ok) return null
       events = parseJsonl(read.lines)
     }
 
@@ -108,26 +90,9 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
 
     const input = { events, snapshots, pendingEvents: pending, liveAgents: live }
     options.onSessionInput?.(sessionId, input)
-    const figures = summarizeSession(input, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
-    return {
-      sessionId,
-      figures,
-      cacheable: !isLive && stat !== undefined && figures.state !== 'open' && SESSION_ID_PATTERN.test(sessionId),
-    }
+    return summarizeSession(input, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
   }
 
-  const loaded = await mapWithLimit(sessionIdsOf(listing, options.sessionIds), READ_CONCURRENCY, loadSession)
-  const present = loaded.flatMap((entry) => (entry ? [entry] : []))
-
-  const upsert = writer?.upsert.bind(writer)
-  const writes = upsert
-    ? await mapWithLimit(
-        present.filter(({ cacheable }) => cacheable),
-        READ_CONCURRENCY,
-        ({ sessionId, figures }) => upsert(rollupPathOf(sessionId), JSON.stringify(buildRollup(figures, listing, now))).catch(() => false),
-      )
-    : []
-  const rollupWriteFailures = writes.filter((written) => !written).length
-
-  return { sessions: present.map((entry) => entry.figures), warnings, rollupWriteFailures }
+  const loaded = await mapWithLimit(sessionIdsOf(listing, options.sessionIds, options.modifiedSince), READ_CONCURRENCY, loadSession)
+  return loaded.flatMap((figures) => (figures ? [figures] : []))
 }

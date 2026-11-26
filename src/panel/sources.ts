@@ -1,3 +1,4 @@
+import { HISTORY_WINDOW_MS } from '../core/constants'
 import type { EventRecord, LiveAgent, SessionFigures } from '../core/figures'
 import { mapUsage, type HostUsage } from '../core/usage'
 import { combineSessions, mergeLiveEvents, summarizeSession, type SessionInput } from '../report/analysis'
@@ -40,7 +41,7 @@ async function guarded<T>(load: () => Promise<T>): Promise<Loaded<T>> {
 
 export function createSources(loaders: { loadSession: SessionLoader; loadHistory: HistoryLoader; liveSession: LiveSessionLoader }): Sources {
   return {
-    loadSessionAggregate: sessionId => guarded(async () => loaders.loadSession(sessionId)),
+    loadSessionAggregate: (sessionId) => guarded(async () => loaders.loadSession(sessionId)),
     loadHistoryAggregate: () => guarded(async () => loaders.loadHistory()),
     liveSession: loaders.liveSession,
   }
@@ -51,6 +52,7 @@ export type LiveAgentRow = { id: string; usage?: HostUsage[]; cost?: { usd: numb
 
 export type LoadSessionsOptions = {
   sessionIds?: string[]
+  modifiedSince?: number
   pendingEvents?: Record<string, readonly EventRecord[]>
   liveAgents?: Record<string, readonly LiveAgent[]>
   onSessionInput?: (sessionId: string, input: SessionInput) => void
@@ -58,7 +60,7 @@ export type LoadSessionsOptions = {
 
 export type LiveLoaderDeps = {
   now: () => number
-  /** `loadHistory` of the store, bound to the file system only by the caller; the panel does not write. */
+  /** `loadHistory` of the store, bound to the file system only by the caller. */
   loadSessions: (options: LoadSessionsOptions) => Promise<SessionFigures[]>
   pendingEvents: (sessionId: string) => readonly EventRecord[]
   listAgents: () => Promise<readonly LiveAgentRow[]>
@@ -66,14 +68,14 @@ export type LiveLoaderDeps = {
 }
 
 export const liveAgentsOf = (rows: readonly LiveAgentRow[]): LiveAgent[] =>
-  rows.map(row => ({ agentId: row.id, usage: (row.usage ?? []).map(mapUsage), costUsd: row.cost?.usd ?? null }))
+  rows.map((row) => ({ agentId: row.id, usage: (row.usage ?? []).map(mapUsage), costUsd: row.cost?.usd ?? null }))
 
 /** The real loaders: the session overlays unflushed events and running agents on the stored figures. */
 export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionLoader; loadHistory: HistoryLoader; liveSession: LiveSessionLoader } {
   // The current session's inputs, seeded by each store read; a different session id never matches it.
   let seed: { sessionId: string; input: SessionInput } | null = null
   return {
-    liveSession: sessionId => {
+    liveSession: (sessionId) => {
       if (seed?.sessionId !== sessionId) return null
       // Accumulate: events flushed to disk since the seed leave the pending list but stay counted here.
       const events = mergeLiveEvents(seed.input.events, deps.pendingEvents(sessionId))
@@ -81,7 +83,7 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
       const sessionFigures = summarizeSession(seed.input, { now: deps.now(), sourceMtimeMs: deps.now() })
       return { sessionFigures, aggregate: combineSessions([sessionFigures]) }
     },
-    loadSession: async sessionId => {
+    loadSession: async (sessionId) => {
       // A failed list keeps the stored figures: the overlay is optional.
       const rows = await deps.listAgents().catch((): readonly LiveAgentRow[] => [])
       seed = null
@@ -97,10 +99,10 @@ export function createLiveLoaders(deps: LiveLoaderDeps): { loadSession: SessionL
       return {
         sessionFigures: figures,
         aggregate: combineSessions([figures]),
-        liveAgentIds: rows.map(row => row.id),
+        liveAgentIds: rows.map((row) => row.id),
         mainAgent: await deps.readMainAgent().catch(() => null),
       }
     },
-    loadHistory: async () => ({ aggregate: combineSessions(await deps.loadSessions({})) }),
+    loadHistory: async () => ({ aggregate: combineSessions(await deps.loadSessions({ modifiedSince: deps.now() - HISTORY_WINDOW_MS })) }),
   }
 }

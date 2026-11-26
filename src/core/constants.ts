@@ -14,6 +14,10 @@ export const MAX_BUFFERED_EVENTS = 2_000
 
 export const RESUME_SWEEP_WINDOW_MS = 7 * MS_PER_DAY
 
+/** The History tab reads only sessions whose events file changed within this many days. */
+export const HISTORY_WINDOW_DAYS = 7
+export const HISTORY_WINDOW_MS = HISTORY_WINDOW_DAYS * MS_PER_DAY
+
 export const REPORT_EXCERPT_MAX_BYTES = 3_072
 
 /** Most recent agent runs the history aggregate keeps. */

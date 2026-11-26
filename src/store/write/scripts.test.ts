@@ -30,8 +30,8 @@ describe('script constants', () => {
     expect(initArgv()).toEqual(['sh', '-c', INIT_SCRIPT, 'observatory'])
   })
 
-  test('MAINTAIN limits find to the four known entries and regular files', () => {
-    expect(MAINTAIN_SCRIPT).toContain('find events snapshots rollup -type f -mtime +"$1"')
+  test('MAINTAIN limits find to the known entries and regular files', () => {
+    expect(MAINTAIN_SCRIPT).toContain('find events snapshots -type f -mtime +"$1"')
     expect(MAINTAIN_SCRIPT).toContain("-maxdepth 1 -type f -name 'prompts-*.jsonl' -mtime +\"$1\"")
     expect(MAINTAIN_SCRIPT).toContain('! -name "$2" ! -name "$3"')
     expect(MAINTAIN_SCRIPT).not.toContain('find /')
