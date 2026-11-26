@@ -53,7 +53,10 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   const startTimerOnce = (): void => {
     if (stopTimer) return
     try {
-      stopTimer = clock.every(FLUSH_INTERVAL_MS, () => void flush())
+      // A tick during a run in flight would only pile waiters that each retry on a failing sink.
+      stopTimer = clock.every(FLUSH_INTERVAL_MS, () => {
+        if (!flushing) void flush()
+      })
     } catch {
       // Retried on the next push; the entry is already queued.
     }
@@ -94,7 +97,15 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
       }
     }
     for (const [file, text] of dirtySnapshots) {
-      const ok = waiterGuards.every((canContinue) => canContinue()) && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
+      // A throwing guard counts as false so it cannot reject run() and lose the batch.
+      const allowed = waiterGuards.every((canContinue) => {
+        try {
+          return canContinue()
+        } catch {
+          return false
+        }
+      })
+      const ok = allowed && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
       if (!ok) {
         stalled = true
         if (!snapshots.has(file)) snapshots.set(file, text)

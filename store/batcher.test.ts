@@ -259,6 +259,20 @@ describe('batcher flush', () => {
     expect(calls.map((c) => c.kind)).toEqual(['append', 'upsert'])
   })
 
+  test('a throwing canContinue resolves, keeps the snapshot queued and clears the in-flight batch', async () => {
+    const { sink, calls } = recordingSink()
+    const batcher = createBatcher(sink, fakeClock().clock)
+    batcher.pushEvent(event('s1', 'e1'))
+    batcher.setSnapshot('a1.json', snapshot('a1', 1))
+    await batcher.flush(() => {
+      throw new Error('budget unavailable')
+    })
+    expect(calls.map((c) => c.kind)).toEqual(['append'])
+    expect(batcher.pendingEvents('s1')).toEqual([])
+    await batcher.flush()
+    expect(calls.map((c) => c.kind)).toEqual(['append', 'upsert'])
+  })
+
   test('reaching the batch event cap triggers a flush without an explicit call', async () => {
     const { sink, calls } = recordingSink()
     const batcher = createBatcher(sink, fakeClock().clock)
@@ -301,6 +315,30 @@ describe('batcher timer', () => {
     registered[0]?.fn()
     await settle()
     expect(calls).toHaveLength(1)
+  })
+
+  test('ticks during a run in flight start no extra run and the next tick after it flushes', async () => {
+    const gates: Array<(ok: boolean) => void> = []
+    const sink: BatchSink = {
+      append: () => new Promise<boolean>((resolve) => gates.push(resolve)),
+      upsert: async () => true,
+    }
+    const { clock, registered } = fakeClock()
+    const batcher = createBatcher(sink, clock)
+    batcher.pushEvent(event('s1', 'e1'))
+    const tick = registered[0]?.fn ?? (() => {})
+    tick()
+    await settle()
+    tick()
+    tick()
+    tick()
+    await settle()
+    gates[0]?.(false)
+    await settle()
+    expect(gates).toHaveLength(1)
+    tick()
+    await settle()
+    expect(gates).toHaveLength(2)
   })
 
   test('a throwing clock drops no event and the timer is retried on the next push', () => {
