@@ -18,9 +18,9 @@ describe('tools tab', () => {
   test('25 skills render 20 rows plus +5 more', () => {
     const skills = Object.fromEntries(Array.from({ length: 25 }, (_, index) => [`skill-${index}`, { prompted: 0, read: 1, invoked: 0, byAgentType: {} }]))
     const lines = toolsLines(context('wide', { session: withTools({ skills }) }))
-    const rows = lines.filter(line => line.text.startsWith('skill-'))
+    const rows = lines.filter((line) => line.text.startsWith('skill-'))
     expect(rows).toHaveLength(20)
-    expect(lines.filter(line => line.text === '+5 more')).toHaveLength(1)
+    expect(lines.filter((line) => line.text ==='+5 more')).toHaveLength(1)
   })
 
   test('MCP calls group by server and tool; commands show with a slash', () => {

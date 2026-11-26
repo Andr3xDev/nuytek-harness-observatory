@@ -42,7 +42,7 @@ const figureRow = (name: string, status: string, figure: Figure, agentId?: strin
 
 // Roots are agents without a known parent; a visited set keeps a bad parent link from looping.
 function treeRows(agents: readonly AgentFigures[]): Row[] {
-  const ids = new Set(agents.map(agent => agent.agentId))
+  const ids = new Set(agents.map((agent) => agent.agentId))
   const children = new Map<string | null, AgentFigures[]>()
   for (const agent of agents) {
     const parent = agent.parentAgentId !== null && ids.has(agent.parentAgentId) ? agent.parentAgentId : null

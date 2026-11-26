@@ -13,7 +13,7 @@ const NO_EFFORT = '-'
 const MAIN_SPAWNS = '—'
 // Effort is the first column to go: below wide the row keeps agent and model.
 const MODEL_COLUMN: Column = { header: 'Model', width: 12 }
-const EFFORT_COLUMN: Column = { header: 'Effort', width: 9, secondary: true, color: cell => (cell === NO_EFFORT ? undefined : PALETTE.effort) }
+const EFFORT_COLUMN: Column = { header: 'Effort', width: 9, secondary: true, color: (cell) => (cell === NO_EFFORT ? undefined : PALETTE.effort) }
 
 const TYPE_MODEL_COLUMNS: Column[] = [
   { header: 'Agent', width: 0 },
@@ -48,7 +48,7 @@ const UTC_MINUTE_END = 16
 const formatStarted = (ms: number): string => new Date(ms).toISOString().slice(UTC_MINUTE_START, UTC_MINUTE_END).replace('T', ' ')
 
 const typeModelRows = (aggregate: AggregateFigures): Row[] =>
-  aggregate.byTypeModelEffort.map(entry => ({
+  aggregate.byTypeModelEffort.map((entry) => ({
     cells: [...identity(entry.type, entry.model, entry.effort), `${entry.spawns}×`, ...tokenCells(entry), formatCost(entry)],
   }))
 
@@ -59,7 +59,7 @@ const typeModelLines = ({ tier, columns }: TabContext, aggregate: AggregateFigur
 
 /** History tab's agents section. */
 export function agentHistoryLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
-  const recent = aggregate.recentAgents.map(run => ({
+  const recent = aggregate.recentAgents.map((run) => ({
     cells: [...identity(run.type, run.model, run.effort), formatStarted(run.startedAt), ...tokenCells(run), formatCost(run)],
   }))
   const typeModel = typeModelLines(ctx, aggregate)

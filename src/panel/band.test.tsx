@@ -64,7 +64,7 @@ test('only the digits 1 to 4 are hotkeys', async ($, on) => {
   const ui = await $.ui.mount(bandTarget(100))
   const buttons = await ui.findAll({ type: 'Button' })
 
-  expect(buttons.map(button => button.props.hotkey).filter(Boolean)).toEqual(['1', '2', '3', '4'])
+  expect(buttons.map((button) => button.props.hotkey).filter(Boolean)).toEqual(['1', '2', '3', '4'])
   await ui.unmount()
 })
 

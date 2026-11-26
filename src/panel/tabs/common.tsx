@@ -52,7 +52,7 @@ export const TOKEN_COLUMNS: Column[] = [
 ]
 
 /** Input counts the cached prompt tokens too, so In + Out is the total. */
-const promptTokensOf =(figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
+const promptTokensOf = (figure: TokenCounts): number => figure.input + figure.cacheRead + figure.cacheCreation
 
 export const formatCost = (figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
