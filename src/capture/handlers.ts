@@ -90,7 +90,7 @@ const readModel = async (host: HostApi): Promise<string> => {
   try {
     return await host.model()
   } catch {
-    return ''
+    return NO_MODEL
   }
 }
 
@@ -135,7 +135,12 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
 
   const runtimeOf = (host: H): Runtime => (runtime ??= config.runtime(host))
 
-  const startSession = (id: string): CaptureSession => (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
+  let lastReconciliationKey: string | null = null
+
+  const startSession = (id: string): CaptureSession => {
+    lastReconciliationKey = null
+    return (session = { id, tracker: createSnapshotTracker(id), cwd: lastCwd })
+  }
 
   // `/resume` ends the old session without a `session.start` for the resumed one, so the first event
   // that sees a different host session id adopts it, with a baseline taken at the resume point.
@@ -305,7 +310,8 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const sample = await takeSample(host)
         const reading = sample ? toReading(sample) : null
         const costUsd = computeTurnCost(baseline, reading, lastKnownAgentUsd)
-        baseline = reading
+        // A failed sample keeps the previous baseline, so the next good turn still pays the cost this one missed.
+        if (reading) baseline = reading
         // The first cycle detects a `startedAt` reset and clears the ledger before this turn is recorded.
         if (sample) runCycle(state, rt, sample)
         if (e.usage) {
@@ -339,6 +345,9 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           agents: sample.agents.map((agent) => ({ usd: agent.cost?.usd ?? 0, hasUnknownPrice: agent.cost?.hasUnknownPrice })),
           mainTokens: state.tracker.mainTokens(),
         })
+        const key = JSON.stringify([result.sumAgentsUsd, result.sessionUsd, result.mainTokens, result.driftReasons])
+        if (key === lastReconciliationKey) return
+        lastReconciliationKey = key
         rt.batcher.pushEvent(buildReconciliationRecord(result, ctx))
       }),
 

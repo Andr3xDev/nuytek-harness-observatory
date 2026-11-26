@@ -213,6 +213,22 @@ describe('agents and turns', () => {
     expect(turn).toMatchObject({ costUsd: null })
   })
 
+  test('a failed sample keeps the previous baseline, so the next turn carries the missed cost', async () => {
+    const { world, host, capture, events } = setup()
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    const workingUsage = host.usage
+    host.usage = async () => {
+      throw new Error('host down')
+    }
+    world.usd = 1
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    host.usage = workingUsage
+    world.usd = 3
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    const costs = (await events()).filter((e) => e.type === 'turn.complete').map((e) => (e as { costUsd: number | null }).costUsd)
+    expect(costs).toEqual([null, 3])
+  })
+
   test('after a /clear the first turn costs the new cumulative and keeps the working directory', async () => {
     const { world, host, capture, events } = setup()
     await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
@@ -301,6 +317,16 @@ describe('session.measure', () => {
     const costs = all.filter((e) => e.type === 'session.measure').map((e) => (e as { costUsd: number }).costUsd)
     expect(costs).toEqual([1, 1.5])
     expect(all.filter((e) => e.type === 'reconciliation')).toHaveLength(2)
+  })
+
+  test('an unchanged reconciliation is written once until the session changes', async () => {
+    const { world, host, capture, events } = setup()
+    world.usd = 1
+    await capture.sessionMeasure(host, { cost: { usd: 1 } }, passThrough({}))
+    await capture.sessionMeasure(host, { cost: { usd: 1 } }, passThrough({}))
+    const all = await events()
+    expect(all.filter((e) => e.type === 'session.measure')).toHaveLength(2)
+    expect(all.filter((e) => e.type === 'reconciliation')).toHaveLength(1)
   })
 
   test('a measure without cost writes neither the event nor a reconciliation', async () => {
