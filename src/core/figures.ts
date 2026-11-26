@@ -20,6 +20,8 @@ export type AgentFigures = Figure & {
   agentId: string
   parentAgentId: string | null
   subagentType: string
+  /** Absent in rollups stored before this field existed; `null` when no usage or snapshot named one. */
+  model?: string | null
   engineStatus: 'running' | 'completed' | 'failed' | 'stopped' | 'unknown'
   durationMs: number
 }

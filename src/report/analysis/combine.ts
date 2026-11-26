@@ -92,6 +92,7 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
   const total = emptyFigure()
   const types = createRecord<TypeFigures>()
   const models = createRecord<TokenCounts & { tokens: number }>()
+  const typeModels = new Map<string, AggregateFigures['byTypeModel'][number]>()
   const issues = createRecord<Figure>()
   const engineStatusMix = createRecord<number>()
   let denies = 0
@@ -116,6 +117,14 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
       merged.tokens += figures.tokens
     }
     for (const [issue, figures] of Object.entries(session.byIssue)) addFigure(getOrInit(issues, issue, emptyFigure), figures)
+    for (const agent of session.agents) {
+      const model = agent.model ?? null
+      const key = JSON.stringify([agent.subagentType, model])
+      const merged = typeModels.get(key) ?? { ...emptyFigure(), type: agent.subagentType, model, spawns: 0 }
+      typeModels.set(key, merged)
+      addFigure(merged, agent)
+      merged.spawns += 1
+    }
   }
 
   const totalSpawns = Object.values(types).reduce((sum, type) => sum + type.spawns, 0)
@@ -141,6 +150,11 @@ export function combineSessions(sessions: readonly SessionFigures[]): AggregateF
       })),
       (row) => row.tokens,
       (row) => row.type,
+    ),
+    byTypeModel: byDescending(
+      [...typeModels.values()],
+      (row) => row.tokens,
+      (row) => `${row.type} ${row.model ?? ''}`,
     ),
     byModel: byDescending(
       Object.entries(models).map(([model, figures]) => ({ model, ...figures })),

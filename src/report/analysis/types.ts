@@ -66,6 +66,8 @@ export type AggregateFigures = {
       cacheRatio: number | null
     }
   >
+  /** One row per agent type and model; `model` is null when none was recorded. */
+  byTypeModel: Array<Figure & { type: string; model: string | null; spawns: number }>
   byModel: Array<{ model: string } & TokenCounts & { tokens: number }>
   byIssue: Array<{ issue: string } & Figure>
   engineStatusMix: Record<string, number>

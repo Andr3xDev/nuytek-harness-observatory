@@ -43,6 +43,26 @@ describe('combineSessions shares', () => {
   })
 })
 
+describe('combineSessions by type and model', () => {
+  test('groups agents by type and model across sessions; a missing model stays null', () => {
+    const a = summarize(
+      [spawn('a1', { sessionId: 'sa' }), spawn('a2', { sessionId: 'sa' }), spawn('a3', { sessionId: 'sa' })],
+      [
+        agentSnapshot('a1', 'sa', { usage: [usage(100, 0, 0, 0, 'haiku')] }),
+        agentSnapshot('a2', 'sa', { usage: [usage(300, 0, 0, 0, 'opus')] }),
+        agentSnapshot('a3', 'sa', { model: '', usage: [usage(50, 0, 0, 0, '')] }),
+      ],
+    )
+    const b = summarize([spawn('a4', { sessionId: 'sb' })], [agentSnapshot('a4', 'sb', { usage: [usage(200, 0, 0, 0, 'haiku')] })])
+
+    expect(combineSessions([a, b]).byTypeModel.map(({ type, model, spawns, tokens }) => ({ type, model, spawns, tokens }))).toEqual([
+      { type: 'builder', model: 'haiku', spawns: 2, tokens: 300 },
+      { type: 'builder', model: 'opus', spawns: 1, tokens: 300 },
+      { type: 'builder', model: null, spawns: 1, tokens: 50 },
+    ])
+  })
+})
+
 describe('combineSessions derived per-type figures', () => {
   test('per-type cache ratio, average tokens and average duration', () => {
     const figures = summarize(
