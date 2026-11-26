@@ -38,6 +38,8 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   let flushing: Promise<void> | undefined
   // The last run left work unwritten; size-triggered flushes pause until the timer or an explicit flush.
   let stalled = false
+  // A run may be started by another waiting caller, so every waiter's budget applies to it.
+  const waiterGuards: Array<() => boolean> = []
 
   const dropOldestAboveCap = (): void => {
     const excess = queue.length - MAX_BUFFERED_EVENTS
@@ -61,7 +63,8 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     queue.push(entry)
     startTimerOnce()
     dropOldestAboveCap()
-    if (!stalled && (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES)) void flush()
+    // A run in flight already loops until the queue is drained, so a joining flush per push would only multiply retries.
+    if (!stalled && !flushing && (queue.length >= MAX_BATCH_EVENTS || queuedBytes() >= MAX_BATCH_BYTES)) void flush()
   }
 
   const attempt = async (send: () => Promise<boolean>): Promise<boolean> => {
@@ -72,7 +75,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
     }
   }
 
-  const run = async (canContinue: () => boolean): Promise<void> => {
+  const run = async (): Promise<void> => {
     stalled = false
     const batch = queue
     const dirtySnapshots = snapshots
@@ -91,7 +94,7 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
       }
     }
     for (const [file, text] of dirtySnapshots) {
-      const ok = canContinue() && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
+      const ok = waiterGuards.every((canContinue) => canContinue()) && (await attempt(() => sink.upsert(`${SNAPSHOT_DIR}/${file}`, text)))
       if (!ok) {
         stalled = true
         if (!snapshots.has(file)) snapshots.set(file, text)
@@ -104,12 +107,27 @@ export const createBatcher = (sink: BatchSink, clock: BatchClock): Batcher => {
   }
 
   const flush = async (canContinue: () => boolean = () => true): Promise<void> => {
-    do {
-      flushing ??= run(canContinue).finally(() => {
-        flushing = undefined
-      })
-      await flushing
-    } while (!stalled && (queue.length > 0 || snapshots.size > 0))
+    let ranOwn = false
+    waiterGuards.push(canContinue)
+    try {
+      for (;;) {
+        if (flushing) {
+          await flushing
+          // Another caller's run may have resumed first and started a new one: re-check before returning.
+          continue
+        }
+        if (queue.length === 0 && snapshots.size === 0) return
+        // A stall only ends the loop after this caller's own attempt, so a joined failed run never skips it.
+        if (ranOwn && stalled) return
+        ranOwn = true
+        flushing = run().finally(() => {
+          flushing = undefined
+        })
+        await flushing
+      }
+    } finally {
+      waiterGuards.splice(waiterGuards.indexOf(canContinue), 1)
+    }
   }
 
   return {

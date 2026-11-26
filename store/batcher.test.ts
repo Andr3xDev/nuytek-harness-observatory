@@ -170,6 +170,75 @@ describe('batcher flush', () => {
     expect(writes.flatMap((text) => (linesOf(text) as ObsEvent[]).map((e) => e.id))).toEqual(['e1', 'e2'])
   })
 
+  describe('awaited flush joining a run started by another caller', () => {
+    const gatedSink = () => {
+      const gates: Array<(ok: boolean) => void> = []
+      const calls: SinkCall[] = []
+      const sink: BatchSink = {
+        append: (path, text) => {
+          calls.push({ kind: 'append', path, text })
+          return new Promise<boolean>((resolve) => gates.push(resolve))
+        },
+        upsert: async (path, text) => {
+          calls.push({ kind: 'upsert', path, text })
+          return true
+        },
+      }
+      return { sink, gates, calls }
+    }
+
+    test('does not resolve before the append carrying its own pushed event completed', async () => {
+      const { sink, gates, calls } = gatedSink()
+      const batcher = createBatcher(sink, fakeClock().clock)
+      batcher.pushEvent(event('s1', 'e1'))
+      void batcher.flush()
+      await settle()
+      batcher.pushEvent(event('s1', 'end'))
+      let resolved = false
+      const awaited = batcher.flush(() => true).then(() => (resolved = true))
+      gates[0]?.(true)
+      await settle()
+      expect(resolved).toBe(false)
+      expect(calls).toHaveLength(2)
+      gates[1]?.(true)
+      await awaited
+      expect(linesOf(calls[1]?.text ?? '')).toEqual([expect.objectContaining({ id: 'end' })])
+    })
+
+    test('attempts its own run once when the joined run failed, then stops', async () => {
+      const { sink, gates, calls } = gatedSink()
+      const batcher = createBatcher(sink, fakeClock().clock)
+      batcher.pushEvent(event('s1', 'e1'))
+      void batcher.flush()
+      await settle()
+      const awaited = batcher.flush()
+      gates[0]?.(false)
+      await settle()
+      gates[1]?.(false)
+      await awaited
+      await settle()
+      expect(calls).toHaveLength(2)
+      expect(linesOf(calls[1]?.text ?? '')).toEqual([expect.objectContaining({ id: 'e1' })])
+    })
+
+    test('applies its own canContinue to the run it ends up executing', async () => {
+      const { sink, gates, calls } = gatedSink()
+      const batcher = createBatcher(sink, fakeClock().clock)
+      batcher.pushEvent(event('s1', 'e1'))
+      void batcher.flush()
+      await settle()
+      batcher.pushEvent(event('s1', 'end'))
+      batcher.setSnapshot('a1.json', snapshot('a1', 1))
+      const awaited = batcher.flush(() => false)
+      gates[0]?.(true)
+      await settle()
+      gates[1]?.(true)
+      await awaited
+      await settle()
+      expect(calls.map((c) => c.kind)).toEqual(['append', 'append'])
+    })
+  })
+
   test('a failing sink does not loop forever and size-triggered flushes pause after the failure', async () => {
     const { sink, calls } = recordingSink(Array(1000).fill(false))
     const batcher = createBatcher(sink, fakeClock().clock)

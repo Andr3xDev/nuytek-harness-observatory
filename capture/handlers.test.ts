@@ -226,8 +226,6 @@ describe('agents and turns', () => {
     await capture.agentReport(host, { agentId: 'a1', subagentType: 'builder', status: 'failed' as const, text: 'x' }, passThrough({}))
     expect(runtime.batcher.pendingEvents(SESSION_ID).length).toBeGreaterThan(0)
     release()
-    // A flush that joins an in-flight run can return while another caller's follow-up run is still writing.
-    await runtime.batcher.flush()
     await runtime.batcher.flush()
     expect(runtime.batcher.pendingEvents(SESSION_ID)).toEqual([])
   })
