@@ -267,7 +267,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
             rt.batcher.setSnapshot(write.file, write.snapshot)
           }
         }
-        await rt.batcher.flush()
+        void rt.batcher.flush() // never waits on disk; flush is serialized and never rejects
       }),
 
     turnComplete: <E extends TurnInput, R>(host: H, e: E, next: Next<E, R>) =>
@@ -295,7 +295,7 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           if (sample) runCycle(state, rt, sample)
         }
         rt.batcher.pushEvent(buildTurnComplete(e, contextOf(state, rt), { costUsd, previousModel }))
-        await rt.batcher.flush()
+        void rt.batcher.flush() // never waits on disk; flush is serialized and never rejects
       }),
 
     sessionMeasure: <E extends { cost?: { usd: number; hasUnknownPrice?: true }; context?: object; rateLimits?: object }, R>(

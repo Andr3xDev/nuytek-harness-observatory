@@ -217,6 +217,21 @@ describe('agents and turns', () => {
     expect(turn !== undefined && 'costUsd' in turn).toBe(false)
   })
 
+  test('turn.complete and agent.report resolve while a disk append is still pending', async () => {
+    const { host, capture, runtime } = setup()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    runtime.batcher = createBatcher({ append: async () => (await gate, true), upsert: async () => true }, { every: () => () => {} })
+    await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+    await capture.agentReport(host, { agentId: 'a1', subagentType: 'builder', status: 'failed' as const, text: 'x' }, passThrough({}))
+    expect(runtime.batcher.pendingEvents(SESSION_ID).length).toBeGreaterThan(0)
+    release()
+    // A flush that joins an in-flight run can return while another caller's follow-up run is still writing.
+    await runtime.batcher.flush()
+    await runtime.batcher.flush()
+    expect(runtime.batcher.pendingEvents(SESSION_ID)).toEqual([])
+  })
+
   test('a report writes the event with the engine status and flushes', async () => {
     const { host, capture, events } = setup()
     const report = { agentId: 'a1', subagentType: 'builder', status: 'failed' as const, text: 'oops' }
