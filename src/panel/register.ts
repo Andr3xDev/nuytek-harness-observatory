@@ -33,6 +33,8 @@ type PanelHost = {
   setSession: (value: SessionAtom | null) => Promise<unknown>
   setHistory: (value: HistoryAtom) => Promise<unknown>
   bumpTick: () => Promise<unknown>
+  readOpen: () => Promise<boolean>
+  setPanelOpen: (open: boolean) => Promise<unknown>
 }
 
 type PanelState = {
@@ -60,7 +62,13 @@ export const createPanel = (capture: Capture) => {
 
   const ensurePanel = async (host: PanelHost): Promise<void> => {
     if (state.refresher) return
-    const fs = historyFsOf(await host.home(), { list: host.list, read: host.read, readText: host.readText })
+    const open = await host.readOpen()
+    await host.setPanelOpen(open)
+    const home = await host.home()
+    // Another hook may have built the panel while this one awaited.
+    if (state.refresher) return
+    state.open = open
+    const fs = historyFsOf(home, { list: host.list, read: host.read, readText: host.readText })
     state.refresher = createRefresher({
       sources: createSources(
         createLiveLoaders({
@@ -150,8 +158,6 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
       }
     }
     try {
-      state.open = (await $.store.get(PANEL_OPEN_STORE_KEY)) === true
-      await update($, panelOpenAtom, () => state.open)
       // /clear and resume reuse this plugin instance: drop the previous session's figures before the first refresh.
       state.lastSession = null
       await update($, sessionAtom, () => null)
@@ -168,6 +174,8 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
         setSession: (value) => update($, sessionAtom, () => value),
         setHistory: (value) => update($, historyAtom, () => value),
         bumpTick: () => update($, tickAtom, (tick) => tick + 1),
+        readOpen: async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true,
+        setPanelOpen: (open) => update($, panelOpenAtom, () => open),
       })
       safeRefresh('session.measure')
       if (state.open) state.refresher?.startTimer()
@@ -193,6 +201,8 @@ export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
         setSession: (value) => update($, sessionAtom, () => value),
         setHistory: (value) => update($, historyAtom, () => value),
         bumpTick: () => update($, tickAtom, (tick) => tick + 1),
+        readOpen: async () => (await $.store.get(PANEL_OPEN_STORE_KEY)) === true,
+        setPanelOpen: (open) => update($, panelOpenAtom, () => open),
       })
     } catch {
       // The panel is optional: /obs still answers without it.

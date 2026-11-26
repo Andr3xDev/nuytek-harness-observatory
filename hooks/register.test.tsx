@@ -240,6 +240,12 @@ describe('live panel wiring', () => {
     expect(writtenValues(writes, 'session').some((value) => value !== null)).toBe(true)
   })
 
+  test('/obs after a reload with a stored panelOpen true closes the open band instead of reopening it', async () => {
+    const { hooks, host } = setup({ panelOpen: true })
+    const closed = await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
+    expect(closed).toEqual({ text: 'Observatory closed.', isTextDisplayOnly: true })
+  })
+
   test('toggling /obs closed stops the 3 s timer and later time reloads nothing', async () => {
     const { hooks, host, calls, settle, openTimer } = setup()
     await hooks.get(OBS_HOOK)?.(host, obs(''), passThrough)
