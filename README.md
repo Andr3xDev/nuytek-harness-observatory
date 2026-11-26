@@ -43,7 +43,9 @@ Layout: `src/core` (schema, constants, formatting), `src/capture` (event capture
 
 The observatory lives in the band above the prompt; there is no side pane. Closed, it draws nothing. Open (`/obs`), it is a bordered box titled `◆ obs` with four tabs: Session, Agents, Tools and History. Click a tab, or focus the band (click it, or `ctrl+x` then the tab) and press `1` to `4`. Close it with `/obs`. Figures update as events arrive, and the open panel re-reads the store every few seconds.
 
-The Agents tab starts with the main loop (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent. Below that, one row per agent type and model with spawns, tokens and estimated cost, for example `explorer · haiku-4-5   3×   42k   $0.08`. A model that was not recorded shows as `?`.
+The Agents tab starts with the main loop (`main · opus-4-7`, or the session agent's name when it runs with `--agent`), then one row per agent. Below that, one row per agent type, model and effort with spawns, tokens and estimated cost, for example `code-reviewer · sonnet-5-5 ◔ medium   3×   42k   $0.08`. A model that was not recorded shows as `?`. The effort is the one set for the agent (its definition's or the call's) and is left out when the agent takes the session's. Icons: `○ low`, `◔ medium`, `◑ high`, `◕ xhigh`, `● max`, and `◇ <n>` for a numeric budget. The main row shows no effort: the host does not expose the session's.
+
+In the History scope the Agents tab shows the same grouped totals across the window's sessions, plus a "Recent runs" list of the last 20 agent runs (newest first) with start time (UTC), agent, model and effort, tokens and cost.
 
 ## Options
 
@@ -88,7 +90,7 @@ The plugin does not redact anything. By design it stores, as-is:
 - The full text of every subagent prompt (`prompts-*.jsonl`).
 - The full Bash command of every tool verdict (`events/`).
 - Agent report excerpts, up to 3 KB each.
-- The top Bash commands, shown in rollups and in the panel.
+- The top Bash commands, shown in rollups and the report.
 
 Secrets typed into a prompt or a command (tokens, passwords, keys) end up in these files. The only protection is the file modes (`0600` files, `0700` directories). Nothing leaves your machine.
 

@@ -20,6 +20,7 @@ export const PALETTE = {
   tokens: 'suggestion',
   agents: 'permission',
   failure: 'error',
+  effort: 'remember',
   border: 'subtle',
 } as const
 

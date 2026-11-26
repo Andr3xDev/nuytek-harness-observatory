@@ -3,6 +3,7 @@ import type { HistoryAtom, PanelScope, SessionAtom } from '../../../types'
 import type { Figure } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens, formatUsd, truncate } from '../../core/format'
+import { EFFORT_ICON_PATTERN } from '../effort'
 import { COLUMN_SEPARATOR, LIST_ROW_CAP, PALETTE, SECTION_RULE, capRows, formatRow, type Tier } from '../layout'
 
 export type Kit = Pick<Elements[RenderSurface], 'Box' | 'Text' | 'Button'>
@@ -127,7 +128,16 @@ export function renderLines(
   const pieces = ({ text, styles }: Line) =>
     text.split(COLUMN_SEPARATOR).flatMap((cell, index) => [
       ...(index > 0 ? [<Text key={`sep:${index}`} dimColor>{COLUMN_SEPARATOR}</Text>] : []),
-      <Text key={`cell:${index}`} color={styles?.[index]}>{cell}</Text>,
+      // The pattern captures the icon, so the odd parts are icons.
+      ...cell
+        .split(EFFORT_ICON_PATTERN)
+        .map((part, partIndex) =>
+          partIndex % 2 === 1 ? (
+            <Text key={`icon:${index}:${partIndex}`} color={PALETTE.effort}>{part}</Text>
+          ) : (
+            <Text key={`cell:${index}:${partIndex}`} color={styles?.[index]}>{part}</Text>
+          ),
+        ),
     ])
   return lines.flatMap((line, index) => {
     const { agentId } = line
