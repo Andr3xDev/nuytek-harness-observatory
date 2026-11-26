@@ -68,21 +68,23 @@ export function registerBand(on: On, deps: BandDeps) {
 
     return (
       <Box flexDirection="column" borderStyle="round" borderColor={PALETTE.border} paddingX={1}>
-        <Box flexWrap="wrap" columnGap={1}>
-          <Text bold color={PALETTE.brand}>
-            ◆ obs
-          </Text>
-          {TABS.map(number => (
-            <Button key={`tab:${number}`} plain hotkey={String(number)} dimColor={tab !== number} onPress={() => selectTab(number)}>
-              {tab === number ? (
-                <Text bold underline color={PALETTE.brand}>
-                  {TAB_LABELS[number - 1]}
-                </Text>
-              ) : (
-                TAB_LABELS[number - 1]
-              )}
-            </Button>
-          ))}
+        <Box flexWrap="wrap" justifyContent="space-between" columnGap={1}>
+          <Box flexWrap="wrap" columnGap={1}>
+            <Text bold color={PALETTE.brand}>
+              ◆ obs
+            </Text>
+            {TABS.map(number => (
+              <Button key={`tab:${number}`} plain hotkey={String(number)} dimColor={tab !== number} onPress={() => selectTab(number)}>
+                {tab === number ? (
+                  <Text bold underline color={PALETTE.brand}>
+                    {TAB_LABELS[number - 1]}
+                  </Text>
+                ) : (
+                  TAB_LABELS[number - 1]
+                )}
+              </Button>
+            ))}
+          </Box>
           {tab !== HISTORY_TAB && (
             <Button key="scope" plain onPress={toggleScope}>
               [<Text bold={scope === 'session'} color={scope === 'session' ? PALETTE.brand : undefined} dimColor={scope !== 'session'}>Session</Text> ⇄{' '}
