@@ -2,6 +2,7 @@ import type { SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens } from '../../core/format'
 import { effortLabel } from '../effort'
+import { PALETTE } from '../layout'
 import { costColumn, dim, formatCost, gateOf, heading, tableLines, tokensColumn, type Column, type Line, type Row, type TabContext } from './common'
 
 const UNKNOWN_MODEL = '?'
@@ -9,14 +10,23 @@ const MAIN_LABEL = 'main'
 const MODEL_PREFIX = /^claude-/
 const MODEL_DATE_SUFFIX = /-\d{8}$/
 
+const NO_EFFORT = '-'
+// Effort is the first column to go: below wide the row keeps agent and model.
+const MODEL_COLUMN: Column = { header: 'Model', width: 12 }
+const EFFORT_COLUMN: Column = { header: 'Effort', width: 9, secondary: true, color: cell => (cell === NO_EFFORT ? undefined : PALETTE.effort) }
+
 const TYPE_MODEL_COLUMNS: Column[] = [
-  { header: 'Agent · model', width: 0 },
+  { header: 'Agent', width: 0 },
+  MODEL_COLUMN,
+  EFFORT_COLUMN,
   { header: 'Spawns', width: 6 },
   { header: 'Tokens', width: 7, color: tokensColumn },
   { header: 'Cost est.', width: 9, color: costColumn },
 ]
 const AGENT_COLUMNS: Column[] = [
-  { header: 'Agent · model', width: 0 },
+  { header: 'Agent', width: 0 },
+  MODEL_COLUMN,
+  EFFORT_COLUMN,
   { header: 'Tokens', width: 7, color: tokensColumn },
   { header: 'Cost est.', width: 9, color: costColumn },
 ]
@@ -24,11 +34,17 @@ const AGENT_COLUMNS: Column[] = [
 const shortModel = (model: string | null | undefined): string =>
   model ? model.replace(MODEL_PREFIX, '').replace(MODEL_DATE_SUFFIX, '') : UNKNOWN_MODEL
 
-const label = (type: string, model: string | null | undefined, effort?: string | number | null): string =>
-  [`${type} · ${shortModel(model)}`, effortLabel(effort)].filter(Boolean).join(' ')
+/** The Agent, Model and Effort cells that lead every row. */
+const identity = (type: string, model: string | null | undefined, effort?: string | number | null): string[] => [
+  type,
+  shortModel(model),
+  effortLabel(effort) || NO_EFFORT,
+]
 
 const RECENT_COLUMNS: Column[] = [
-  { header: 'Agent · model', width: 0 },
+  { header: 'Agent', width: 0 },
+  MODEL_COLUMN,
+  EFFORT_COLUMN,
   { header: 'Started', width: 11 },
   { header: 'Tokens', width: 7, color: tokensColumn },
   { header: 'Cost est.', width: 9, color: costColumn },
@@ -56,13 +72,13 @@ function mainModelOf(figures: SessionFigures): string | null {
 
 function typeModelRows(aggregate: AggregateFigures): Row[] {
   return (aggregate.byTypeModelEffort ?? []).map(entry => ({
-    cells: [label(entry.type, entry.model, entry.effort), `${entry.spawns}×`, formatTokens(Math.round(entry.tokens)), formatCost(entry)],
+    cells: [...identity(entry.type, entry.model, entry.effort), `${entry.spawns}×`, formatTokens(Math.round(entry.tokens)), formatCost(entry)],
   }))
 }
 
 const recentRows = (aggregate: AggregateFigures): Row[] =>
   (aggregate.recentAgents ?? []).map(run => ({
-    cells: [label(run.type, run.model, run.effort), formatStarted(run.startedAt), formatTokens(Math.round(run.tokens)), formatCost(run)],
+    cells: [...identity(run.type, run.model, run.effort), formatStarted(run.startedAt), formatTokens(Math.round(run.tokens)), formatCost(run)],
   }))
 
 export function agentsLines(ctx: TabContext): Line[] {
@@ -77,11 +93,11 @@ export function agentsLines(ctx: TabContext): Line[] {
   if (!ctx.session) return typeModel
   const figures = ctx.session.sessionFigures as SessionFigures
   const main: Row = {
-    cells: [label(ctx.session.mainAgent ?? MAIN_LABEL, mainModelOf(figures)), formatTokens(figures.main.tokens), formatCost(figures.main)],
+    cells: [...identity(ctx.session.mainAgent ?? MAIN_LABEL, mainModelOf(figures)), formatTokens(figures.main.tokens), formatCost(figures.main)],
   }
   const agents = figures.agents.map(
     (agent): Row => ({
-      cells: [label(agent.subagentType, agent.model, agent.effort), formatTokens(agent.tokens), formatCost(agent)],
+      cells: [...identity(agent.subagentType, agent.model, agent.effort), formatTokens(agent.tokens), formatCost(agent)],
       agentId: agent.agentId,
     }),
   )
