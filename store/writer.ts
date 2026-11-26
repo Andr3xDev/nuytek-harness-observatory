@@ -3,6 +3,7 @@ import { appendArgv, initArgv, maintainArgv, upsertArgv } from './scripts'
 
 export const WRITE_TIMEOUT_MS = 5_000
 export const MAINTAIN_TIMEOUT_MS = 15_000
+export const MAX_WRITE_FAILURES = 50
 
 export type RunCall = { argv: string[]; stdin?: string; timeoutMs: number }
 export type RunResult = { exitCode: number; stdout: string; stderr: string }
@@ -21,13 +22,18 @@ export type Writer = {
 export const createWriter = (run: ProcessRunner): Writer => {
   const failures: string[] = []
 
+  const recordFailure = (message: string): void => {
+    failures.push(message)
+    if (failures.length > MAX_WRITE_FAILURES) failures.splice(0, failures.length - MAX_WRITE_FAILURES)
+  }
+
   const execute = async (argv: string[], options: Omit<RunCall, 'argv'>): Promise<boolean> => {
     try {
       const result = await run(argv, options)
       if (result.exitCode === 0) return true
-      failures.push(`exit ${result.exitCode}: ${result.stderr}`)
+      recordFailure(`exit ${result.exitCode}: ${result.stderr}`)
     } catch (error) {
-      failures.push(String(error))
+      recordFailure(String(error))
     }
     return false
   }

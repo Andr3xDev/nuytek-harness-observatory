@@ -61,6 +61,23 @@ const input = (overrides: Partial<SnapshotCycleInput> = {}): SnapshotCycleInput 
 const byFile = (writes: SnapshotWrite[], file: string): AgentSnapshot | undefined =>
   writes.find((w) => w.file === file)?.snapshot
 
+describe('main snapshot cost floor', () => {
+  const mainOf = (overrides: Partial<SnapshotCycleInput>): AgentSnapshot | undefined =>
+    byFile(createSnapshotTracker('s1').cycle(input(overrides)), 'main-s1.json')
+
+  test('unknown session cost keeps main cost at 0 and flags it unknown', () => {
+    const snap = mainOf({ sessionUsd: 0, sessionCostKnown: false, agents: [agent('a1', { cost: { usd: 0.3 } })] })
+    expect(snap?.costUsd).toBe(0)
+    expect(snap?.hasUnknownPrice).toBe(true)
+  })
+
+  test('known session cost below the agents sum floors main cost at 0', () => {
+    const snap = mainOf({ sessionUsd: 0.1, sessionCostKnown: true, agents: [agent('a1', { cost: { usd: 0.3 } })] })
+    expect(snap?.costUsd).toBe(0)
+    expect(snap?.hasUnknownPrice).toBe(false)
+  })
+})
+
 describe('snapshot content', () => {
   test('a subagent snapshot has every field, camelCase usage and closed false', () => {
     const writes = createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', { parentId: 'p1' })] }))

@@ -22,6 +22,8 @@ export type SnapshotCycleInput = {
   /** `startedAt` of `$.session.usage()`. */
   startedAt: number
   sessionUsd: number
+  /** False when the host reported no session cost: `sessionUsd` is then a placeholder, not a reading (D14). */
+  sessionCostKnown?: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]
 }
@@ -82,6 +84,13 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
     }
   }
 
+  // Unknown session cost: no residual can be derived, so main stays at 0 and is flagged unknown.
+  // The residual is floored at 0 because agents can transiently exceed the session figure.
+  const mainCostUsd = (input: SnapshotCycleInput): number =>
+    input.sessionCostKnown === false
+      ? 0
+      : Math.max(0, input.sessionUsd - input.agents.reduce((sum, agent) => sum + (agent.cost?.usd ?? 0), 0))
+
   const mainSnapshot = (input: SnapshotCycleInput): AgentSnapshot => ({
     schema: SCHEMA_VERSION,
     sessionId,
@@ -93,9 +102,9 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
     startedAt: input.startedAt,
     updatedAt: input.now,
     usage: [...ledger],
-    costUsd: input.sessionUsd - input.agents.reduce((sum, agent) => sum + (agent.cost?.usd ?? 0), 0),
+    costUsd: mainCostUsd(input),
     tokenCount: ledgerTokens(),
-    hasUnknownPrice: input.hasUnknownPrice,
+    hasUnknownPrice: input.hasUnknownPrice || input.sessionCostKnown === false,
     taskStatus: null,
     closed: false,
     closedReason: null,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { appendArgv, initArgv, maintainArgv, upsertArgv } from './scripts'
-import { MAINTAIN_TIMEOUT_MS, WRITE_TIMEOUT_MS, createWriter, type ProcessRunner, type RunCall } from './writer'
+import { MAINTAIN_TIMEOUT_MS, MAX_WRITE_FAILURES, WRITE_TIMEOUT_MS, createWriter, type ProcessRunner, type RunCall } from './writer'
 
 const OK = { exitCode: 0, stdout: '', stderr: '' }
 
@@ -14,6 +14,15 @@ const recordingRunner = (result: { exitCode: number; stdout: string; stderr: str
 }
 
 describe('writer', () => {
+  test('failures keep only the newest MAX_WRITE_FAILURES entries', async () => {
+    let n = 0
+    const writer = createWriter(async () => ({ exitCode: 1, stdout: '', stderr: `e${n++}` }))
+    for (let i = 0; i < MAX_WRITE_FAILURES + 10; i++) await writer.init()
+    expect(writer.failures).toHaveLength(MAX_WRITE_FAILURES)
+    expect(writer.failures.at(-1)).toBe(`exit 1: e${MAX_WRITE_FAILURES + 9}`)
+    expect(writer.failures[0]).toBe('exit 1: e10')
+  })
+
   test('append runs the fixed append argv with data on stdin and the write timeout', async () => {
     const { run, calls } = recordingRunner()
     const ok = await createWriter(run).append('events/s1.jsonl', '{"a":1}\n')
