@@ -137,16 +137,17 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   const sessionOf = async (host: H): Promise<CaptureSession> => {
     const id = await host.sessionId()
     if (session?.id === id) return session
-    const switched = session !== undefined
-    const adopted = startSession(id)
     // After `/clear` or before any session the existing baseline is already the right one.
-    if (!switched) return adopted
-    previousModel = NO_MODEL
+    if (session === undefined) return startSession(id)
     lastKnownAgentUsd.clear()
-    bashCalls = createBashCallTracker(profile)
+    // Sampled before the new id is assigned, so an event racing this one never sees the new id with the old baseline.
     const sample = await takeSample(host)
+    // A concurrent event may have adopted the id while this one sampled.
+    if (session?.id === id) return session
+    previousModel = NO_MODEL
+    bashCalls = createBashCallTracker(profile)
     baseline = sample ? toReading(sample) : null
-    return adopted
+    return startSession(id)
   }
 
   const contextOf = (state: CaptureSession, rt: Runtime): EnvelopeContext => ({
