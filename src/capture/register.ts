@@ -45,8 +45,8 @@ export type Capture = ReturnType<typeof createPluginCapture>
 
 /**
  * Registers every capture event except `session.start`, which the panel module owns because it also
- * sets the panel up (an event can be registered once). `onObserved` lets the panel refresh after the
- * events it watches; it runs after capture records, so the new event is pending.
+ * sets the panel up (an event can be registered once). `onObserved` lets the panel refresh after each
+ * event; it runs after capture records, so the new event is pending.
  */
 export const registerCapture = (
   on: On,
@@ -54,196 +54,233 @@ export const registerCapture = (
   classicPermissionHooks: boolean,
   onObserved: (type: string) => void,
 ): void => {
+  const observed = async <T>(type: string, handled: Promise<T>): Promise<T> => {
+    const result = await handled
+    onObserved(type)
+    return result
+  }
+
   on('session.end', ($, e, next) =>
-    capture.sessionEnd(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
+    observed(
+      'session.end',
+      capture.sessionEnd(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
     ),
   )
   on('session.compact', ($, e, next) =>
-    capture.sessionCompact(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
+    observed(
+      'session.compact',
+      capture.sessionCompact(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
     ),
   )
   on('command.run', ($, e, next) =>
-    capture.commandRun(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
+    observed(
+      'command.run',
+      capture.commandRun(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
     ),
   )
   on('skill.prompt', ($, e, next) =>
-    capture.skillPrompt(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
+    observed(
+      'skill.prompt',
+      capture.skillPrompt(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
     ),
   )
-  on('agent.spawn', async ($, e, next) => {
-    const result = await capture.agentSpawn(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
-    )
-    onObserved('agent.spawn')
-    return result
-  })
-  on('agent.report', async ($, e, next) => {
-    const result = await capture.agentReport(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
-    )
-    onObserved('agent.report')
-    return result
-  })
+  on('agent.spawn', ($, e, next) =>
+    observed(
+      'agent.spawn',
+      capture.agentSpawn(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
+    ),
+  )
+  on('agent.report', ($, e, next) =>
+    observed(
+      'agent.report',
+      capture.agentReport(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
+    ),
+  )
   on('turn.complete', ($, e, next) =>
-    capture.turnComplete(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
+    observed(
+      'turn.complete',
+      capture.turnComplete(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
     ),
   )
-  on('session.measure', async ($, e, next) => {
-    const result = await capture.sessionMeasure(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
-    )
-    onObserved('session.measure')
-    return result
-  })
-  on('tool.check', async ($, e, next) => {
-    const result = await capture.toolCheck(
-      {
-        sessionId: () => $.session.id(),
-        usage: () => $.session.usage(),
-        agents: () => $.agent.list(),
-        run: (argv, init) => $.process.run(argv, init),
-        every: (ms, fn) => $.clock.every(ms, fn),
-        detect: (path) => $.vcs.detect({ path }),
-      },
-      e,
-      next,
-    )
-    onObserved('tool.check')
-    return result
-  })
+  on('session.measure', ($, e, next) =>
+    observed(
+      'session.measure',
+      capture.sessionMeasure(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
+    ),
+  )
+  on('tool.check', ($, e, next) =>
+    observed(
+      'tool.check',
+      capture.toolCheck(
+        {
+          sessionId: () => $.session.id(),
+          usage: () => $.session.usage(),
+          agents: () => $.agent.list(),
+          run: (argv, init) => $.process.run(argv, init),
+          every: (ms, fn) => $.clock.every(ms, fn),
+          detect: (path) => $.vcs.detect({ path }),
+        },
+        e,
+        next,
+      ),
+    ),
+  )
 
   if (classicPermissionHooks) {
     on('classic.PermissionRequest', ($, e, next) =>
-      capture.permissionOutcome('prompted')(
-        {
-          sessionId: () => $.session.id(),
-          usage: () => $.session.usage(),
-          agents: () => $.agent.list(),
-          run: (argv, init) => $.process.run(argv, init),
-          every: (ms, fn) => $.clock.every(ms, fn),
-          detect: (path) => $.vcs.detect({ path }),
-        },
-        e,
-        next,
+      observed(
+        'permission.outcome',
+        capture.permissionOutcome('prompted')(
+          {
+            sessionId: () => $.session.id(),
+            usage: () => $.session.usage(),
+            agents: () => $.agent.list(),
+            run: (argv, init) => $.process.run(argv, init),
+            every: (ms, fn) => $.clock.every(ms, fn),
+            detect: (path) => $.vcs.detect({ path }),
+          },
+          e,
+          next,
+        ),
       ),
     )
     on('classic.PermissionDenied', ($, e, next) =>
-      capture.permissionOutcome('denied')(
-        {
-          sessionId: () => $.session.id(),
-          usage: () => $.session.usage(),
-          agents: () => $.agent.list(),
-          run: (argv, init) => $.process.run(argv, init),
-          every: (ms, fn) => $.clock.every(ms, fn),
-          detect: (path) => $.vcs.detect({ path }),
-        },
-        e,
-        next,
+      observed(
+        'permission.outcome',
+        capture.permissionOutcome('denied')(
+          {
+            sessionId: () => $.session.id(),
+            usage: () => $.session.usage(),
+            agents: () => $.agent.list(),
+            run: (argv, init) => $.process.run(argv, init),
+            every: (ms, fn) => $.clock.every(ms, fn),
+            detect: (path) => $.vcs.detect({ path }),
+          },
+          e,
+          next,
+        ),
       ),
     )
     on('classic.PostToolUse', ($, e, next) =>
-      capture.permissionOutcome('completed')(
-        {
-          sessionId: () => $.session.id(),
-          usage: () => $.session.usage(),
-          agents: () => $.agent.list(),
-          run: (argv, init) => $.process.run(argv, init),
-          every: (ms, fn) => $.clock.every(ms, fn),
-          detect: (path) => $.vcs.detect({ path }),
-        },
-        e,
-        next,
+      observed(
+        'permission.outcome',
+        capture.permissionOutcome('completed')(
+          {
+            sessionId: () => $.session.id(),
+            usage: () => $.session.usage(),
+            agents: () => $.agent.list(),
+            run: (argv, init) => $.process.run(argv, init),
+            every: (ms, fn) => $.clock.every(ms, fn),
+            detect: (path) => $.vcs.detect({ path }),
+          },
+          e,
+          next,
+        ),
       ),
     )
     on('classic.PostToolUseFailure', ($, e, next) =>
-      capture.permissionOutcome('failed')(
-        {
-          sessionId: () => $.session.id(),
-          usage: () => $.session.usage(),
-          agents: () => $.agent.list(),
-          run: (argv, init) => $.process.run(argv, init),
-          every: (ms, fn) => $.clock.every(ms, fn),
-          detect: (path) => $.vcs.detect({ path }),
-        },
-        e,
-        next,
+      observed(
+        'permission.outcome',
+        capture.permissionOutcome('failed')(
+          {
+            sessionId: () => $.session.id(),
+            usage: () => $.session.usage(),
+            agents: () => $.agent.list(),
+            run: (argv, init) => $.process.run(argv, init),
+            every: (ms, fn) => $.clock.every(ms, fn),
+            detect: (path) => $.vcs.detect({ path }),
+          },
+          e,
+          next,
+        ),
       ),
     )
   }
