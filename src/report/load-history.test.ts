@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { EventRecord } from '../core/figures'
 import { createFakeFs, jsonl, type FakeFiles } from '../store/read/test-fs'
-import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, turn, usage, verdict } from './analysis/test-fixtures'
+import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, usage, verdict } from './analysis/test-fixtures'
 import { loadHistory } from './load-history'
 
 const FRESH_MTIME_MS = NOW - 60_000
@@ -17,33 +17,10 @@ const closedSession = (id: string, mtimeMs = STALE_MTIME_MS): FakeFiles => ({
 
 const load = (files: FakeFiles, options: Partial<Parameters<typeof loadHistory>[1]> = {}, failingPaths: string[] = []) => {
   const fake = createFakeFs(files, failingPaths)
-  return { fake, result: loadHistory({ fs: fake.fs }, { now: NOW, ...options }) }
+  return { fake, result: loadHistory({ fs: fake.fs }, options) }
 }
 
-describe('loadHistory', () => {
-  test('counts a line duplicated in the events file once', async () => {
-    const dup = turn(null, { sessionId: 's1', id: 'dup', usage: usage(7, 0, 0, 0), costUsd: 0.5 })
-    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart(), dup, dup, sessionEnd()]), mtimeMs: STALE_MTIME_MS } }
-
-    const history = await load(files).result
-
-    expect(history[0]?.main.input).toBe(7)
-  })
-
-  test('classifies an idle session without session.end as stale', async () => {
-    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart()]), mtimeMs: STALE_MTIME_MS } }
-
-    expect((await load(files).result)[0]?.state).toBe('stale')
-  })
-})
-
-describe('loadHistory open and live sessions', () => {
-  test('computes a running session live', async () => {
-    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart()]), mtimeMs: FRESH_MTIME_MS } }
-
-    expect((await load(files).result)[0]).toMatchObject({ state: 'open' })
-  })
-
+describe('loadHistory live sessions', () => {
   test('pending events are merged into the stored session', async () => {
     const { result } = load(closedSession('s1'), { pendingEvents: { s1: [verdict('t9', 'allow', { sessionId: 's1', mcpServer: 'srv' })] } })
 
@@ -112,6 +89,15 @@ describe('loadHistory selection', () => {
     expect(fake.readPaths().filter((path) => path.includes('s1'))).toEqual([])
   })
 
+  test('modifiedSince includes a file modified exactly at it and excludes one a millisecond older', async () => {
+    const since = NOW - 5 * HOUR_MS
+    const files = { ...closedSession('s1', since - 1), ...closedSession('s2', since) }
+
+    const history = await load(files, { modifiedSince: since }).result
+
+    expect(history.map((session) => session.sessionId)).toEqual(['s2'])
+  })
+
   test('an empty store returns no sessions', async () => {
     expect(await load({}).result).toEqual([])
   })
@@ -124,16 +110,6 @@ describe('loadHistory fail-open', () => {
     const history = await load(three, {}, ['events/s2.jsonl']).result
 
     expect(history.map((session) => session.sessionId)).toEqual(['s1', 's3'])
-  })
-
-  test('a record with a newer schema is skipped', async () => {
-    const files: FakeFiles = {
-      'events/s1.jsonl': { content: jsonl([sessionStart(), { schema: 2, id: 'x', type: 'future' }, sessionEnd()]), mtimeMs: STALE_MTIME_MS },
-    }
-
-    const history = await load(files).result
-
-    expect(history[0]?.state).toBe('closed')
   })
 
   test('an agent without a snapshot file keeps its row', async () => {

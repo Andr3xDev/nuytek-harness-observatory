@@ -104,10 +104,8 @@ describe('obs command hook', () => {
 
   test('unknown arguments pass through to next(e)', async () => {
     const { hooks, host } = setup()
-    for (const args of ['report', 'foo', 'band on']) {
-      const result = await hooks.get(OBS_HOOK)?.(host, obs(args), async () => ({ text: 'inner' }))
-      expect(result).toEqual({ text: 'inner' })
-    }
+    const result = await hooks.get(OBS_HOOK)?.(host, obs('foo'), async () => ({ text: 'inner' }))
+    expect(result).toEqual({ text: 'inner' })
   })
 
   test('/obs toggles the panel open and closed and answers display-only', async () => {

@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { historyLines } from './history'
 import { sessionLines } from './session'
 import { aggregate, agent, context, figure, sessionAtomValue, sessionFigures, textOf } from './test-kit'
 
@@ -14,7 +13,6 @@ describe('session tab', () => {
   test('shows totals, the main loop with both agents as a tree, and usage by model', () => {
     const text = textOf(sessionLines(context('wide', { session })))
     expect(text).toContain('Tokens: in 5.0k │ out 0 │ total 5.0k │ Cost (est.): $0.50')
-    expect(text).not.toContain('Context')
     expect(text).toContain('Agents: 2')
     expect(text).toMatch(/^main /m)
     expect(text).toMatch(/^ {2}planner /m)
@@ -41,22 +39,5 @@ describe('session tab', () => {
 
   test('no session data yet is one dim line', () => {
     expect(sessionLines(context('wide'))).toEqual([{ text: 'Waiting for session data...', dim: true }])
-  })
-})
-
-describe('history tab overview', () => {
-  test('shows window, session count, type and model figures', () => {
-    const history = {
-      status: 'ready' as const,
-      aggregate: aggregate({
-        sessions: 3,
-        byType: [{ ...figure(900, 0.1), type: 'builder', spawns: 2 }],
-        byModel: [{ model: 'm9', ...figure(900) }],
-      }),
-    }
-    const text = textOf(historyLines(context('wide', { history })))
-    expect(text).toContain('Sessions: 3')
-    expect(text).toMatch(/^builder /m)
-    expect(text).toMatch(/^m9 /m)
   })
 })

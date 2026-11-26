@@ -1,20 +1,17 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { summarizeSession } from './session'
-import { CTX, mainSnapshot, sessionStart, spawn, usage, verdict } from './test-fixtures'
+import { mainSnapshot, sessionStart, spawn, usage } from './test-fixtures'
 
 type Events = Parameters<typeof summarizeSession>[0]['events']
 
-const summarize = (events: Events) => summarizeSession({ events, snapshots: [] }, CTX)
+const summarize = (events: Events) => summarizeSession({ events, snapshots: [] })
 
 describe('profile off', () => {
   test('profile is null, never zero, while generic figures stay present', () => {
-    const figures = summarizeSession(
-      {
-        events: [sessionStart({ harnessProfile: false }), verdict('t1', 'deny'), spawn('a1')],
-        snapshots: [mainSnapshot({ usage: [usage(10, 0, 30, 0)], costUsd: 0.5 })],
-      },
-      CTX,
-    )
+    const figures = summarizeSession({
+      events: [sessionStart({ harnessProfile: false }), spawn('a1')],
+      snapshots: [mainSnapshot({ usage: [usage(10, 0, 30, 0)], costUsd: 0.5 })],
+    })
 
     expect(figures.harnessProfile).toBe(false)
     expect(figures.profile).toBeNull()
@@ -22,7 +19,7 @@ describe('profile off', () => {
   })
 
   test('a session without session.start is profile off', () => {
-    const figures = summarize([verdict('t1', 'allow')])
+    const figures = summarize([spawn('a1')])
 
     expect(figures.harnessProfile).toBe(false)
     expect(figures.profile).toBeNull()

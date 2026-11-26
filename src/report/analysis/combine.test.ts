@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { RECENT_AGENTS_CAP } from '../../core/constants'
 import { combineSessions } from './combine'
 import { summarizeSession } from './session'
-import { CTX, commandRun, sessionEnd, sessionStart, snapshot, spawn, report, skillUse, usage } from './test-fixtures'
+import { commandRun, sessionEnd, sessionStart, snapshot, spawn, report, skillUse, usage } from './test-fixtures'
 import type { AgentSnapshot } from '../../core/schema'
 import type { EventRecord } from './types'
 
@@ -14,24 +14,24 @@ const agentSnapshot = (agentId: string, sessionId: string, overrides: Partial<Ag
 const tokensSnapshot = (agentId: string, sessionId: string, tokens: number, subagentType = 'builder', overrides: Partial<AgentSnapshot> = {}) =>
   agentSnapshot(agentId, sessionId, { subagentType, usage: [usage(tokens, 0, 0, 0)], ...overrides })
 
-const summarize = (events: EventRecord[], snapshots: AgentSnapshot[] = []) => summarizeSession({ events, snapshots }, CTX)
+const summarize = (events: EventRecord[], snapshots: AgentSnapshot[] = []) => summarizeSession({ events, snapshots })
 
 describe('combineSessions by type', () => {
   test('sums spawns and tokens per agent type across sessions', () => {
     const a = summarize(
-      [spawn('a1', { sessionId: 'sa' }), spawn('a2', { sessionId: 'sa' }), spawn('e1', { sessionId: 'sa', subagentType: 'explorer' }), spawn('e2', { sessionId: 'sa', subagentType: 'explorer' }), spawn('e3', { sessionId: 'sa', subagentType: 'explorer' })],
-      [tokensSnapshot('a1', 'sa', 100), tokensSnapshot('a2', 'sa', 200), tokensSnapshot('e1', 'sa', 200, 'explorer'), tokensSnapshot('e2', 'sa', 200, 'explorer'), tokensSnapshot('e3', 'sa', 300, 'explorer')],
+      [spawn('a1', { sessionId: 'sa' }), spawn('a2', { sessionId: 'sa' }), spawn('e1', { sessionId: 'sa', subagentType: 'explorer' })],
+      [tokensSnapshot('a1', 'sa', 100), tokensSnapshot('a2', 'sa', 200), tokensSnapshot('e1', 'sa', 300, 'explorer')],
     )
     const b = summarize(
-      [spawn('a3', { sessionId: 'sb' }), spawn('e4', { sessionId: 'sb', subagentType: 'explorer' }), spawn('e5', { sessionId: 'sb', subagentType: 'explorer' }), spawn('e6', { sessionId: 'sb', subagentType: 'explorer' }), spawn('e7', { sessionId: 'sb', subagentType: 'explorer' })],
-      [tokensSnapshot('a3', 'sb', 200), tokensSnapshot('e4', 'sb', 200, 'explorer'), tokensSnapshot('e5', 'sb', 200, 'explorer'), tokensSnapshot('e6', 'sb', 200, 'explorer'), tokensSnapshot('e7', 'sb', 200, 'explorer')],
+      [spawn('a3', { sessionId: 'sb' }), spawn('e2', { sessionId: 'sb', subagentType: 'explorer' })],
+      [tokensSnapshot('a3', 'sb', 200), tokensSnapshot('e2', 'sb', 200, 'explorer')],
     )
 
     const aggregate = combineSessions([a, b])
-    const builder = aggregate.byType.find((row) => row.type === 'builder')
 
-    expect(aggregate.total.tokens).toBe(2000)
-    expect(builder).toMatchObject({ spawns: 3, tokens: 500 })
+    expect(aggregate.total.tokens).toBe(1000)
+    expect(aggregate.byType.find((row) => row.type === 'builder')).toMatchObject({ spawns: 3, tokens: 500 })
+    expect(aggregate.byType.find((row) => row.type === 'explorer')).toMatchObject({ spawns: 2, tokens: 500 })
   })
 
   test('an empty list returns a zeroed aggregate', () => {
@@ -87,8 +87,8 @@ describe('combineSessions recent agents', () => {
     const recent = combineSessions([a, b]).recentAgents
 
     expect(recent).toHaveLength(RECENT_AGENTS_CAP)
-    expect(recent[0]).toMatchObject({ agentId: 'late', sessionId: 'sb', startedAt: 9000 })
-    expect(recent[1]?.agentId).toBe(`a${RECENT_AGENTS_CAP + 4}`)
+    expect(recent[0]?.startedAt).toBe(9000)
+    expect(recent[1]?.startedAt).toBe(1000 + RECENT_AGENTS_CAP + 4)
   })
 })
 
@@ -117,22 +117,19 @@ describe('combineSessions merging', () => {
     expect(tools.commands['/obs']).toBe(1)
   })
 
-  test('window spans the earliest start to the latest end', () => {
-    const closed1 = summarize([sessionStart({ ts: 100 }), sessionEnd({ ts: 500 })])
-    const closed2 = summarize([sessionStart({ sessionId: 's2', ts: 300 }), sessionEnd({ sessionId: 's2', ts: 900 })])
-    const open = summarize([sessionStart({ sessionId: 's3', ts: 400 })])
+  test('window spans the earliest start to the latest event, closed or open', () => {
+    const closed = summarize([sessionStart({ ts: 100 }), sessionEnd({ ts: 500 })])
+    const open = summarize([sessionStart({ sessionId: 's2', ts: 400 }), spawn('a1', { sessionId: 's2', ts: 900 })])
 
-    const aggregate = combineSessions([closed1, closed2, open])
-
-    expect(aggregate).toMatchObject({ windowStart: 100, windowEnd: 900, sessions: 3 })
+    expect(combineSessions([closed, open])).toMatchObject({ windowStart: 100, windowEnd: 900, sessions: 2 })
   })
-})
 
-describe('combineSessions window end', () => {
-  test('uses the latest event of open sessions when nothing is closed', () => {
-    const open = summarize([sessionStart({ ts: 100 }), spawn('a1', { ts: 700 })])
+  test('an unknown price in one session flags the total', () => {
+    const priced = summarize([spawn('a1')], [tokensSnapshot('a1', 's1', 100)])
+    const unpriced = summarize([spawn('a2', { sessionId: 's2' })], [tokensSnapshot('a2', 's2', 100, 'builder', { hasUnknownPrice: true })])
 
-    expect(combineSessions([open])).toMatchObject({ windowStart: 100, windowEnd: 700 })
+    expect(combineSessions([priced, unpriced]).total.hasUnknownPrice).toBe(true)
+    expect(combineSessions([priced]).total.hasUnknownPrice).toBe(false)
   })
 })
 

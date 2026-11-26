@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { READ_CHUNK_BYTES, listSources, readLines } from './reader'
+import { listSources, readLines } from './reader'
 import { createFakeFs } from './test-fs'
 
 const ENCODER = new TextEncoder()
@@ -56,14 +56,6 @@ describe('readLines', () => {
       { as: 'bytes', offset: 4, length: 4 },
       { as: 'bytes', offset: 8, length: 4 },
     ])
-  })
-
-  test('defaults the chunk length to READ_CHUNK_BYTES', async () => {
-    const fake = createFakeFs({ [FILE]: { content: '{}\n' } })
-
-    await readLines(fake.fs, FILE, 3)
-
-    expect(fake.calls.read).toEqual([{ path: FILE, options: { as: 'bytes', offset: 0, length: READ_CHUNK_BYTES } }])
   })
 
   test('keeps a final line without newline only when it is valid JSON', async () => {

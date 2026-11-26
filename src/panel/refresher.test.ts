@@ -84,7 +84,7 @@ function setup(overrides: { open?: boolean } = {}) {
 }
 
 describe('refresher', () => {
-  test('timer tick increments tick every 3 s and reloads', async () => {
+  test('timer tick increments tick every open-timer interval and reloads', async () => {
     const { refresher, state, advance } = setup()
     refresher.startTimer()
     await advance(OPEN_TIMER_MS)
@@ -94,7 +94,7 @@ describe('refresher', () => {
     expect(state.tick).toBe(2)
   })
 
-  test('a burst of session.measure within 3 s starts one reload plus one trailing', async () => {
+  test('a burst of session.measure within the refresh interval starts one reload plus one trailing', async () => {
     const { refresher, state, advance, settle } = setup()
     refresher.requestRefresh('session.measure')
     refresher.requestRefresh('session.measure')
@@ -262,7 +262,7 @@ describe('refresher', () => {
     expect(state.session).toBeNull()
   })
 
-  test('ensureHistory reuses a fresh result and reloads after 60 s', async () => {
+  test('ensureHistory reuses a fresh result and reloads once it is older than the max age', async () => {
     const { refresher, state, advance } = setup()
     await refresher.ensureHistory()
     await refresher.ensureHistory()

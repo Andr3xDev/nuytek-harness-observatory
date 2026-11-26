@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { createBatcher, type BatchSink } from '../store/write/batcher'
 import { createCapture, type HostApi, type Runtime, type SnapshotLister } from './handlers'
-import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent } from '../core/schema'
+import type { AgentSnapshot, ObsEvent } from '../core/schema'
+import { snapshot } from '../report/analysis/test-fixtures'
 import type { SnapshotAgent } from './session/snapshots'
 
 const SESSION_ID = 's1'
@@ -126,11 +127,12 @@ describe('skill, command, compact', () => {
 })
 
 describe('session lifecycle', () => {
-  test('session.start records harnessProfile, runs retention with the configured days and excludes the current files', async () => {
-    const { host, capture, events, maintainCalls } = setup(true)
+  test('session.start records harnessProfile, creates the store root, then runs retention excluding the current files', async () => {
+    const { host, capture, events, maintainCalls, order } = setup(true)
     await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
     expect((await events())[0]).toMatchObject({ type: 'session.start', harnessProfile: true, cwd: '/w', branch: 'main' })
     expect(maintainCalls).toEqual([['60', 's1.jsonl', 'main-s1.json']])
+    expect(order).toEqual(['init', 'maintain'])
   })
 
   test('the main snapshot records the session model from the host', async () => {
@@ -143,32 +145,9 @@ describe('session lifecycle', () => {
     expect(upserts.map((text) => JSON.parse(text))).toContainEqual(expect.objectContaining({ agentId: 'main', model: 'claude-opus-4-8' }))
   })
 
-  test('session.start creates the store root before maintenance runs', async () => {
-    const { host, capture, order } = setup(true)
-    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
-    expect(order).toEqual(['init', 'maintain'])
-  })
-
   test('session.start closes the open snapshots of this session found on disk', async () => {
     const { host, capture, runtime } = setup()
-    const open: AgentSnapshot = {
-      schema: SCHEMA_VERSION,
-      sessionId: SESSION_ID,
-      agentId: 'a1',
-      parentAgentId: null,
-      subagentType: 'builder',
-      model: 'm',
-      branch: null,
-      startedAt: 1,
-      updatedAt: 2,
-      usage: [],
-      costUsd: 0,
-      tokenCount: 0,
-      hasUnknownPrice: false,
-      taskStatus: 'running',
-      closed: false,
-      closedReason: null,
-    }
+    const open = snapshot('a1', { taskStatus: 'running' })
     host.listSnapshots = async () => [{ name: 'a1.json', mtimeMs: NOW - 1_000, snapshot: open }]
     const upserts: Array<{ path: string; snapshot: AgentSnapshot }> = []
     runtime.batcher = createBatcher(
@@ -285,11 +264,29 @@ describe('agents and turns', () => {
     expect(runtime.batcher.pendingEvents(SESSION_ID)).toEqual([])
   })
 
-  test('a report writes the event with the engine status and flushes', async () => {
+})
+
+describe('turn model', () => {
+  const OPUS_USAGE = { input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4, model: 'opus' }
+  const turnModels = async (events: () => Promise<ObsEvent[]>) =>
+    (await events()).flatMap((event) => (event.type === 'turn.complete' ? [event.usage.model] : []))
+
+  test('a subagent turn without usage never inherits the main turn model', async () => {
     const { host, capture, events } = setup()
-    const report = { agentId: 'a1', subagentType: 'builder', status: 'failed' as const, text: 'oops' }
-    await capture.agentReport(host, report, passThrough({ text: 'oops' }))
-    expect((await events())[0]).toMatchObject({ type: 'agent.report', engineStatus: 'failed', status: null })
+    await capture.turnComplete(host, { durationMs: 1, usage: OPUS_USAGE }, passThrough({}))
+    await capture.turnComplete(host, { durationMs: 1, agentId: 'a1' }, passThrough({}))
+    expect(await turnModels(events)).toEqual(['opus', ''])
+  })
+
+  test('the previous model resets after session.start and after a clear', async () => {
+    for (const reset of ['start', 'clear'] as const) {
+      const { host, capture, events } = setup()
+      await capture.turnComplete(host, { durationMs: 1, usage: OPUS_USAGE }, passThrough({}))
+      if (reset === 'start') await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+      else await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'clear' }, passThrough({}))
+      await capture.turnComplete(host, { durationMs: 1 }, passThrough({}))
+      expect(await turnModels(events)).toEqual(['opus', ''])
+    }
   })
 })
 

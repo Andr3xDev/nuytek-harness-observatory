@@ -2,22 +2,21 @@ import { describe, expect, test } from 'claude-code/testing'
 import { formatTokens, formatUsd, isoDay, truncate } from './format'
 
 describe('formatTokens', () => {
-  const cases: [number, string][] = [
-    [0, '0'],
-    [999, '999'],
-    [1000, '1.0k'],
-    [9900, '9.9k'],
-    [9_999, '10k'],
-    [10_000, '10k'],
-    [412_000, '412k'],
-    [999_999, '1.0M'],
-    [1_200_000, '1.2M'],
-  ]
-  for (const [tokens, label] of cases) {
-    test(`renders ${tokens} as ${label}`, () => {
-      expect(formatTokens(tokens)).toBe(label)
-    })
-  }
+  test('picks the unit and decimals on the rounded value', () => {
+    const cases: [number, string][] = [
+      [0, '0'],
+      [999, '999'],
+      [1000, '1.0k'],
+      [9_949, '9.9k'],
+      [9_999, '10k'],
+      [412_000, '412k'],
+      [999_499, '999k'],
+      [999_500, '1.0M'],
+      [1_200_000, '1.2M'],
+      [9_999_999, '10M'],
+    ]
+    for (const [tokens, label] of cases) expect(formatTokens(tokens)).toBe(label)
+  })
 })
 
 describe('truncate', () => {

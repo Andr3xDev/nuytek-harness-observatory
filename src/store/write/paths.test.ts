@@ -53,17 +53,13 @@ describe('validateUpsertPath', () => {
     expect(validateUpsertPath('snapshots/main-s1.json').ok).toBe(true)
   })
 
-  test('rejects a rollup file', () => {
-    expect(validateUpsertPath('rollup/2026-11-25_summary.json').ok).toBe(false)
-  })
-
   test('rejects events/ and prompts targets', () => {
     expect(validateUpsertPath('events/a.jsonl').ok).toBe(false)
     expect(validateUpsertPath('prompts-2026-11-25.jsonl').ok).toBe(false)
   })
 
   test('rejects traversal, leading dash, extra segments and absolute paths', () => {
-    for (const path of ['snapshots/../a.json', 'snapshots/-a.json', 'rollup/x/y.json', '/snapshots/a.json', 'snapshots/.a.json']) {
+    for (const path of ['snapshots/../a.json', 'snapshots/-a.json', 'unknown/x/y.json', '/snapshots/a.json', 'snapshots/.a.json']) {
       expect(validateUpsertPath(path).ok).toBe(false)
     }
   })

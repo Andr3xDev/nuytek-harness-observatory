@@ -18,7 +18,6 @@ describe('reconcile', () => {
     expect(result.sessionUsd).toBe(2.0)
     expect(result.mainResidualUsd).toBe(1.5)
     expect(result.mainTokens).toBe(100)
-    expect(result).not.toHaveProperty('driftUsd')
   })
 
   test('agents $2.015 over a $2.00 session stay inside the tolerance', () => {

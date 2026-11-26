@@ -2,13 +2,12 @@ import { describe, expect, test } from 'claude-code/testing'
 import { HISTORY_WINDOW_MS } from '../core/constants'
 import type { EventRecord, SessionFigures } from '../core/figures'
 import { summarizeSession } from '../report/analysis'
-import { CTX, NOW, sessionStart, spawn } from '../report/analysis/test-fixtures'
+import { NOW, sessionStart, spawn } from '../report/analysis/test-fixtures'
 import { createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
 
 const figures = { agents: [] } as unknown as SessionFigures
 
-// The no `$.fs` / no store writer rule cannot be a test: a plugin test module may
-// import only relative files and "claude-code" (no node:fs). Checked by grep in the task proof.
+// No `$.fs` or store writer rule is not testable here: a plugin test module may import only relative files and "claude-code".
 describe('sources failure wrapper', () => {
   test('ready results pass the loader payload through', async () => {
     const sources = createSources({
@@ -45,7 +44,7 @@ describe('sources failure wrapper', () => {
 })
 
 describe('live loaders', () => {
-  const stored = summarizeSession({ events: [], snapshots: [] }, { now: 1, sourceMtimeMs: 1 })
+  const stored = summarizeSession({ events: [], snapshots: [] })
   const pending = [{ id: 'p1', sessionId: 's1' }] as unknown as ReturnType<LiveLoaderDeps['pendingEvents']>
 
   const build = (overrides: Partial<LiveLoaderDeps> = {}) => {
@@ -79,9 +78,12 @@ describe('live loaders', () => {
     expect(calls[0]?.liveAgents?.s1).toEqual([])
   })
 
-  test('a session without data and a failed main agent read', async () => {
+  test('a session without data rejects', async () => {
     const empty = build({ loadSessions: async () => [] })
     await expect(empty.loaders.loadSession('s1')).rejects.toThrow('no data')
+  })
+
+  test('a failed main agent read leaves the main agent null', async () => {
     const noAgent = build({ readMainAgent: () => Promise.reject(new Error('x')) })
     const load = await noAgent.loaders.loadSession('s1')
     expect(load.mainAgent).toBeNull()
@@ -95,8 +97,9 @@ describe('live loaders', () => {
 
   test('host snake_case usage and a missing cost map to a live agent', () => {
     const usage = [{ input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4, model: 'm' }]
-    expect(liveAgentsOf([{ id: 'a', usage }])[0]).toMatchObject({ agentId: 'a', costUsd: null })
-    expect(liveAgentsOf([{ id: 'a', usage }])[0]?.usage).toHaveLength(1)
+    expect(liveAgentsOf([{ id: 'a', usage }])).toEqual([
+      { agentId: 'a', costUsd: null, usage: [{ input: 1, output: 2, cacheRead: 3, cacheCreation: 4, model: 'm' }] },
+    ])
   })
 })
 
@@ -105,13 +108,12 @@ describe('live session overlay', () => {
   const first = spawn('a1')
   const second = spawn('a2')
 
-  // Seeds the overlay the way the real store loader does: through `onSessionInput`.
   const seeded = (storedEvents: EventRecord[], pendingNow: () => EventRecord[]) => {
     return createLiveLoaders({
       now: () => NOW,
       loadSessions: async (options) => {
         options.onSessionInput?.('s1', { events: storedEvents, snapshots: [], pendingEvents: options.pendingEvents?.s1 })
-        return [summarizeSession({ events: storedEvents, snapshots: [] }, CTX)]
+        return [summarizeSession({ events: storedEvents, snapshots: [] })]
       },
       pendingEvents: pendingNow,
       listAgents: async () => [],

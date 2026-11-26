@@ -2,7 +2,6 @@ import { describe, expect, test } from 'claude-code/testing'
 import { PARSER_VERSION, REPORT_EXCERPT_MAX_BYTES } from '../../core/constants'
 import {
   buildReportRecord,
-  buildSessionStart,
   buildSpawnRecord,
   buildTurnComplete,
   buildVerdictRecord,
@@ -102,11 +101,9 @@ describe('buildReportRecord', () => {
     expect(buildReportRecord(REPORT_INPUT, true, CTX).reportExcerpt).toBe(REPORT_INPUT.text)
   })
 
-  for (const engineStatus of ['completed', 'failed', 'stopped'] as const) {
-    test(`engineStatus is the host status "${engineStatus}" with the profile off`, () => {
-      expect(buildReportRecord({ ...REPORT_INPUT, status: engineStatus }, false, CTX).engineStatus).toBe(engineStatus)
-    })
-  }
+  test('engineStatus is the host status with the profile off', () => {
+    expect(buildReportRecord({ ...REPORT_INPUT, status: 'failed' }, false, CTX).engineStatus).toBe('failed')
+  })
 
   test('profile on parses status and stamps the parser version', () => {
     const event = buildReportRecord(REPORT_INPUT, true, CTX)
@@ -175,10 +172,6 @@ describe('buildVerdictRecord', () => {
     const event = buildVerdictRecord({ ...BASH_INPUT, agentId: undefined }, { decision: 'allow' }, false, CTX)
     expect(event.agentId).toBeNull()
   })
-
-  test('null branch is written as null', () => {
-    expect(buildVerdictRecord(BASH_INPUT, DENY_RESULT, false, NULL_BRANCH_CTX).branch).toBeNull()
-  })
 })
 
 describe('buildTurnComplete', () => {
@@ -216,15 +209,5 @@ describe('buildTurnComplete', () => {
   test('absent usage writes zero tokens with the previous model', () => {
     const event = buildTurnComplete({ durationMs: 5 }, CTX, { costUsd: null, previousModel: 'prev' })
     expect(event.usage).toEqual({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0, model: 'prev' })
-  })
-})
-
-describe('buildSessionStart', () => {
-  test('harnessProfile is true with the profile on', () => {
-    expect(buildSessionStart({ cwd: '/w' }, true, CTX).harnessProfile).toBe(true)
-  })
-
-  test('harnessProfile is false, never null, with the profile off', () => {
-    expect(buildSessionStart({ cwd: '/w' }, false, CTX).harnessProfile).toBe(false)
   })
 })

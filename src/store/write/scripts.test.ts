@@ -4,8 +4,10 @@ import {
   INIT_SCRIPT,
   MAINTAIN_SCRIPT,
   UPSERT_SCRIPT,
+  appendArgv,
   initArgv,
   maintainArgv,
+  upsertArgv,
 } from './scripts'
 
 const SAFE_PREFIX = 'umask 077; cd "$HOME/.claude/observability" || exit 1'
@@ -39,10 +41,26 @@ describe('script constants', () => {
   })
 })
 
+describe('append and upsert scripts', () => {
+  const dollarTokens = (script: string): string[] => script.match(/\$(\{[^}]*\}|\$|\w+)/g) ?? []
+
+  test('the path only ever arrives as the positional $1', () => {
+    expect(new Set(dollarTokens(APPEND_SCRIPT))).toEqual(new Set(['$HOME', '$1', '${1%/*}']))
+    expect(new Set(dollarTokens(UPSERT_SCRIPT))).toEqual(new Set(['$HOME', '$1', '${1%/*}', '$$']))
+  })
+
+  test('UPSERT writes a temp file named by the pid, then moves it over the target', () => {
+    expect(UPSERT_SCRIPT).toContain('cat > "$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"')
+  })
+})
+
 describe('argv builders', () => {
+  test('append and upsert argv carry only the path', () => {
+    expect(appendArgv('events/s1.jsonl')).toEqual(['sh', '-c', APPEND_SCRIPT, 'observatory', 'events/s1.jsonl'])
+    expect(upsertArgv('snapshots/a1.json')).toEqual(['sh', '-c', UPSERT_SCRIPT, 'observatory', 'snapshots/a1.json'])
+  })
+
   test('maintain argv carries the days and both excluded names', () => {
-    for (const days of ['30', '60', '90']) {
-      expect(maintainArgv(days, 's1.jsonl', 'main-s1.json')).toEqual(['sh', '-c', MAINTAIN_SCRIPT, 'observatory', days, 's1.jsonl', 'main-s1.json'])
-    }
+    expect(maintainArgv('30', 's1.jsonl', 'main-s1.json')).toEqual(['sh', '-c', MAINTAIN_SCRIPT, 'observatory', '30', 's1.jsonl', 'main-s1.json'])
   })
 })

@@ -2,12 +2,10 @@ import { describe, expect, test } from 'claude-code/testing'
 import { historyLines } from './history'
 import { aggregate, context, figure, textOf } from './test-kit'
 
-const recent = (agentId: string, startedAt: number) => ({
+const recent = (startedAt: number) => ({
   ...figure(1500, 0.25),
   output: 500,
   input: 1000,
-  sessionId: 's1',
-  agentId,
   type: 'builder',
   model: 'sonnet',
   effort: 'low',
@@ -22,13 +20,23 @@ describe('history states', () => {
   })
 
   test('an unavailable load shows the reason', () => {
-    const history = { status: 'unavailable' as const, reason: 'report aggregates not available' }
-    expect(textOf(historyLines(context('wide', { history })))).toBe('History unavailable: report aggregates not available')
+    const history = { status: 'unavailable' as const, reason: 'store unreadable' }
+    expect(textOf(historyLines(context('wide', { history })))).toBe('History unavailable: store unreadable')
   })
 
-  test('a ready load renders the overview from the history atom', () => {
-    const history = { status: 'ready' as const, aggregate: aggregate({ sessions: 7 }) }
-    expect(textOf(historyLines(context('wide', { history })))).toContain('Sessions: 7')
+  test('a ready load renders the session count, type and model figures from the history atom', () => {
+    const history = {
+      status: 'ready' as const,
+      aggregate: aggregate({
+        sessions: 3,
+        byType: [{ ...figure(900, 0.1), type: 'builder', spawns: 2 }],
+        byModel: [{ model: 'm9', ...figure(900) }],
+      }),
+    }
+    const text = textOf(historyLines(context('wide', { history })))
+    expect(text).toContain('Sessions: 3')
+    expect(text).toMatch(/^builder /m)
+    expect(text).toMatch(/^m9 /m)
   })
 })
 
@@ -38,7 +46,7 @@ describe('history tab agents section', () => {
       status: 'ready' as const,
       aggregate: aggregate({
         byTypeModelEffort: [{ ...figure(42_000, 0.08), type: 'explorer', model: 'claude-haiku-4-5-20251001', effort: null, spawns: 3 }],
-        recentAgents: [recent('a2', Date.UTC(2026, 10, 25, 14, 3)), recent('a1', Date.UTC(2026, 10, 24, 9, 0))],
+        recentAgents: [recent(Date.UTC(2026, 10, 25, 14, 3)), recent(Date.UTC(2026, 10, 24, 9, 0))],
       }),
     }
     const text = textOf(historyLines(context('wide', { history })))

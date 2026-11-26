@@ -5,19 +5,17 @@ import type {
   CommandRunEvent,
   Envelope,
   SessionEndEvent,
+  SessionMeasureEvent,
   SessionStartEvent,
   SkillUseEvent,
   ToolVerdictEvent,
   TurnCompleteEvent,
   UsageRecord,
 } from '../../core/schema'
-import type { SessionContext } from './types'
 
 export const SESSION_ID = 's1'
 export const NOW = 1_000_000_000_000
 export const HOUR_MS = 60 * 60 * 1000
-/** Context for a closed or recently active session; `sourceMtimeMs` is one minute old. */
-export const CTX: SessionContext = { now: NOW, sourceMtimeMs: NOW - 60_000 }
 
 let sequence = 0
 
@@ -42,6 +40,15 @@ export const sessionStart = (overrides: Partial<SessionStartEvent> = {}): Sessio
 })
 
 export const sessionEnd = (overrides: Partial<SessionEndEvent> = {}): SessionEndEvent => ({ ...envelope('session.end', {}), ...overrides })
+
+export const sessionMeasure = (overrides: Partial<SessionMeasureEvent> = {}): SessionMeasureEvent => ({
+  ...envelope('session.measure', {}),
+  costUsd: 0,
+  hasUnknownPrice: false,
+  context: null,
+  rateLimits: null,
+  ...overrides,
+})
 
 export const spawn = (agentId: string, overrides: Partial<AgentSpawnEvent> = {}): AgentSpawnEvent => ({
   ...envelope('agent.spawn', { agentId }),

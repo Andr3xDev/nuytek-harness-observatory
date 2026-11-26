@@ -1,7 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import { agent, aggregate, bandTarget, installState, sessionAtomValue, sessionFigures } from './tabs/test-kit'
 
-// These mount the band through the plugin, so they need the panel wired into hooks/register.tsx.
 const agents = [agent('live1', { subagentType: 'builder' }), agent('gone1', { subagentType: 'reviewer' })]
 const seeded = (liveAgentIds: string[]) => sessionAtomValue(sessionFigures(agents), aggregate(), liveAgentIds)
 

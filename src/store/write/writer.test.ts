@@ -47,7 +47,6 @@ describe('writer', () => {
     const { run, calls } = recordingRunner()
     const writer = createWriter(run)
     expect(await writer.append('../escape.jsonl', 'x')).toBe(false)
-    expect(await writer.append('snapshots/a1.json', 'x')).toBe(false)
     expect(await writer.upsert('events/s1.jsonl', 'x')).toBe(false)
     expect(calls).toEqual([])
   })

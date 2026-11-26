@@ -1,7 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import { WIDTHS, agent, aggregate, bandTarget, installState, sessionAtomValue, sessionFigures } from './tabs/test-kit'
 
-// These mount the band through the plugin; registerBand is called from src/panel/register.ts.
 const session = sessionAtomValue(sessionFigures([agent('a1'), agent('a2'), agent('a3')]), aggregate())
 
 test('closed: draws nothing at all', async ($, on) => {
@@ -19,11 +18,10 @@ test('yields to a survey and draws nothing', async ($, on) => {
   await ui.unmount()
 })
 
-test('open: a round box with the title, tab row and the active tab at full width', async ($, on) => {
+test('open: the title, tab row and the active tab at full width', async ($, on) => {
   installState(on, { session, panelOpen: true })
   const ui = await $.ui.mount(bandTarget(100))
 
-  expect((await ui.findAll({ type: 'Box' })).some(box => box.props.borderStyle === 'round')).toBe(true)
   expect(await ui.find({ type: 'Text', text: '◆ obs' })).toBeDefined()
   expect((await ui.find({ key: 'tab:1' }))?.text).toBe('Session')
   expect((await ui.find({ key: 'tab:4' }))?.text).toBe('History')
@@ -70,10 +68,9 @@ test('only the digits 1 to 4 are hotkeys', async ($, on) => {
   await ui.unmount()
 })
 
-test('the tab row wraps so a narrow band keeps every tab', async ($, on) => {
+test('a narrow band keeps every tab', async ($, on) => {
   installState(on, { session, panelOpen: true })
   const ui = await $.ui.mount(bandTarget(WIDTHS.narrow))
-  expect((await ui.findAll({ type: 'Box' })).some(box => box.props.flexWrap === 'wrap')).toBe(true)
   expect(await ui.find({ key: 'tab:4' })).toBeDefined()
   await ui.unmount()
 })

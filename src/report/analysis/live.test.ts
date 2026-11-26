@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { mergeLiveEvents } from './live'
 import { summarizeSession } from './session'
 import type { LiveAgent } from './types'
-import { CTX, HOUR_MS, NOW, report, sessionStart, snapshot, spawn, turn, usage } from './test-fixtures'
+import { report, sessionStart, snapshot, spawn, turn, usage } from './test-fixtures'
 
 const SNAPSHOT_USAGE = usage(10, 0, 0, 0)
 const LIVE_USAGE = usage(50, 0, 0, 0)
@@ -39,35 +39,25 @@ describe('mergeLiveEvents', () => {
   })
 })
 
-describe('summarizeSession live merge', () => {
-  test('is open with pending events and no session.end even when the source file is idle past the cutoff', () => {
-    const idleCtx = { now: NOW, sourceMtimeMs: NOW - 10 * HOUR_MS }
-
-    const figures = summarizeSession({ events: [sessionStart()], snapshots: [], pendingEvents: [turn(null)] }, idleCtx)
-
-    expect(figures.state).toBe('open')
-  })
-})
-
 describe('summarizeSession live agent overlay', () => {
   const events = [spawn('a1')]
   const stored = [snapshot('a1', { usage: [SNAPSHOT_USAGE], costUsd: 0.25 })]
 
   test('a running agent shows the host usage and cost', () => {
-    const figures = summarizeSession({ events, snapshots: stored, liveAgents: [liveAgent('a1')] }, CTX)
+    const figures = summarizeSession({ events, snapshots: stored, liveAgents: [liveAgent('a1')] })
 
     expect(figures.agents[0]).toMatchObject({ agentId: 'a1', tokens: 50, costUsd: 0.5 })
     expect(figures.total).toMatchObject({ tokens: 50, costUsd: 0.5 })
   })
 
   test('a finished agent keeps its stored snapshot even with a stale live row', () => {
-    const figures = summarizeSession({ events: [...events, report('a1')], snapshots: stored, liveAgents: [liveAgent('a1')] }, CTX)
+    const figures = summarizeSession({ events: [...events, report('a1')], snapshots: stored, liveAgents: [liveAgent('a1')] })
 
     expect(figures.agents[0]).toMatchObject({ tokens: 10, costUsd: 0.25 })
   })
 
   test('a running agent without a live row falls back to its stored snapshot', () => {
-    const figures = summarizeSession({ events, snapshots: stored, liveAgents: [] }, CTX)
+    const figures = summarizeSession({ events, snapshots: stored, liveAgents: [] })
 
     expect(figures.agents[0]).toMatchObject({ tokens: 10, costUsd: 0.25 })
   })

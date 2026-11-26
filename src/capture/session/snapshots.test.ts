@@ -95,6 +95,20 @@ describe('snapshot content', () => {
     expect(byFile(writes, 'a1.json')).toMatchObject({ effort: 'xhigh', model: 'claude-opus' })
   })
 
+  test('the model comes from the agent, then its last request, then its usage, else is empty', () => {
+    const modelOf = (overrides: Partial<SnapshotAgent>) =>
+      byFile(createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', overrides)] })), 'a1.json')?.model
+    expect(modelOf({ model: 'claude-agent', lastRequest: { model: 'claude-last' } })).toBe('claude-agent')
+    expect(modelOf({ lastRequest: { model: 'claude-last' } })).toBe('claude-last')
+    expect(modelOf({})).toBe('claude-x')
+    expect(modelOf({ usage: [] })).toBe('')
+  })
+
+  test('an explicit effort beats the last request effort', () => {
+    const writes = createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', { effort: 'low', lastRequest: { model: 'claude-last', effort: 'max' } })] }))
+    expect(byFile(writes, 'a1.json')?.effort).toBe('low')
+  })
+
   test('a subagent snapshot has every field, camelCase usage and closed false', () => {
     const writes = createSnapshotTracker('s1').cycle(input({ agents: [agent('a1', { parentId: 'p1' })] }))
     const snap = byFile(writes, 'a1.json')
@@ -147,6 +161,15 @@ describe('change signature', () => {
     expect(byFile(same, 'a1.json')).toBeUndefined()
     const grown = tracker.cycle(input({ now: 7_000, agents: [agent('a1', { tokenCount: 150 })] }))
     expect(byFile(grown, 'a1.json')?.tokenCount).toBe(150)
+  })
+
+  test('a change of only the model or only the effort is written', () => {
+    const tracker = createSnapshotTracker('s1')
+    tracker.cycle(input({ agents: [agent('a1', { model: 'claude-a', effort: 'low' })] }))
+    const modelChanged = tracker.cycle(input({ now: 6_000, agents: [agent('a1', { model: 'claude-b', effort: 'low' })] }))
+    expect(byFile(modelChanged, 'a1.json')?.model).toBe('claude-b')
+    const effortChanged = tracker.cycle(input({ now: 7_000, agents: [agent('a1', { model: 'claude-b', effort: 'high' })] }))
+    expect(byFile(effortChanged, 'a1.json')?.effort).toBe('high')
   })
 
   test('a change of only the unknown-price flag is written', () => {

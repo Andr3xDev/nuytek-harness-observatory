@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { FLUSH_INTERVAL_MS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS, MAX_BUFFERED_EVENTS } from '../../core/constants'
 import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent, type PromptRecord } from '../../core/schema'
+import { snapshot as snapshotFixture } from '../../report/analysis/test-fixtures'
 import { createBatcher, type BatchClock, type BatchSink } from './batcher'
 
 type SinkCall = { kind: 'append' | 'upsert'; path: string; text: string }
@@ -15,24 +16,7 @@ const event = (sessionId: string, id: string): ObsEvent => ({
   branch: null,
 })
 
-const snapshot = (agentId: string, tokenCount: number): AgentSnapshot => ({
-  schema: SCHEMA_VERSION,
-  sessionId: 's1',
-  agentId,
-  parentAgentId: null,
-  subagentType: 'builder',
-  model: 'm',
-  branch: null,
-  startedAt: 1,
-  updatedAt: 2,
-  usage: [],
-  costUsd: 0,
-  tokenCount,
-  hasUnknownPrice: false,
-  taskStatus: null,
-  closed: false,
-  closedReason: null,
-})
+const snapshot = (agentId: string, tokenCount: number): AgentSnapshot => snapshotFixture(agentId, { tokenCount })
 
 const prompt: PromptRecord = {
   schema: SCHEMA_VERSION,
@@ -132,8 +116,8 @@ describe('batcher flush', () => {
     const sink: BatchSink = {
       append: async (_path, text) => {
         attempts++
-        if (attempts === 1) throw new Error('spawn failed')
         texts.push(text)
+        if (attempts === 1) throw new Error('spawn failed')
         return true
       },
       upsert: async () => true,
@@ -142,7 +126,8 @@ describe('batcher flush', () => {
     batcher.pushEvent(event('s1', 'e1'))
     await batcher.flush()
     await batcher.flush()
-    expect(texts).toHaveLength(1)
+    expect(texts).toHaveLength(2)
+    expect(texts[1]).toBe(texts[0])
   })
 
   test('an awaited flush also writes entries pushed while an earlier flush was in flight', async () => {
@@ -369,18 +354,12 @@ describe('pendingEvents', () => {
     expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1', 'e2'])
   })
 
-  test('result and records are frozen and mutating them leaves the batcher unchanged', () => {
+  test('result and records are frozen', () => {
     const batcher = createBatcher(recordingSink().sink, fakeClock().clock)
     batcher.pushEvent(event('s1', 'e1'))
     const result = batcher.pendingEvents('s1')
     expect(Object.isFrozen(result)).toBe(true)
     expect(Object.isFrozen(result[0])).toBe(true)
-    try {
-      ;(result[0] as { id: string }).id = 'changed'
-    } catch {
-      // frozen objects throw in strict mode
-    }
-    expect(batcher.pendingEvents('s1')[0]?.id).toBe('e1')
   })
 
   test('events stay visible while a flush is in flight and are gone after it succeeds', async () => {

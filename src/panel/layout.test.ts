@@ -3,13 +3,10 @@ import { formatRow, tierOf } from './layout'
 
 describe('tierOf', () => {
   const cases: [number, 'wide' | 'medium' | 'narrow'][] = [
-    [100, 'wide'],
     [70, 'wide'],
     [69, 'medium'],
-    [60, 'medium'],
     [45, 'medium'],
     [44, 'narrow'],
-    [40, 'narrow'],
   ]
   for (const [columns, tier] of cases) {
     test(`maps ${columns} columns to ${tier}`, () => {

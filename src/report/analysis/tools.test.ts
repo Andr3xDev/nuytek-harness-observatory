@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { summarizeSession } from './session'
-import { CTX, commandRun, skillUse, spawn, verdict } from './test-fixtures'
+import { commandRun, skillUse, spawn, verdict } from './test-fixtures'
 
-const summarize = (events: Parameters<typeof summarizeSession>[0]['events']) => summarizeSession({ events, snapshots: [] }, CTX).tools
+const summarize = (events: Parameters<typeof summarizeSession>[0]['events']) => summarizeSession({ events, snapshots: [] }).tools
 
 describe('summarizeSession tools', () => {
   test('attributes a skill read twice by builder agents to builder', () => {
@@ -30,5 +30,12 @@ describe('summarizeSession tools', () => {
 
     expect(Object.keys(tools.mcp)).toEqual(['srv'])
     expect(Object.values(tools.mcp.srv ?? {})).toEqual([1])
+  })
+
+  test('counts a repeated tool use id once and ignores a non-MCP verdict', () => {
+    const mcp = { toolName: 'mcp__srv__lookup', mcpServer: 'srv' }
+    const tools = summarize([verdict('t1', 'allow', mcp), verdict('t1', 'deny', mcp), verdict('t2', 'allow')])
+
+    expect(tools.mcp).toEqual({ srv: { mcp__srv__lookup: 1 } })
   })
 })
