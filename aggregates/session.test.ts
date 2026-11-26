@@ -136,11 +136,44 @@ describe('summarizeSession denies', () => {
   })
 })
 
+describe('summarizeSession resumed session', () => {
+  const [firstEnd, secondEnd] = [sessionEnd({ ts: 100 }), sessionEnd({ ts: 300 })]
+
+  test('start, end, start is not closed and has no endedAt', () => {
+    const figures = summarizeSession({ events: [sessionStart({ ts: 50 }), firstEnd, sessionStart({ ts: 200 })], snapshots: [] }, CTX)
+
+    expect(figures.state).toBe('open')
+    expect(figures.endedAt).toBeNull()
+  })
+
+  test('start, end, start, end is closed at the second end', () => {
+    const figures = summarizeSession({ events: [sessionStart({ ts: 50 }), firstEnd, sessionStart({ ts: 200 }), secondEnd], snapshots: [] }, CTX)
+
+    expect(figures.state).toBe('closed')
+    expect(figures.endedAt).toBe(300)
+  })
+
+  test('start, end stays closed at its end', () => {
+    const figures = summarizeSession({ events: [sessionStart({ ts: 50 }), firstEnd], snapshots: [] }, CTX)
+
+    expect(figures.state).toBe('closed')
+    expect(figures.endedAt).toBe(100)
+  })
+})
+
 describe('classifySession', () => {
   const start = sessionStart()
 
   test('is closed when a session.end is present, however old the file is', () => {
     expect(classifySession([start, sessionEnd()], NOW - 100 * HOUR_MS, NOW)).toBe('closed')
+  })
+
+  test('is open when a resume start follows the session.end and the file is fresh', () => {
+    expect(classifySession([start, sessionEnd(), sessionStart()], NOW - 60_000, NOW)).toBe('open')
+  })
+
+  test('is closed when the resumed session ended again', () => {
+    expect(classifySession([start, sessionEnd(), sessionStart(), sessionEnd()], NOW - 100 * HOUR_MS, NOW)).toBe('closed')
   })
 
   test('is open when idle for just under 6 hours', () => {

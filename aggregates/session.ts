@@ -68,8 +68,14 @@ const bump = (record: Record<string, number>, key: string): void => {
   record[key] = (record[key] ?? 0) + 1
 }
 
+/** A resumed session appends a new session.start after its earlier session.end, so only a trailing end closes it. */
+const lifecycleEnd = (events: readonly EventRecord[]): EventRecord | undefined => {
+  const last = events.filter((event) => event.type === 'session.start' || event.type === 'session.end').at(-1)
+  return last?.type === 'session.end' ? last : undefined
+}
+
 export function classifySession(events: EventRecord[], sourceMtimeMs: number, now: number): SessionState {
-  if (events.some((event) => event.type === 'session.end')) return 'closed'
+  if (lifecycleEnd(events)) return 'closed'
   return now - sourceMtimeMs <= OPEN_SESSION_MAX_IDLE_MS ? 'open' : 'stale'
 }
 
@@ -216,7 +222,7 @@ export function summarizeSession(input: SessionInput, ctx: SessionContext): Sess
   const mainSnapshot = input.snapshots.find((snapshot) => snapshot.agentId === 'main')
   const snapshotById = new Map(input.snapshots.filter((snapshot) => snapshot.agentId !== 'main').map((snapshot) => [snapshot.agentId, snapshot]))
   const sessionStart = events.find((event) => event.type === 'session.start')
-  const sessionEnd = events.find((event) => event.type === 'session.end')
+  const sessionEnd = lifecycleEnd(events)
   const agentTypeOf = (agentId: string | null): string =>
     agentId === null ? MAIN_AGENT_TYPE : (agents.get(agentId)?.spawn.subagentType ?? UNKNOWN_KEY)
 
