@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { Figure, SessionFigures } from './figures'
-import { formatBandLine, formatFigure, formatTokens, formatUsd, isoDay, truncate } from './format'
+import { bandSegments, formatBandLine, formatFigure, formatTokens, formatUsd, isoDay, truncate } from './format'
 
 const figure = (tokens: number, costUsd: number, hasUnknownPrice = false): Figure => ({
   input: tokens,
@@ -112,5 +112,15 @@ describe('formatBandLine', () => {
 
   test('shows zeros before the first data', () => {
     expect(formatBandLine(sessionFigures(figure(0, 0), 0))).toBe('◆ obs  $0.00 · ◈ 0 tok · ▸ 0 agents')
+  })
+
+  test('segments tag the icons and the cost by role, the values stay plain', () => {
+    const roles = bandSegments(sessionFigures(figure(1000, 0.1), 1)).filter(({ role }) => role !== 'plain' && role !== 'dim')
+    expect(roles).toEqual([
+      { text: '◆', role: 'brand' },
+      { text: '$0.10', role: 'cost' },
+      { text: '◈', role: 'tokens' },
+      { text: '▸', role: 'agents' },
+    ])
   })
 })

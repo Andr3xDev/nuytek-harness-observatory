@@ -31,8 +31,25 @@ export const formatFigure = (value: number | null | undefined, mode: FigureMode)
   return String(value)
 }
 
-export const formatBandLine = (figures: Pick<SessionFigures, 'total' | 'agents'>): string => {
+/** What a band piece means; the panel maps each role to a color so this module stays presentation-free. */
+export type BandRole = 'brand' | 'cost' | 'tokens' | 'agents' | 'plain' | 'dim'
+export type BandSegment = { text: string; role: BandRole }
+
+export const bandSegments = (figures: Pick<SessionFigures, 'total' | 'agents'>): BandSegment[] => {
   const { total, agents } = figures
   const cost = `${total.hasUnknownPrice ? '~' : ''}${formatUsd(total.costUsd)}`
-  return `◆ obs  ${cost} · ◈ ${formatTokens(total.tokens)} tok · ▸ ${agents.length} ${agents.length === 1 ? 'agent' : 'agents'}`
+  return [
+    { text: '◆', role: 'brand' },
+    { text: ' obs  ', role: 'plain' },
+    { text: cost, role: 'cost' },
+    { text: ' · ', role: 'dim' },
+    { text: '◈', role: 'tokens' },
+    { text: ` ${formatTokens(total.tokens)} tok`, role: 'plain' },
+    { text: ' · ', role: 'dim' },
+    { text: '▸', role: 'agents' },
+    { text: ` ${agents.length} ${agents.length === 1 ? 'agent' : 'agents'}`, role: 'plain' },
+  ]
 }
+
+export const formatBandLine = (figures: Pick<SessionFigures, 'total' | 'agents'>): string =>
+  bandSegments(figures).map(({ text }) => text).join('')

@@ -2,26 +2,35 @@ import type { AgentFigures, Figure, SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import type { SessionAtom } from '../../../types'
 import { formatTokens, isoDay } from '../../core/format'
+import { COLUMN_SEPARATOR } from '../layout'
 import {
   ESTIMATE_FOOTNOTE,
+  costColumn,
   dim,
   formatCost,
   gateOf,
   heading,
+  statusColumn,
   tableLines,
+  tokensColumn,
   type Column,
   type Line,
   type Row,
   type TabContext,
 } from './common'
 
-const TREE_COLUMNS: Column[] = [{ header: 'Name', width: 0 },{ header: 'Status', width: 9, narrowHidden: true }, { header: 'Tokens', width: 7 }, { header: 'Cost est.', width: 9 }]
-const TYPE_COLUMNS: Column[] = [{ header: 'Type', width: 0 }, { header: 'Spawns', width: 6 }, { header: 'Tokens', width: 7 }, { header: 'Cost est.', width: 9 }]
-const MODEL_COLUMNS: Column[] = [{ header: 'Model', width: 0 }, { header: 'Tokens', width: 7 }]
-const ISSUE_COLUMNS: Column[] = [{ header: 'Issue', width: 0 }, { header: 'Tokens', width: 7 }, { header: 'Cost est.', width: 9 }]
+const TOKENS_COLUMN: Column = { header: 'Tokens', width: 7, color: tokensColumn }
+const COST_COLUMN: Column = { header: 'Cost est.', width: 9, color: costColumn }
+const TREE_COLUMNS: Column[] = [{ header: 'Name', width: 0 }, { header: 'Status', width: 9, narrowHidden: true, color: statusColumn }, TOKENS_COLUMN, COST_COLUMN]
+const TYPE_COLUMNS: Column[] = [{ header: 'Type', width: 0 }, { header: 'Spawns', width: 6 }, TOKENS_COLUMN, COST_COLUMN]
+const MODEL_COLUMNS: Column[] = [{ header: 'Model', width: 0 }, TOKENS_COLUMN]
+const ISSUE_COLUMNS: Column[] = [{ header: 'Issue', width: 0 }, TOKENS_COLUMN, COST_COLUMN]
 const INDENT = '  '
 
-const totalsLine = (total: Figure): Line => ({ text: `Tokens: ${formatTokens(total.tokens)} · Cost (est.): ${formatCost(total)}` })
+const totalsLine = (total: Figure): Line => ({
+  text: `Tokens: ${formatTokens(total.tokens)}${COLUMN_SEPARATOR}Cost (est.): ${formatCost(total)}`,
+  styles: [tokensColumn, costColumn],
+})
 
 const figureRow = (name: string, status: string, figure: Figure, agentId?: string): Row => ({
   cells: [name, status, formatTokens(figure.tokens), formatCost(figure)],

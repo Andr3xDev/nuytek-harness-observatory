@@ -12,12 +12,12 @@ describe('session tab, Session scope', () => {
 
   test('shows totals, the main loop with both agents as a tree, and usage by model', () => {
     const text = textOf(sessionLines(context('wide', { session })))
-    expect(text).toContain('Tokens: 5.0k · Cost (est.): $0.50')
+    expect(text).toContain('Tokens: 5.0k │ Cost (est.): $0.50')
     expect(text).toContain('Agents: 2')
     expect(text).toMatch(/^main /m)
     expect(text).toMatch(/^ {2}planner /m)
     expect(text).toMatch(/^ {4}builder /m)
-    expect(text).toMatch(/^m1 .*3\.0k$/m)
+    expect(text).toMatch(/^m1 .* │ +3\.0k$/m)
   })
 
   test('an unknown-price total carries the estimate marker and its footnote', () => {

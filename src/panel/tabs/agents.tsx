@@ -1,7 +1,7 @@
 import type { SessionFigures } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens } from '../../core/format'
-import { dim, formatCost, gateOf, heading, tableLines, type Column, type Line, type Row, type TabContext } from './common'
+import { costColumn, dim, formatCost, gateOf, heading, tableLines, tokensColumn, type Column, type Line, type Row, type TabContext } from './common'
 
 const UNKNOWN_MODEL = '?'
 const MODEL_PREFIX = /^claude-/
@@ -10,13 +10,13 @@ const MODEL_DATE_SUFFIX = /-\d{8}$/
 const TYPE_MODEL_COLUMNS: Column[] = [
   { header: 'Agent · model', width: 0 },
   { header: 'Spawns', width: 6 },
-  { header: 'Tokens', width: 7 },
-  { header: 'Cost est.', width: 9 },
+  { header: 'Tokens', width: 7, color: tokensColumn },
+  { header: 'Cost est.', width: 9, color: costColumn },
 ]
 const AGENT_COLUMNS: Column[] = [
   { header: 'Agent · model', width: 0 },
-  { header: 'Tokens', width: 7 },
-  { header: 'Cost est.', width: 9 },
+  { header: 'Tokens', width: 7, color: tokensColumn },
+  { header: 'Cost est.', width: 9, color: costColumn },
 ]
 
 const shortModel = (model: string | null | undefined): string =>

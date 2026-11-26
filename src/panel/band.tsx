@@ -1,9 +1,9 @@
 import { atom, read, update } from 'claude-code'
-import type { On } from 'claude-code'
+import type { Color, On } from 'claude-code'
 import type { PanelScope, PanelTab } from '../../types'
-import { formatBandLine } from '../core/format'
+import { bandSegments, type BandRole } from '../core/format'
 import { emptyFigure, type SessionFigures } from '../core/figures'
-import { TAB_LABELS, tierOf } from './layout'
+import { PALETTE, SECTION_RULE, TAB_LABELS, tierOf } from './layout'
 import { STATE_SHAPES } from './state'
 import { renderLines, type Line, type TabContext } from './tabs/common'
 import { agentsLines } from './tabs/agents'
@@ -14,7 +14,14 @@ import { toolsLines } from './tabs/tools'
 
 const TABS: readonly PanelTab[] = [1, 2, 3, 4, 5]
 const HISTORY_TAB: PanelTab = 5
-const SEPARATOR = '─'
+const BAND_ROLE_COLORS: Record<BandRole, Color | undefined> = {
+  brand: PALETTE.brand,
+  cost: PALETTE.cost,
+  tokens: PALETTE.tokens,
+  agents: PALETTE.agents,
+  plain: undefined,
+  dim: undefined,
+}
 
 // The hooks scan reads state refs only from literals or atoms declared in the reading file, so the
 // panel atoms are declared in each file that reads them (same keys, shape tags from panel/state.ts).
@@ -56,7 +63,15 @@ export function registerBand(on: On, deps: BandDeps) {
 
     if (!isOpen) {
       const figures = session ? (session.sessionFigures as SessionFigures) : { total: emptyFigure(), agents: [] }
-      return <Text wrap="truncate-end">{formatBandLine(figures)}</Text>
+      return (
+        <Text wrap="truncate-end">
+          {bandSegments(figures).map((segment, index) => (
+            <Text key={`segment:${index}`} color={BAND_ROLE_COLORS[segment.role]} dimColor={segment.role === 'dim'}>
+              {segment.text}
+            </Text>
+          ))}
+        </Text>
+      )
     }
 
     const { bodyColumns } = e.props
@@ -81,20 +96,27 @@ export function registerBand(on: On, deps: BandDeps) {
         <Box flexWrap="wrap" columnGap={1}>
           {TABS.map(number => (
             <Button key={`tab:${number}`} plain hotkey={String(number)} dimColor={tab !== number} onPress={() => selectTab(number)}>
-              {TAB_LABELS[number - 1]}
+              {tab === number ? (
+                <Text bold underline color={PALETTE.brand}>
+                  {TAB_LABELS[number - 1]}
+                </Text>
+              ) : (
+                TAB_LABELS[number - 1]
+              )}
             </Button>
           ))}
           {tab !== HISTORY_TAB && (
             <Button key="scope" plain onPress={toggleScope}>
-              [<Text dimColor={scope !== 'session'}>Session</Text> ⇄ <Text dimColor={scope !== 'history'}>History</Text>]
+              [<Text bold={scope === 'session'} color={scope === 'session' ? PALETTE.brand : undefined} dimColor={scope !== 'session'}>Session</Text> ⇄{' '}
+              <Text bold={scope === 'history'} color={scope === 'history' ? PALETTE.brand : undefined} dimColor={scope !== 'history'}>History</Text>]
             </Button>
           )}
         </Box>
         <Text dimColor wrap="truncate-end">
-          {SEPARATOR.repeat(bodyColumns)}
+          {SECTION_RULE.repeat(bodyColumns)}
         </Text>
-        {session?.error && scope === 'session' && <Text dimColor>stale: {session.error}</Text>}
-        {renderLines({ Box, Text, Button }, TAB_LINES[tab](ctx), session?.liveAgentIds ?? [], viewAgent)}
+        {session?.error && scope === 'session' && <Text color={PALETTE.failure}>stale: {session.error}</Text>}
+        {renderLines({ Box, Text, Button }, TAB_LINES[tab](ctx), session?.liveAgentIds ?? [], viewAgent, bodyColumns)}
       </Box>
     )
   })

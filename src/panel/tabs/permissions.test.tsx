@@ -22,6 +22,14 @@ describe('permissions tab', () => {
     expect(text).toMatch(/^bash blocked .*2$/m)
   })
 
+  test('only a non-zero deny count is drawn in the failure color', () => {
+    const tools = { ...emptyTools(), verdicts: { builder: { allow: 1, ask: 0, deny: 2 }, main: { allow: 5, ask: 1, deny: 0 } } }
+    const lines = permissionsLines(context('wide', { session: sessionAtomValue(sessionFigures(), aggregate({ tools, profile: profile() })) }))
+    const denyStyle = (name: string) => lines.find(line => line.text.startsWith(name))?.styles?.[3]
+    expect(denyStyle('builder')).toBe('error')
+    expect(denyStyle('main')).toBeUndefined()
+  })
+
   test('no permission outcomes renders without a prompts section or an error', () => {
     expect(view({})).not.toContain('Permission prompts')
   })

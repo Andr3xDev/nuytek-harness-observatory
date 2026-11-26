@@ -1,19 +1,28 @@
-import type { Elements, RenderSurface } from 'claude-code'
+import type { Color, Elements, RenderSurface } from 'claude-code'
 import type { HistoryAtom, PanelScope, SessionAtom } from '../../../types'
 import type { Figure } from '../../core/figures'
 import type { AggregateFigures } from '../../report/analysis'
 import { formatTokens, formatUsd, truncate } from '../../core/format'
-import { LIST_ROW_CAP, capRows, formatRow, type Tier } from '../layout'
+import { COLUMN_SEPARATOR, LIST_ROW_CAP, PALETTE, SECTION_RULE, capRows, formatRow, type Tier } from '../layout'
 
 export type Kit = Pick<Elements[RenderSurface], 'Box' | 'Text' | 'Button'>
 
-/** One drawn row. `text` may span lines (narrow two-line rows). */
-export type Line = { text: string; dim?: boolean; heading?: boolean; agentId?: string }
+/**
+ * One drawn row. `text` may span lines (narrow two-line rows). `styles` colors the cells of a
+ * `COLUMN_SEPARATOR`-joined `text`, by position.
+ */
+export type Line = { text: string; dim?: boolean; heading?: boolean; agentId?: string; styles?: (Color | undefined)[] }
 
 export type TabContext = { tier: Tier; columns: number; scope: PanelScope; session: SessionAtom | null; history: HistoryAtom }
 
-/** `secondary` columns drop below wide; `narrowHidden` ones drop on narrow only. */
-export type Column = { header: string; width: number; secondary?: true; narrowHidden?: true }
+/** `secondary` columns drop below wide; `narrowHidden` ones drop on narrow only. `color` may depend on the cell. */
+export type Column = {
+  header: string
+  width: number
+  secondary?: true
+  narrowHidden?: true
+  color?: Color | ((cell: string) => Color | undefined)
+}
 export type Row = { cells: string[]; agentId?: string }
 
 export const PROFILE_OFF_FOOTNOTE = 'n/a: harness profile off'
@@ -28,6 +37,15 @@ const NARROW_INDENT = '  '
 
 export const dim = (text: string): Line => ({ text, dim: true })
 export const heading = (text: string): Line => ({ text, heading: true })
+
+/** Column colors shared by every tab, so a figure looks the same wherever it appears. */
+export const tokensColumn = PALETTE.tokens
+export const costColumn = PALETTE.cost
+/** Counts of things that went wrong: a zero is not worth a warning color. */
+export const failureColumn = (cell: string): Color | undefined => (cell === '0' || cell === '-' ? undefined : PALETTE.failure)
+export const statusColumn = (cell: string): Color | undefined => (cell === 'failed' ? PALETTE.failure : undefined)
+
+const colorOf = (column: Column, cell: string): Color | undefined => (typeof column.color === 'function' ? column.color(cell) : column.color)
 
 export const formatCost = (figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
@@ -64,11 +82,24 @@ export function tableLines(tier: Tier, columns: number, spec: readonly Column[],
     )
   }
   const fixed = shown.slice(1).map(column => column.width)
-  const nameWidth = Math.min(Math.max(columns - fixed.reduce((sum, width) => sum + width, 0) - fixed.length, MIN_NAME_WIDTH), MAX_NAME_WIDTH)
+  const nameWidth = Math.min(
+    Math.max(columns - fixed.reduce((sum, width) => sum + width, 0) - fixed.length * COLUMN_SEPARATOR.length, MIN_NAME_WIDTH),
+    MAX_NAME_WIDTH,
+  )
   const widths = [nameWidth, ...fixed]
   return [
-    dim(formatRow(shown.map(column => column.header), widths)),
-    ...capLines(rows.map(({ cells, agentId }) => ({ text: formatRow(visible(cells), widths), agentId })), cap),
+    dim(formatRow(shown.map(column => column.header), widths, COLUMN_SEPARATOR)),
+    ...capLines(
+      rows.map(({ cells, agentId }) => {
+        const shownCells = visible(cells)
+        return {
+          text: formatRow(shownCells, widths, COLUMN_SEPARATOR),
+          styles: shown.map((column, index) => colorOf(column, shownCells[index] ?? '')),
+          agentId,
+        }
+      }),
+      cap,
+    ),
   ]
 }
 
@@ -84,21 +115,36 @@ export function gateOf({ scope, session, history }: TabContext): Gate {
   return session ? { aggregate: session.aggregate as AggregateFigures } : { message: 'Waiting for session data...' }
 }
 
-export function renderLines(kit: Kit, lines: readonly Line[], liveAgentIds: readonly string[], onViewAgent: (agentId: string) => Promise<unknown>) {
+export function renderLines(
+  kit: Kit,
+  lines: readonly Line[],
+  liveAgentIds: readonly string[],
+  onViewAgent: (agentId: string) => Promise<unknown>,
+  columns: number,
+) {
   const { Text, Button } = kit
-  return lines.map((line, index) => {
+  // Cells are colored and the column dividers drawn dim; a text without a divider is one plain piece.
+  const pieces = ({ text, styles }: Line) =>
+    text.split(COLUMN_SEPARATOR).flatMap((cell, index) => [
+      ...(index > 0 ? [<Text key={`sep:${index}`} dimColor>{COLUMN_SEPARATOR}</Text>] : []),
+      <Text key={`cell:${index}`} color={styles?.[index]}>{cell}</Text>,
+    ])
+  return lines.flatMap((line, index) => {
     const { agentId } = line
+    const rule = line.heading && index > 0 ? [<Text key={`rule:${index}`} dimColor wrap="truncate-end">{SECTION_RULE.repeat(columns)}</Text>] : []
     if (agentId !== undefined && liveAgentIds.includes(agentId)) {
-      return (
+      return [
+        ...rule,
         <Button key={`agent:${agentId}`} plain onPress={() => onViewAgent(agentId)}>
-          {line.text}
-        </Button>
-      )
+          {pieces(line)}
+        </Button>,
+      ]
     }
-    return (
-      <Text key={`line:${index}`} bold={line.heading} dimColor={line.dim} wrap="wrap">
-        {line.text}
-      </Text>
-    )
+    return [
+      ...rule,
+      <Text key={`line:${index}`} bold={line.heading} color={line.heading ? PALETTE.heading : undefined} dimColor={line.dim} wrap="wrap">
+        {pieces(line)}
+      </Text>,
+    ]
   })
 }

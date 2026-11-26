@@ -13,14 +13,30 @@ export const TAB_LABELS = ['Session', 'Agents', 'Tools', 'Permissions', 'History
 export const tierOf = (bodyColumns: number): Tier =>
   bodyColumns >= TIER_WIDE_MIN ? 'wide' : bodyColumns >= TIER_MEDIUM_MIN ? 'medium' : 'narrow'
 
+/** Theme keys, so each color follows the person's light or dark theme. */
+export const PALETTE = {
+  brand: 'claude',
+  heading: 'claude',
+  cost: 'success',
+  tokens: 'suggestion',
+  agents: 'permission',
+  failure: 'error',
+} as const
+
+/** Single-width line drawn between tab sections and under the tab row. */
+export const SECTION_RULE = '─'
+
+/** Table column divider; the renderer splits rows on it to draw the `│` dim. */
+export const COLUMN_SEPARATOR = ' │ '
+
 // Name column left-aligned and truncated; numeric columns right-aligned.
-export const formatRow = (cells: readonly string[], widths: readonly number[]): string =>
+export const formatRow = (cells: readonly string[], widths: readonly number[], separator = ' '): string =>
   cells
     .map((cell, index) => {
       const width = widths[index] ?? cell.length
       return index === 0 ? truncate(cell, width).padEnd(width) : cell.padStart(width)
     })
-    .join(' ')
+    .join(separator)
 
 export const capRows = (rows: readonly string[], cap: number): string[] =>
   rows.length <= cap ? [...rows] : [...rows.slice(0, cap), `+${rows.length - cap} more`]

@@ -2,6 +2,7 @@ import { formatFigure, formatUsd } from '../../core/format'
 import {
   PROFILE_OFF_FOOTNOTE,
   dim,
+  failureColumn,
   gateOf,
   heading,
   tableLines,
@@ -15,9 +16,9 @@ const VERDICT_COLUMNS: Column[] = [
   { header: 'Agent', width: 0 },
   { header: 'Allow', width: 5 },
   { header: 'Ask', width: 5 },
-  { header: 'Deny', width: 5 },
+  { header: 'Deny', width: 5, color: failureColumn },
 ]
-const REASON_COLUMNS: Column[] = [{ header: 'Deny reason', width: 0 }, { header: 'Count', width: 5 }]
+const REASON_COLUMNS: Column[] = [{ header: 'Deny reason', width: 0 }, { header: 'Count', width: 5, color: failureColumn }]
 const GUARD_COLUMNS: Column[] = [{ header: 'Guard', width: 0 }, { header: 'Count', width: 5 }]
 const OUTCOME_COLUMNS: Column[] = [{ header: 'Prompt outcome', width: 0 }, { header: 'Count', width: 5 }]
 
