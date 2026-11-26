@@ -49,7 +49,7 @@ const UTC_MINUTE_END = 16
 const formatStarted = (ms: number): string => new Date(ms).toISOString().slice(UTC_MINUTE_START, UTC_MINUTE_END).replace('T', ' ')
 
 const typeModelRows = (aggregate: AggregateFigures): Row[] =>
-  (aggregate.byTypeModelEffort ?? []).map(entry => ({
+  aggregate.byTypeModelEffort.map(entry => ({
     cells: [...identity(entry.type, entry.model, entry.effort), `${entry.spawns}×`, ...tokenCells(entry), formatCost(entry)],
   }))
 
@@ -60,7 +60,7 @@ const typeModelLines = ({ tier, columns }: TabContext, aggregate: AggregateFigur
 
 /** The history tab's agents section: the window's agents by type, model and effort, then its latest runs. */
 export function agentHistoryLines(ctx: TabContext, aggregate: AggregateFigures): Line[] {
-  const recent = (aggregate.recentAgents ?? []).map(run => ({
+  const recent = aggregate.recentAgents.map(run => ({
     cells: [...identity(run.type, run.model, run.effort), formatStarted(run.startedAt), ...tokenCells(run), formatCost(run)],
   }))
   const typeModel = typeModelLines(ctx, aggregate)

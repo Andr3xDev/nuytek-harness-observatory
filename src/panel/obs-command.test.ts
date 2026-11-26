@@ -5,12 +5,9 @@ describe('parseObsArgs', () => {
   const cases: [string, ObsCommand][] = [
     ['', 'toggle'],
     ['   ', 'toggle'],
-    ['report', 'report'],
-    ['  report  now', 'report'],
-    ['reports', 'other'],
+    ['report', 'other'],
     ['foo', 'other'],
     ['band on', 'other'],
-    ['Report', 'other'],
   ]
   for (const [args, expected] of cases) {
     test(`parses ${JSON.stringify(args)} as ${expected}`, () => {

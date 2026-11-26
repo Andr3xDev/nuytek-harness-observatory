@@ -2,10 +2,8 @@ import { isRecord } from '../../core/guards'
 import { agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf } from '../../store/layout'
 import { SUPPORTED_SCHEMA, type SessionFigures, type SessionRollup, type SourceListing, type SourceStat } from './types'
 
-// 2: skill figures gained `prompted`; version 1 rollups lack it.
-// 6: session figures gained `mainModel`.
-// 7: agent and main models come from the recorded snapshot model, not the last usage entry.
-export const ROLLUP_VERSION = 7
+/** Bump when the stored figures change shape; a rollup of another version is rebuilt from the events. */
+export const ROLLUP_VERSION = 8
 
 export function buildRollup(figures: SessionFigures, listing: SourceListing, builtAt: number): SessionRollup {
   const candidates = [eventsPathOf(figures.sessionId), mainSnapshotPathOf(figures.sessionId), ...figures.agents.map((agent) => agentSnapshotPathOf(agent.agentId))]

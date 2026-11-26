@@ -48,13 +48,6 @@ describe('capRows', () => {
     expect(capped[20]).toBe('+5 more')
   })
 
-  test('caps 14 bash rows to 10 plus "+4 more"', () => {
-    const capped = capRows(rowsOf(14), 10)
-
-    expect(capped).toHaveLength(11)
-    expect(capped[10]).toBe('+4 more')
-  })
-
   test('adds no "+N more" line at exactly the cap', () => {
     expect(capRows(rowsOf(20), 20)).toEqual(rowsOf(20))
   })

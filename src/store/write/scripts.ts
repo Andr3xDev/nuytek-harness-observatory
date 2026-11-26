@@ -1,7 +1,7 @@
 import { STORE_DIR } from '../../core/constants'
 import { EVENTS_DIR, EVENTS_EXTENSION, PROMPTS_FILE_PREFIX, ROLLUP_DIR, SNAPSHOTS_DIR } from '../layout'
 
-// Fixed scripts: no caller text is ever interpolated; paths go in as positional args (design D7).
+// Fixed scripts: no caller text is ever interpolated; paths go in as positional args.
 const SAFE_PREFIX = `umask 077; cd "$HOME/${STORE_DIR}" || exit 1`
 const SCRIPT_NAME = 'observatory'
 

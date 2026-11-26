@@ -15,11 +15,6 @@ describe('tools tab', () => {
     expect(text).toMatch(/^foo .*2 .*1 .*0 .*builder: prompted 0 read 1 invoked 0/m)
   })
 
-  test('Bash commands are not listed in the panel', () => {
-    const text = textOf(toolsLines(context('wide', { session: withTools({ bash: { 'echo hi': 2 } }) })))
-    expect(text).not.toMatch(/Bash|echo hi/)
-  })
-
   test('25 skills render 20 rows plus +5 more', () => {
     const skills = Object.fromEntries(Array.from({ length: 25 }, (_, index) => [`skill-${index}`, { prompted: 0, read: 1, invoked: 0, byAgentType: {} }]))
     const lines = toolsLines(context('wide', { session: withTools({ skills }) }))

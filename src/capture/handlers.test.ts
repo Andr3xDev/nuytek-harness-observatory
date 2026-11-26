@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { createBatcher, type BatchSink } from '../store/write/batcher'
 import { createCapture, type HostApi, type Runtime, type SnapshotLister } from './handlers'
-import type { ObsEvent } from '../core/schema'
+import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent } from '../core/schema'
 import type { SnapshotAgent } from './session/snapshots'
 
 const SESSION_ID = 's1'
@@ -149,6 +149,39 @@ describe('session lifecycle', () => {
     expect(order).toEqual(['init', 'maintain'])
   })
 
+  test('session.start closes the open snapshots of this session found on disk', async () => {
+    const { host, capture, runtime } = setup()
+    const open: AgentSnapshot = {
+      schema: SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      agentId: 'a1',
+      parentAgentId: null,
+      subagentType: 'builder',
+      model: 'm',
+      branch: null,
+      startedAt: 1,
+      updatedAt: 2,
+      usage: [],
+      costUsd: 0,
+      tokenCount: 0,
+      hasUnknownPrice: false,
+      taskStatus: 'running',
+      closed: false,
+      closedReason: null,
+    }
+    host.listSnapshots = async () => [{ name: 'a1.json', mtimeMs: NOW - 1_000, snapshot: open }]
+    const upserts: Array<{ path: string; snapshot: AgentSnapshot }> = []
+    runtime.batcher = createBatcher(
+      { append: async () => true, upsert: async (path, text) => (upserts.push({ path, snapshot: JSON.parse(text) }), true) },
+      { every: () => () => {} },
+    )
+
+    await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
+    await runtime.batcher.flush()
+
+    expect(upserts).toMatchObject([{ path: expect.stringContaining('a1.json'), snapshot: { agentId: 'a1', closed: true, closedReason: 'reset' } }])
+  })
+
   test('after a resume the first event of the new host session is adopted with a baseline at the resume point', async () => {
     const { world, host, capture, events } = setup()
     await capture.sessionStart(host, { cwd: '/w' }, passThrough({ cwd: '/w' }))
@@ -163,14 +196,11 @@ describe('session lifecycle', () => {
     expect(resumed[1]).toMatchObject({ costUsd: 1 })
   })
 
-  test('session.end flushes before returning and carries estimates only with the profile on', async () => {
-    for (const profile of [true, false]) {
-      const { host, capture, events } = setup(profile)
-      await capture.toolCheck(host, bashCheck, passThrough({ decision: 'allow' as const }))
-      await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'other' }, passThrough({}))
-      const end = (await events()).find((e) => e.type === 'session.end')
-      expect(end !== undefined && 'estimates' in end).toBe(profile)
-    }
+  test('session.end flushes before returning', async () => {
+    const { host, capture, events } = setup()
+    await capture.toolCheck(host, bashCheck, passThrough({ decision: 'allow' as const }))
+    await capture.sessionEnd(host, { sessionId: SESSION_ID, reason: 'other' }, passThrough({}))
+    expect((await events()).find((e) => e.type === 'session.end')).toMatchObject({ reason: 'other' })
   })
 })
 

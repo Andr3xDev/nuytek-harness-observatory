@@ -85,21 +85,8 @@ export type SessionStartEvent = Envelope<'session.start'> & {
   isInteractive?: boolean
 }
 
-export type BashPromptHookEstimate = {
-  label: 'estimated'
-  calls: number
-  perCallUsd?: number
-  usd?: number
-}
-
-export type SessionEstimates = {
-  bashPromptHook: BashPromptHookEstimate
-}
-
 export type SessionEndEvent = Envelope<'session.end'> & {
   reason?: string
-  /** Profile field: absent with the profile off. */
-  estimates?: SessionEstimates
 }
 
 export type SessionCompactEvent = Envelope<'session.compact'>
@@ -147,8 +134,6 @@ export type ObsEvent =
   | SkillUseEvent
   | CommandRunEvent
   | ReconciliationEvent
-
-export type ObsEventType = ObsEvent['type']
 
 export type ClosedReason = 'report' | 'reset'
 

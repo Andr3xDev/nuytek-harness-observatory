@@ -27,6 +27,7 @@ function setup(overrides: { open?: boolean } = {}) {
     liveReads: 0,
     gate: null as Promise<void> | null,
     sessionIdError: null as Error | null,
+    sessionId: 's1',
   }
   const sources: Sources = {
     loadSessionAggregate: async () => {
@@ -38,9 +39,10 @@ function setup(overrides: { open?: boolean } = {}) {
       state.historyCalls++
       return state.historyResult()
     },
-    liveSession: () => {
+    // The overlay is seeded for `s1` only, like the real loader keeps one session's inputs.
+    liveSession: sessionId => {
       state.liveReads++
-      return state.live
+      return sessionId === 's1' ? state.live : null
     },
   }
   const add = (ms: number, fn: () => void, period?: number) => {
@@ -56,7 +58,7 @@ function setup(overrides: { open?: boolean } = {}) {
     after: (ms, fn) => add(ms, fn),
     every: (ms, fn) => add(ms, fn, ms),
     isOpen: () => state.open,
-    getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : 's1'),
+    getSessionId: () => (state.sessionIdError ? Promise.reject(state.sessionIdError) : state.sessionId),
     session: { get: () => state.session, set: value => void (state.session = value) },
     history: { get: () => state.history, set: value => void (state.history = value) },
     bumpTick: () => void state.tick++,
@@ -161,6 +163,19 @@ describe('refresher', () => {
     refresher.requestRefresh('tool.check')
     await settle()
     expect(state.sessionCalls).toBe(2)
+  })
+
+  test('after the session id changes the next event reads the store and never writes the old overlay', async () => {
+    const { refresher, state, advance, settle } = setup()
+    refresher.requestRefresh('session.measure')
+    await settle()
+    state.live = { sessionFigures: { live: true } as unknown as LiveOverlay['sessionFigures'], aggregate: { live: true } }
+    await advance(REFRESH_MIN_INTERVAL_MS)
+    state.sessionId = 's2'
+    refresher.requestRefresh('tool.check')
+    await settle()
+    expect(state.sessionCalls).toBe(2)
+    expect(state.session?.aggregate).toEqual({ n: 2 })
   })
 
   test('a request during flight does not overlap and gives one follow-up', async () => {

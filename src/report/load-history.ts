@@ -72,7 +72,7 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     try {
       return await loadSessionOrThrow(sessionId)
     } catch {
-      // A parseable but malformed record must not take the whole report down.
+      // A parseable but malformed record must not take the whole history down.
       warnings += 1
       return null
     }
@@ -93,16 +93,13 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     }
 
     let events: EventRecord[] = []
-    let skippedNewerSchema = 0
     if (stat) {
       const read = await readLines(fs, eventsPath, stat.size)
       if (!read.ok) {
         warnings += 1
         return null
       }
-      const parsed = parseJsonl(read.lines)
-      events = parsed.records
-      skippedNewerSchema = parsed.skippedNewerSchema
+      events = parseJsonl(read.lines)
     }
 
     const agentIds = new Set([...events, ...(pending ?? [])].flatMap((event) => (event.type === 'agent.spawn' && event.agentId !== null ? [event.agentId] : [])))
@@ -114,7 +111,7 @@ export async function loadHistory({ fs, writer }: HistoryDeps, options: LoadHist
     const figures = summarizeSession(input, { now, sourceMtimeMs: stat?.mtimeMs ?? now })
     return {
       sessionId,
-      figures: { ...figures, coverage: { ...figures.coverage, skippedNewerSchema } },
+      figures,
       cacheable: !isLive && stat !== undefined && figures.state !== 'open' && SESSION_ID_PATTERN.test(sessionId),
     }
   }

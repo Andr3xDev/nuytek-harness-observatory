@@ -45,20 +45,18 @@ describe('session tab', () => {
 })
 
 describe('history tab overview', () => {
-  test('shows window, session count, type and model figures, and no issue list', () => {
+  test('shows window, session count, type and model figures', () => {
     const history = {
       status: 'ready' as const,
       aggregate: aggregate({
         sessions: 3,
-        byType: [{ ...figure(900, 0.1), type: 'builder', spawns: 2, durationMs: 0, engineStatusMix: {}, spawnShare: 1, tokenShare: 1, avgTokens: 450, avgDurationMs: 0, cacheRatio: null }],
+        byType: [{ ...figure(900, 0.1), type: 'builder', spawns: 2 }],
         byModel: [{ model: 'm9', ...figure(900) }],
-        byIssue: [{ issue: 'IO-1', ...figure(700, 0.2) }],
       }),
     }
     const text = textOf(historyLines(context('wide', { history })))
     expect(text).toContain('Sessions: 3')
     expect(text).toMatch(/^builder /m)
     expect(text).toMatch(/^m9 /m)
-    expect(text).not.toMatch(/IO-1|Top issues/)
   })
 })

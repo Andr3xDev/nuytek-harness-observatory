@@ -39,26 +39,21 @@ describe('agents tab', () => {
     expect(text).toContain('explorer\n  haiku-4-5 · 3× · 42k · $0.08')
   })
 
-  test('starts with the main loop row: tokens and cost', () => {
+  test('is one table: the main row with tokens and cost, then the type rows, with no per-agent list', () => {
     const lines = agentsLines(context('wide', { session: sessionWith(figures) }))
     expect(lines[0]?.text).toBe('Agents')
-    expect(lines[2]?.text).toMatch(cells('main\\s*', '\\?', '-'))
+    expect(lines.filter(line => line.text === 'Agents')).toHaveLength(1)
+    expect(lines.some(line => line.agentId !== undefined)).toBe(false)
+    expect(lines[2]?.text).toMatch(cells('main\\s*', '\\?', '-', '—'))
     expect(lines[2]?.text).toContain('2.0k')
     expect(lines[2]?.text).toContain('$0.20')
+    expect(lines[3]?.text).toMatch(cells('explorer\\s*', 'haiku-4-5', '-', '3×'))
   })
 
   test('the main row takes the session agent name and falls back to ? without a model', () => {
     const base = sessionAtomValue(sessionFigures([]), figures)
     const text = textOf(agentsLines(context('wide', { session: { ...base, mainAgent: 'tech-orchestrator' } })))
     expect(text).toMatch(cells('tech-orchestrator', '\\?', '-'))
-  })
-
-  test('has one table: the main row then the type rows, with no per-agent list', () => {
-    const lines = agentsLines(context('wide', { session: sessionWith(figures) }))
-    expect(lines.filter(line => line.text === 'Agents')).toHaveLength(1)
-    expect(lines.some(line => line.agentId !== undefined)).toBe(false)
-    expect(lines[2]?.text).toMatch(cells('main\\s*', '\\?', '-', '—'))
-    expect(lines[3]?.text).toMatch(cells('explorer\\s*', 'haiku-4-5', '-', '3×'))
   })
 
   test('effort has its own column with its icon; a budget gets the diamond; none shows a dash', () => {

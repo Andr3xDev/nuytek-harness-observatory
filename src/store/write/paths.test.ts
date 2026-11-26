@@ -40,11 +40,9 @@ describe('validateAppendPath', () => {
     expect(validateAppendPath('rollup/day.json').ok).toBe(false)
   })
 
-  for (const path of REJECTED_PATHS) {
-    test(`rejects ${JSON.stringify(path)} without throwing`, () => {
-      expect(validateAppendPath(path).ok).toBe(false)
-    })
-  }
+  test('rejects traversal, absolute, malformed and unknown paths without throwing', () => {
+    expect(REJECTED_PATHS.filter((path) => validateAppendPath(path).ok)).toEqual([])
+  })
 })
 
 describe('validateUpsertPath', () => {

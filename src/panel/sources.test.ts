@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { EventRecord, SessionFigures } from '../core/figures'
 import { summarizeSession } from '../report/analysis'
-import { CTX, NOW, sessionStart, spawn, verdict } from '../report/analysis/test-fixtures'
+import { CTX, NOW, sessionStart, spawn } from '../report/analysis/test-fixtures'
 import { createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
 
 const figures = { agents: [] } as unknown as SessionFigures
@@ -103,7 +103,6 @@ describe('live session overlay', () => {
   const start = sessionStart()
   const first = spawn('a1')
   const second = spawn('a2')
-  const denied = verdict('t1', 'deny')
 
   // Seeds the overlay the way the real store loader does: through `onSessionInput`.
   const seeded = (storedEvents: EventRecord[], pendingNow: () => EventRecord[]) => {
@@ -133,10 +132,9 @@ describe('live session overlay', () => {
     await loaders.loadSession('s1')
     expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(1)
 
-    pending = [first, second, denied]
+    pending = [first, second]
     const live = loaders.liveSession('s1')?.sessionFigures
     expect(live?.agents.map(agent => agent.agentId)).toEqual(['a1', 'a2'])
-    expect(live?.denies).toBe(1)
   })
 
   test('keeps events that left the pending list after a flush', async () => {

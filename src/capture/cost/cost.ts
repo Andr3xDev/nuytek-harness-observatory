@@ -9,7 +9,7 @@ export type Reading = {
 
 const EMPTY_AGENTS: ReadonlyMap<string, number> = new Map()
 
-/** Main-loop cost of one turn: session delta minus subagent deltas over the same window (design D4, D14). */
+/** Main-loop cost of one turn: session delta minus subagent deltas over the same window. */
 export const computeTurnCost = (
   baseline: Reading | null,
   end: Reading | null,

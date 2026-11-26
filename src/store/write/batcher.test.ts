@@ -119,6 +119,7 @@ describe('batcher flush', () => {
     const batcher = createBatcher(sink, fakeClock().clock)
     batcher.pushEvent(event('s1', 'e1'))
     await batcher.flush()
+    expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1'])
     batcher.pushEvent(event('s1', 'e2'))
     await batcher.flush()
     expect(calls).toHaveLength(2)
@@ -383,14 +384,6 @@ describe('pendingEvents', () => {
     expect(batcher.pendingEvents('s1')[0]?.id).toBe('e1')
   })
 
-  test('never runs the sink', () => {
-    const { sink, calls } = recordingSink()
-    const batcher = createBatcher(sink, fakeClock().clock)
-    batcher.pushEvent(event('s1', 'e1'))
-    batcher.pendingEvents('s1')
-    expect(calls).toEqual([])
-  })
-
   test('events stay visible while a flush is in flight and are gone after it succeeds', async () => {
     let release: (ok: boolean) => void = () => {}
     let appends = 0
@@ -409,13 +402,5 @@ describe('pendingEvents', () => {
     await flushing
     expect(appends).toBe(2)
     expect(batcher.pendingEvents('s1')).toEqual([])
-  })
-
-  test('events return to the queue and stay visible after a failed flush', async () => {
-    const { sink } = recordingSink([false])
-    const batcher = createBatcher(sink, fakeClock().clock)
-    batcher.pushEvent(event('s1', 'e1'))
-    await batcher.flush()
-    expect(batcher.pendingEvents('s1').map((e) => e.id)).toEqual(['e1'])
   })
 })

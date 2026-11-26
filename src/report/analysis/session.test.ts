@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { classifySession, summarizeSession } from './session'
-import { CTX, HOUR_MS, NOW, mainSnapshot, report, sessionEnd, sessionStart, snapshot, spawn, usage, verdict } from './test-fixtures'
+import { CTX, HOUR_MS, NOW, mainSnapshot, sessionEnd, sessionStart, snapshot, spawn, usage } from './test-fixtures'
 
 const HUNDRED_TOKENS = usage(10, 20, 30, 40)
 const FIFTY_TOKENS = usage(5, 10, 15, 20)
@@ -33,46 +33,6 @@ describe('summarizeSession totals', () => {
   })
 })
 
-describe('summarizeSession delegation trees', () => {
-  test('tree total equals the sum of root, child and grandchild', () => {
-    const figures = summarizeSession(
-      {
-        events: [spawn('a'), spawn('b', { parentAgentId: 'a' }), spawn('c', { parentAgentId: 'b' })],
-        snapshots: [
-          snapshot('a', { usage: [HUNDRED_TOKENS], costUsd: 0.25 }),
-          snapshot('b', { usage: [FIFTY_TOKENS], costUsd: 0.5 }),
-          snapshot('c', { usage: [FIFTY_TOKENS], costUsd: 0.25 }),
-        ],
-      },
-      CTX,
-    )
-
-    expect(figures.trees).toHaveLength(1)
-    expect(figures.trees[0]).toMatchObject({ rootAgentId: 'a', tokens: 200, costUsd: 1, agents: 3 })
-  })
-
-  test('an agent whose parent is unknown is the root of its own tree', () => {
-    const figures = summarizeSession(
-      { events: [spawn('x', { parentAgentId: 'ghost' })], snapshots: [snapshot('x', { usage: [FIFTY_TOKENS] })] },
-      CTX,
-    )
-
-    expect(figures.trees.map((tree) => tree.rootAgentId)).toEqual(['x'])
-  })
-
-  test('a parent cycle terminates and keeps both agents in the session total', () => {
-    const figures = summarizeSession(
-      {
-        events: [spawn('a', { parentAgentId: 'b' }), spawn('b', { parentAgentId: 'a' })],
-        snapshots: [snapshot('a', { usage: [FIFTY_TOKENS] }), snapshot('b', { usage: [FIFTY_TOKENS] })],
-      },
-      CTX,
-    )
-
-    expect(figures.total.tokens).toBe(100)
-  })
-})
-
 describe('summarizeSession breakdowns', () => {
   test('separates types by spawn count and models by tokens', () => {
     const figures = summarizeSession(
@@ -93,47 +53,6 @@ describe('summarizeSession breakdowns', () => {
     expect(figures.byModel.Y?.tokens).toBe(5)
   })
 
-  test('counts the engine end state per type and maps a null engineStatus to unknown', () => {
-    const figures = summarizeSession(
-      {
-        events: [
-          spawn('b1'),
-          spawn('b2'),
-          spawn('b3'),
-          report('b1', { engineStatus: 'completed' }),
-          report('b2', { engineStatus: 'failed' }),
-          report('b3', { engineStatus: null }),
-        ],
-        snapshots: [],
-      },
-      CTX,
-    )
-
-    expect(figures.byType.builder?.engineStatusMix).toEqual({ completed: 1, failed: 1, unknown: 1 })
-  })
-
-  test('counts a spawn without a snapshot as an agent without snapshot', () => {
-    const figures = summarizeSession({ events: [spawn('a1'), spawn('a2')], snapshots: [snapshot('a1')] }, CTX)
-
-    expect(figures.coverage.agentsWithoutSnapshot).toBe(1)
-  })
-})
-
-describe('summarizeSession denies', () => {
-  test('counts only deny verdicts, not ask', () => {
-    const verdicts = [
-      ...[1, 2, 3, 4].map((n) => verdict(`d${n}`, 'deny')),
-      ...[1, 2, 3].map((n) => verdict(`k${n}`, 'ask')),
-    ]
-
-    expect(summarizeSession({ events: verdicts, snapshots: [] }, CTX).denies).toBe(4)
-  })
-
-  test('counts a deny repeated under the same toolUseId once', () => {
-    const figures = summarizeSession({ events: [verdict('t1', 'deny'), verdict('t1', 'deny')], snapshots: [] }, CTX)
-
-    expect(figures.denies).toBe(1)
-  })
 })
 
 describe('summarizeSession resumed session', () => {

@@ -14,8 +14,7 @@ export const emptyFigure = (): Figure => ({ input: 0, output: 0, cacheRead: 0, c
 export type LiveAgent = { agentId: string; usage: UsageRecord[]; costUsd: number | null }
 export type SessionState = 'open' | 'closed' | 'stale'
 
-export type TypeFigures = Figure & { spawns: number; durationMs: number; engineStatusMix: Record<string, number> }
-export type TreeFigures = Figure & { rootAgentId: string; subagentType: string; issue: string; promptTokens: number; agents: number }
+export type TypeFigures = Figure & { spawns: number }
 export type AgentFigures = Figure & {
   agentId: string
   parentAgentId: string | null
@@ -27,7 +26,6 @@ export type AgentFigures = Figure & {
   /** Spawn time; absent in older rollups. */
   startedAt?: number
   engineStatus: 'running' | 'completed' | 'failed' | 'stopped' | 'unknown'
-  durationMs: number
 }
 
 export type SkillCounts = { prompted: number; read: number; invoked: number }
@@ -36,19 +34,10 @@ export type ToolFigures = {
   skills: Record<string, SkillFigures>
   mcp: Record<string, Record<string, number>>
   commands: Record<string, number>
-  bash: Record<string, number>
-  verdicts: Record<string, { allow: number; ask: number; deny: number }>
-  denyReasons: Record<string, number>
-  outcomes: Record<string, number>
-  bashPromptHook: { calls: number; usd: number | null } | null
 }
 
 export type ProfileFigures = {
-  statusMixByType: Record<string, Record<string, number>>
-  reroutesByType: Record<string, number>
-  reviewPasses: number
   skillsInjected: Record<string, number>
-  guards: Record<string, number>
 }
 
 export type SessionFigures = {
@@ -65,13 +54,9 @@ export type SessionFigures = {
   mainModel?: string | null
   byType: Record<string, TypeFigures>
   byModel: Record<string, TokenCounts & { tokens: number }>
-  byIssue: Record<string, Figure>
-  trees: TreeFigures[]
   agents: AgentFigures[]
   tools: ToolFigures
-  denies: number
   profile: ProfileFigures | null
-  coverage: { agentsWithoutSnapshot: number; mainCostGapUsd: number; skippedNewerSchema: number }
 }
 
 export type SourceStat = { size: number; mtimeMs: number }

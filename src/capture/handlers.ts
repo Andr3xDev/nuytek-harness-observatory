@@ -9,7 +9,6 @@ import type { Batcher } from '../store/write/batcher'
 import { resolveRetentionDays } from '../store/write/retention'
 import type { Writer } from '../store/write/writer'
 import { computeTurnCost, type Reading } from './cost/cost'
-import { createBashCallTracker, type BashCallTracker } from './cost/estimates'
 import { reconcile } from './cost/reconciliation'
 import { parseSkillNameFromPath } from './events/parsers/skill-path'
 import {
@@ -37,7 +36,6 @@ import {
   type SnapshotTracker,
 } from './session/snapshots'
 
-const BASH_TOOL = 'Bash'
 const NO_MODEL = ''
 /** Never matches a real `startedAt`, so a baseline built on it always takes the `computeTurnCost` reset path. */
 const NO_STARTED_AT = -1
@@ -80,7 +78,7 @@ type BudgetedNext<E, R> = Next<E, R> & { budget?: { remainingMs: number } }
 type Sample = {
   startedAt: number
   sessionUsd: number
-  /** False when the host reported no session cost: a missing reading, not a zero one (D14). */
+  /** False when the host reported no session cost: a missing reading, not a zero one. */
   sessionCostKnown: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]
@@ -138,7 +136,6 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
   let baseline: Reading | null = null
   let previousModel = NO_MODEL
   let lastCycleAt = 0
-  let bashCalls: BashCallTracker = createBashCallTracker(profile)
 
   const runtimeOf = (host: H): Runtime => (runtime ??= config.runtime(host))
 
@@ -157,7 +154,6 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
     // A concurrent event may have adopted the id while this one sampled.
     if (session?.id === id) return session
     previousModel = NO_MODEL
-    bashCalls = createBashCallTracker(profile)
     baseline = sample ? toReading(sample) : null
     return startSession(id)
   }
@@ -216,7 +212,6 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         const state = startSession(await host.sessionId())
         state.cwd = result.cwd ?? e.cwd
         lastCwd = state.cwd
-        bashCalls = createBashCallTracker(profile)
         previousModel = NO_MODEL
         await rt.writer.init()
         await rt.branch.refresh(state.cwd)
@@ -238,11 +233,10 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
           session = undefined
           previousModel = NO_MODEL
           lastKnownAgentUsd.clear()
-          // No `session.start` follows a `/clear`: a zero baseline makes the first turn cost the new cumulative (D14 reset).
+          // No `session.start` follows a `/clear`: a zero baseline makes the first turn cost the new cumulative.
           baseline = { startedAt: NO_STARTED_AT, sessionUsd: 0, hasUnknownPrice: false, agents: ZERO_BASELINE_AGENTS }
         }
-        rt.batcher.pushEvent(buildSessionEnd({ reason: e.reason, estimates: bashCalls.estimate() }, profile, ctx))
-        if (e.reason === 'clear') bashCalls = createBashCallTracker(profile)
+        rt.batcher.pushEvent(buildSessionEnd({ reason: e.reason }, ctx))
         // Events are appended first; snapshots are the part dropped when the shared bound runs low.
         await rt.batcher.flush(() => (next.budget?.remainingMs ?? Infinity) > SNAPSHOT_FLUSH_MIN_REMAINING_MS)
       }),
@@ -360,7 +354,6 @@ export const createCapture = <H extends HostApi>(config: CaptureConfig<H>) => {
         rt.batcher.pushEvent(
           buildVerdictRecord({ tool: e.tool, input, tool_use_id: e.tool_use_id, agentId: e.agentId }, result, profile, ctx),
         )
-        if (e.tool === BASH_TOOL) bashCalls.recordVerdict(e.tool, e.tool_use_id)
         const skillUse = skillUseOf(e.tool, e.input)
         if (skillUse) rt.batcher.pushEvent(buildSkillUse({ ...skillUse, agentId: e.agentId ?? null }, ctx))
       }),

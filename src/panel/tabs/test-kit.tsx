@@ -1,6 +1,7 @@
 import type { On } from 'claude-code'
 import type { AgentFigures, AggregateFigures, Figure, SessionFigures, ToolFigures } from '../../report/analysis'
 import type { HistoryAtom, PanelTab, SessionAtom } from '../../../types'
+import { STATE_SHAPES } from '../state'
 import type { TabContext } from './common'
 
 export const PLUGIN = 'nuytek-harness-observatory'
@@ -22,47 +23,27 @@ export const agent = (agentId: string, overrides: Partial<AgentFigures> = {}): A
   parentAgentId: null,
   subagentType: 'builder',
   engineStatus: 'completed',
-  durationMs: 65_000,
   ...overrides,
 })
 
-export const emptyTools = (): ToolFigures => ({
-  skills: {},
-  mcp: {},
-  commands: {},
-  bash: {},
-  verdicts: {},
-  denyReasons: {},
-  outcomes: {},
-  bashPromptHook: null,
-})
+export const emptyTools = (): ToolFigures => ({ skills: {}, mcp: {}, commands: {} })
 
 export const aggregate = (overrides: Partial<AggregateFigures> = {}): AggregateFigures => ({
   sessions: 1,
-  openSessions: 1,
   windowStart: 1_700_000_000_000,
   windowEnd: 1_700_100_000_000,
   total: figure(5000, 0.5),
-  cacheRatio: null,
   byType: [],
   byTypeModelEffort: [],
   recentAgents: [],
   byModel: [],
-  byIssue: [],
-  engineStatusMix: {},
-  denies: 0,
   tools: emptyTools(),
   profile: null,
   ...overrides,
 })
 
 export const profile = (overrides: Partial<NonNullable<AggregateFigures['profile']>> = {}): NonNullable<AggregateFigures['profile']> => ({
-  statusMixByType: {},
-  reroutesByType: {},
-  reviewPasses: 0,
   skillsInjected: {},
-  guards: {},
-  coverage: { profileSessions: 1, sessions: 1 },
   ...overrides,
 })
 
@@ -77,13 +58,9 @@ export const sessionFigures = (agents: AgentFigures[] = [], overrides: Partial<S
     main: figure(2000, 0.2),
     byType: {},
     byModel: { m1: { input: 3000, output: 0, cacheRead: 0, cacheCreation: 0, tokens: 3000 } },
-    byIssue: {},
-    trees: [],
     agents,
     tools: emptyTools(),
-    denies: 0,
     profile: null,
-    coverage: { agentsWithoutSnapshot: 0, mainCostGapUsd: 0, skippedNewerSchema: 0 },
     ...overrides,
   }) satisfies SessionFigures
 
@@ -136,7 +113,7 @@ type Seed = {
  * press redraws the band; `written` records them for the test to read back.
  */
 export function installState(on: On, seed: Seed = {}) {
-  const shapes: Record<string, string> = { tab: 'tab-1', tick: 'tick-1', session: 'session-3', history: 'history-3', panelOpen: 'open-1' }
+  const shapes: Record<string, string> = STATE_SHAPES
   const written: Record<string, unknown> = {}
   on('state.get', async (_, e, next) => {
     const stored = await next(e)

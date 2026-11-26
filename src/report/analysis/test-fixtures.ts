@@ -4,8 +4,6 @@ import type {
   AgentSpawnEvent,
   CommandRunEvent,
   Envelope,
-  PermissionOutcome,
-  PermissionOutcomeEvent,
   SessionEndEvent,
   SessionStartEvent,
   SkillUseEvent,
@@ -91,13 +89,6 @@ export const skillUse = (skill: string, kind: SkillUseEvent['kind'], agentId: st
   ...envelope('skill.use', { agentId }),
   skill,
   kind,
-})
-
-export const permissionOutcome = (outcome: PermissionOutcome): PermissionOutcomeEvent => ({
-  ...envelope('permission.outcome', {}),
-  toolName: 'Bash',
-  outcome,
-  toolUseId: null,
 })
 
 export const commandRun = (name: string): CommandRunEvent => ({ ...envelope('command.run', {}), name })

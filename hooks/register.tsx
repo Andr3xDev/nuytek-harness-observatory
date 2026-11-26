@@ -8,7 +8,7 @@ export const registerHooks = (on: On, options: PluginOptions, classicPermissionH
   const capture = createPluginCapture(options)
   const panel = createPanel(capture)
   registerCapture(on, capture, classicPermissionHooks, panel.safeRefresh)
-  registerPanel(on, options, capture, panel)
+  registerPanel(on, capture, panel)
 }
 
 export const register: Register = (on, options) =>

@@ -30,9 +30,6 @@ export const ESTIMATE_FOOTNOTE = '~ estimate: price unknown for some usage'
 const MIN_NAME_WIDTH = 6
 // The full-width band would otherwise spread a few short rows across the whole terminal.
 const MAX_NAME_WIDTH = 40
-const MS_PER_SECOND = 1000
-const SECONDS_PER_MINUTE = 60
-const PERCENT = 100
 const NARROW_INDENT = '  '
 
 export const dim = (text: string): Line => ({ text, dim: true })
@@ -41,8 +38,6 @@ export const heading = (text: string): Line => ({ text, heading: true })
 /** Column colors shared by every tab, so a figure looks the same wherever it appears. */
 export const tokensColumn = PALETTE.tokens
 export const costColumn = PALETTE.cost
-/** Counts of things that went wrong: a zero is not worth a warning color. */
-export const failureColumn = (cell: string): Color | undefined => (cell === '0' || cell === '-' ? undefined : PALETTE.failure)
 export const statusColumn = (cell: string): Color | undefined => (cell === 'failed' ? PALETTE.failure : undefined)
 
 const colorOf = (column: Column, cell: string): Color | undefined => (typeof column.color === 'function' ? column.color(cell) : column.color)
@@ -60,13 +55,6 @@ export const promptTokensOf = (figure: TokenCounts): number => figure.input + fi
 
 export const formatCost =(figure: Pick<Figure, 'costUsd' | 'hasUnknownPrice'>): string =>
   `${figure.hasUnknownPrice ? '~' : ''}${formatUsd(figure.costUsd)}`
-
-export const formatPercent = (fraction: number | null): string => (fraction === null ? '-' : `${Math.round(fraction * PERCENT)}%`)
-
-export const formatDuration = (ms: number): string => {
-  const seconds = Math.round(ms / MS_PER_SECOND)
-  return seconds < SECONDS_PER_MINUTE ? `${seconds}s` : `${Math.floor(seconds / SECONDS_PER_MINUTE)}m${seconds % SECONDS_PER_MINUTE}s`
-}
 
 export const formatTokenCount = (tokens: number): string => formatTokens(Math.round(tokens))
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import { WIDTHS, agent, aggregate, bandTarget, installState, sessionAtomValue, sessionFigures } from './tabs/test-kit'
 
-// These mount the band through the plugin, so they need registerBand wired into hooks/register.tsx.
+// These mount the band through the plugin; registerBand is called from src/panel/register.ts.
 const session = sessionAtomValue(sessionFigures([agent('a1'), agent('a2'), agent('a3')]), aggregate())
 
 test('closed: draws nothing at all', async ($, on) => {
@@ -27,7 +27,6 @@ test('open: a round box with the title, tab row and the active tab at full width
   expect(await ui.find({ type: 'Text', text: '◆ obs' })).toBeDefined()
   expect((await ui.find({ key: 'tab:1' }))?.text).toBe('Session')
   expect((await ui.find({ key: 'tab:4' }))?.text).toBe('History')
-  expect(await ui.find({ key: 'scope' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Agent tree/ })).toBeDefined()
   await ui.unmount()
 })
@@ -46,7 +45,7 @@ test('pressing tab:3 sets the tab atom and renders Tools; a remount keeps it', a
   await again.unmount()
 })
 
-test('a tab number stored before a tab was removed falls back to Session', async ($, on) => {
+test('an out-of-range stored tab falls back to Session', async ($, on) => {
   installState(on, { tab: 5 as never, session, panelOpen: true })
   const ui = await $.ui.mount(bandTarget(100))
 

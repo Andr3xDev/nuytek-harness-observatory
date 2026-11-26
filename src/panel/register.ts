@@ -1,8 +1,7 @@
 import { atom, update } from 'claude-code'
-import type { On, PluginOptions } from 'claude-code'
+import type { On } from 'claude-code'
 import type { Capture } from '../capture/register'
 import { loadHistory } from '../report/load-history'
-import { runReportCommand } from '../report/run'
 import { historyFsOf, type HistoryFs } from '../store/read/history-fs'
 import { listStoredSnapshots } from '../store/read/snapshot-store'
 import type { HistoryAtom, SessionAtom } from '../../types'
@@ -65,7 +64,7 @@ export const createPanel = (capture: Capture) => {
       sources: createSources(
         createLiveLoaders({
           now: () => Date.now(),
-          // No writer: the panel never writes the store, rollups stay the report command's cache.
+          // No writer: the panel never writes the store.
           loadSessions: async (options) => (await loadHistory({ fs }, { now: Date.now(), ...options })).sessions,
           pendingEvents: (sessionId) => capture.pendingEvents(sessionId),
           listAgents: () => host.listAgents(),
@@ -112,7 +111,7 @@ export type Panel = ReturnType<typeof createPanel>
  * `command.run`, so capture still records `/obs` after this one answers.
  * A top-level function, not a `Panel` method: the validator only lets `on` reach functions named in the module.
  */
-export const registerPanel = (on: On, options: PluginOptions, capture: Capture, panel: Panel): void => {
+export const registerPanel = (on: On, capture: Capture, panel: Panel): void => {
   const { state, safeRefresh, ensurePanel } = panel
 
   on('session.start', async ($, e, next) => {
@@ -143,8 +142,7 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
       try {
         await $.command.register({
           name: 'obs',
-          description: 'Toggle the observability panel, or: report',
-          argumentHint: '[report]',
+          description: 'Toggle the observability panel',
           isTerminalOnly: true,
         })
       } catch {
@@ -181,21 +179,8 @@ export const registerPanel = (on: On, options: PluginOptions, capture: Capture, 
   on('command.run', { command: 'obs' }, async ($, e, next) => {
     const command = parseObsArgs(e.args)
     if (command === 'other') return next(e)
-    if (command === 'report') {
-      return runReportCommand(
-        {
-          home: () => $.env.get('HOME'),
-          list: (path) => $.fs.list(path),
-          read: (path, range) => $.fs.read(path, range),
-          readText: (path) => $.fs.read(path),
-          run: (argv, init) => $.process.run(argv, init),
-        },
-        options,
-        e.presentation.columns,
-      )
-    }
     try {
-      // After a plugin reload `session.start` has not run: build the panel here so the pane is not empty forever.
+      // After a plugin reload `session.start` has not run: build the panel here so the band is not empty forever.
       await ensurePanel({
         home: () => $.env.get('HOME'),
         list: (path) => $.fs.list(path),

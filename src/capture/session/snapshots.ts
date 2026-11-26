@@ -27,7 +27,7 @@ export type SnapshotCycleInput = {
   /** `startedAt` of `$.session.usage()`. */
   startedAt: number
   sessionUsd: number
-  /** False when the host reported no session cost: `sessionUsd` is then a placeholder, not a reading (D14). */
+  /** False when the host reported no session cost: `sessionUsd` is then a placeholder, not a reading. */
   sessionCostKnown?: boolean
   hasUnknownPrice: boolean
   agents: readonly SnapshotAgent[]

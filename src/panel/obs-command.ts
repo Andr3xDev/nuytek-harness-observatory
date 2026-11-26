@@ -1,10 +1,6 @@
-export type ObsCommand = 'toggle' | 'report' | 'other'
+export type ObsCommand = 'toggle' | 'other'
 
-export const parseObsArgs = (args: string): ObsCommand => {
-  const [first] = args.trim().split(/\s+/).filter(Boolean)
-  if (first === undefined) return 'toggle'
-  return first === 'report' ? 'report' : 'other'
-}
+export const parseObsArgs = (args: string): ObsCommand => (args.trim() === '' ? 'toggle' : 'other')
 
 export type ObsResult = { text: string; isTextDisplayOnly: true }
 
@@ -17,7 +13,7 @@ export type ObsDeps = {
 
 const display = (text: string): ObsResult => ({ text, isTextDisplayOnly: true })
 
-/** Toggles the panel; the caller routes `report` and unknown arguments. */
+/** Toggles the panel; the caller lets unknown arguments through. */
 export async function handleObs(deps: ObsDeps): Promise<ObsResult> {
   if (deps.isOpen()) {
     await deps.setOpen(false)

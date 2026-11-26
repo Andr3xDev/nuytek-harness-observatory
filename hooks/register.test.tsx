@@ -23,7 +23,6 @@ const CLASSIC_EVENTS = [
   'classic.PostToolUse',
   'classic.PostToolUseFailure',
 ]
-const FORBIDDEN_EVENTS = ['tool.call', 'tool.run', 'turn.step', 'process.spawn', 'ui.render:{"component":"StatusLine"}']
 
 type Hook = (host: unknown, e: unknown, next: (e: unknown) => Promise<unknown>) => Promise<unknown>
 
@@ -44,27 +43,13 @@ const registered = (options: PluginOptions, classic: boolean): string[] => {
 }
 
 describe('registration set', () => {
-  const profileModes: Array<[string, PluginOptions]> = [
-    ['profile on', { harnessProfile: true }],
-    ['options omitted', {}],
-    ['non-boolean profile value', { harnessProfile: 'true' }],
-  ]
+  test('classic flag off registers exactly the ten capture events, the obs command hook and the panel hooks', () => {
+    expect(registered({}, false)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS].sort())
+  })
 
-  for (const [label, options] of profileModes) {
-    test(`classic flag off registers exactly the ten capture events, the obs command hook and the panel hooks (${label})`, () => {
-      expect(registered(options, false)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS].sort())
-    })
-
-    test(`classic flag on adds only the four classic permission hooks (${label})`, () => {
-      expect(registered(options, true)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
-    })
-
-    test(`request and tool-loop hooks are never registered (${label})`, () => {
-      for (const classic of [false, true]) {
-        for (const name of FORBIDDEN_EVENTS) expect(registered(options, classic)).not.toContain(name)
-      }
-    })
-  }
+  test('classic flag on adds only the four classic permission hooks', () => {
+    expect(registered({}, true)).toEqual([...CAPTURE_EVENTS, OBS_HOOK, ...PANEL_HOOKS, ...CLASSIC_EVENTS].sort())
+  })
 })
 
 describe('registration order', () => {
@@ -81,44 +66,6 @@ describe('registration order', () => {
     expect(order.filter((entry) => entry.name === 'session.start')).toHaveLength(1)
     expect(captureRun).toBeGreaterThanOrEqual(0)
     expect(obsRun).toBeGreaterThan(captureRun)
-  })
-})
-
-describe('profile read once at register', () => {
-  const sessionStartRecord = async (options: PluginOptions): Promise<{ harnessProfile?: unknown }> => {
-    const { on, hooks } = recordingOn()
-    registerHooks(on, options, false)
-    const appended: string[] = []
-    const host = {
-      session: {
-        id: async () => 's1',
-        usage: async () => ({ startedAt: 1, cost: { usd: 0 } }),
-      },
-      agent: { list: async () => [] },
-      env: { get: async () => undefined },
-      vcs: { detect: async () => null },
-      clock: { every: () => ({ cancel: () => {} }) },
-      process: {
-        run: async (argv: string[], init?: { stdin?: string }) => {
-          if (argv[4]?.startsWith('events/') && init?.stdin) appended.push(init.stdin)
-          return { exitCode: 0, stdout: '', stderr: '' }
-        },
-      },
-    }
-    const passThrough = async (e: unknown) => e
-    await hooks.get('session.start')?.(host, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
-    await hooks.get('session.end')?.(host, { sessionId: 's1', reason: 'other' }, passThrough)
-    const start = appended.flatMap((text) => text.split('\n').filter(Boolean).map((line) => JSON.parse(line)))
-    return start.find((record) => record.type === 'session.start')
-  }
-
-  test('harnessProfile true is written as true', async () => {
-    expect((await sessionStartRecord({ harnessProfile: true }))?.harnessProfile).toBe(true)
-  })
-
-  test('omitted and non-boolean values are written as false', async () => {
-    expect((await sessionStartRecord({}))?.harnessProfile).toBe(false)
-    expect((await sessionStartRecord({ harnessProfile: 'true' }))?.harnessProfile).toBe(false)
   })
 })
 
@@ -165,30 +112,9 @@ describe('obs command hook', () => {
 
   const obs = (args: string) => ({ command: 'obs', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } })
 
-  test('answers /obs report display-only with exactly text and isTextDisplayOnly', async () => {
-    const { hooks, host } = setup()
-    const result = (await hooks.get(OBS_HOOK)?.(host, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
-    expect(Object.keys(result).sort()).toEqual(['isTextDisplayOnly', 'text'])
-    expect(result.text).toContain('Observability report')
-  })
-
-  test('answers the no-data report without touching the filesystem when HOME is missing', async () => {
-    const { hooks, host } = setup()
-    const reads: string[] = []
-    const noHome = {
-      ...host,
-      env: { get: async () => undefined },
-      fs: { list: async (path: string) => (reads.push(path), []), read: async (path: string) => (reads.push(path), '') },
-    }
-    const result = (await hooks.get(OBS_HOOK)?.(noHome, obs('report'), async () => ({ text: 'inner' }))) as Record<string, unknown>
-    expect(reads).toEqual([])
-    expect(result.isTextDisplayOnly).toBe(true)
-    expect(result.text).not.toContain('inner')
-  })
-
   test('unknown arguments pass through to next(e)', async () => {
     const { hooks, host } = setup()
-    for (const args of ['foo', 'band on']) {
+    for (const args of ['report', 'foo', 'band on']) {
       const result = await hooks.get(OBS_HOOK)?.(host, obs(args), async () => ({ text: 'inner' }))
       expect(result).toEqual({ text: 'inner' })
     }
@@ -219,12 +145,13 @@ describe('obs command hook', () => {
     }
   })
 
-  test('capture still records /obs when the report hook answers beneath it', async () => {
+  test('capture still records /obs when the panel hook answers beneath it', async () => {
     const { hooks, host, appended } = setup()
-    const report = hooks.get(OBS_HOOK)
+    const panelHook = hooks.get(OBS_HOOK)
     const passThrough = async (e: unknown) => e
-    await hooks.get('session.start')?.(host, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
-    const answer = (await hooks.get('command.run')?.(host, obs('report'), (e) => report!(host, e, passThrough))) as Record<string, unknown>
+    const withStore = { ...host, store: { get: async () => undefined, set: async () => undefined }, state: { get: async () => ({ value: undefined, version: 0 }), set: async () => ({ isSet: true, version: 1 }) } }
+    await hooks.get('session.start')?.(withStore, { cwd: '/w', surface: null, isInteractive: true }, passThrough)
+    const answer = (await hooks.get('command.run')?.(withStore, obs(''), (e) => panelHook!(withStore, e, passThrough))) as Record<string, unknown>
     await hooks.get('session.end')?.(host, { sessionId: 's1', reason: 'other' }, passThrough)
     expect(answer.isTextDisplayOnly).toBe(true)
     expect(appended.length).toBeGreaterThan(0)

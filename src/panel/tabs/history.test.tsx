@@ -49,9 +49,4 @@ describe('history tab agents section', () => {
     expect(text).toMatch(/builder\s+│\s+sonnet\s+│\s+○ low\s+│\s+11-25 14:03\s+│\s+1\.0k\s+│\s+500\s+│\s+1\.5k/)
     expect(text.indexOf('11-25 14:03')).toBeLessThan(text.indexOf('11-24 09:00'))
   })
-
-  test('stale aggregates without the agent lists still render', () => {
-    const stale = { ...aggregate(), byTypeModelEffort: undefined, recentAgents: undefined } as unknown as ReturnType<typeof aggregate>
-    expect(() => historyLines(context('wide', { history: { status: 'ready', aggregate: stale } }))).not.toThrow()
-  })
 })

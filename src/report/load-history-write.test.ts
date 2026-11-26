@@ -70,17 +70,12 @@ describe('loadHistory rollup write path', () => {
     expect(recorder.writes).toHaveLength(1)
   })
 
-  test('a throwing writer is swallowed, counted, and the figures are still returned', async () => {
-    const result = await run(closedSession('s1'), 'throw').history
+  for (const behavior of ['throw', 'false'] as const) {
+    test(`a writer that ${behavior === 'throw' ? 'throws' : 'reports failure'} is counted and the figures are still returned`, async () => {
+      const result = await run(closedSession('s1'), behavior).history
 
-    expect(result.sessions).toHaveLength(1)
-    expect(result.rollupWriteFailures).toBe(1)
-  })
-
-  test('a writer that reports failure is counted without affecting the figures', async () => {
-    const result = await run(closedSession('s1'), 'false').history
-
-    expect(result.sessions).toHaveLength(1)
-    expect(result.rollupWriteFailures).toBe(1)
-  })
+      expect(result.sessions).toHaveLength(1)
+      expect(result.rollupWriteFailures).toBe(1)
+    })
+  }
 })

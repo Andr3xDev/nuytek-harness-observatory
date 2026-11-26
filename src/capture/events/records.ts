@@ -16,7 +16,6 @@ import {
   type ReconciliationEvent,
   type SessionCompactEvent,
   type SessionEndEvent,
-  type SessionEstimates,
   type SessionMeasureEvent,
   type SessionStartEvent,
   type SkillUseEvent,
@@ -175,14 +174,9 @@ export const buildSessionStart = (
   return event
 }
 
-export const buildSessionEnd = (
-  state: { reason?: string; estimates?: SessionEstimates },
-  profile: boolean,
-  ctx: EnvelopeContext,
-): SessionEndEvent => {
+export const buildSessionEnd = (state: { reason?: string }, ctx: EnvelopeContext): SessionEndEvent => {
   const event: SessionEndEvent = createEnvelope('session.end', ctx, null)
   if (state.reason !== undefined) event.reason = state.reason
-  if (profile && state.estimates) event.estimates = state.estimates
   return event
 }
 

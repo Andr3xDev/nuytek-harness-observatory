@@ -1,2 +1,2 @@
-/** Stays false until the manual smoke test of design D10 passes; flipping it is a code change. */
+/** Stays false until the classic permission hooks pass a manual smoke test; flipping it is a code change. */
 export const CLASSIC_PERMISSION_HOOKS_ENABLED = false

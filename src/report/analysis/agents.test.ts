@@ -37,23 +37,9 @@ describe('summarizeSession agent rows', () => {
     expect(figures.agents).toHaveLength(1)
   })
 
-  test('keeps parentAgentId as stored while trees list roots only', () => {
+  test('keeps parentAgentId as stored', () => {
     const figures = summarizeSession({ events: [spawn('a'), spawn('b', { parentAgentId: 'a' })], snapshots: [] }, CTX)
 
     expect(figures.agents.find((row) => row.agentId === 'b')?.parentAgentId).toBe('a')
-    expect(figures.trees.map((tree) => tree.rootAgentId)).toEqual(['a'])
-  })
-
-  test('sums the turn durations of each agent and of its type', () => {
-    const figures = summarizeSession(
-      {
-        events: [spawn('a1'), spawn('a2'), turn('a1', { durationMs: 20000 }), turn('a1', { durationMs: 10000 }), turn('a2', { durationMs: 30000 }), turn(null, { durationMs: 99999 })],
-        snapshots: [],
-      },
-      CTX,
-    )
-
-    expect(figures.agents.find((row) => row.agentId === 'a1')?.durationMs).toBe(30000)
-    expect(figures.byType.builder).toMatchObject({ spawns: 2, durationMs: 60000 })
   })
 })

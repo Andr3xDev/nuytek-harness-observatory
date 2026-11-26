@@ -11,7 +11,7 @@ const USAGE = { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 30
 
 const runSession = async (options: PluginOptions) => {
   const hooks = new Map<string, Hook>()
-  // A matched registration (`on(name, matcher, hook)`) belongs to the panel (`/obs`, pane, band), not capture: keep it under its own key.
+  // A matched registration (`on(name, matcher, hook)`) belongs to the panel (`/obs`, band), not capture: keep it under its own key.
   registerHooks(
     ((name: string, matcherOrHook: Hook | object, hook?: Hook) => hooks.set(hook ? `${name}:matched` : name, hook ?? (matcherOrHook as Hook))) as unknown as On,
     options,
@@ -67,18 +67,13 @@ const fieldNamesByType = (events: AnyRecord[]): Record<string, string[]> => {
 }
 
 describe('profile on/off parity', () => {
-  test('both modes write schema 1 and the same field names, except estimates on session.end', async () => {
+  test('both modes write schema 1 and the same field names', async () => {
     const on = await runSession({ harnessProfile: true })
     const off = await runSession({})
     for (const run of [on, off]) {
       for (const record of [...run.events, ...run.prompts, ...run.snapshots]) expect(record.schema).toBe(1)
     }
-    const onNames = fieldNamesByType(on.events)
-    const offNames = fieldNamesByType(off.events)
-    expect(onNames['session.end']).toContain('estimates')
-    expect(offNames['session.end']).not.toContain('estimates')
-    onNames['session.end'] = onNames['session.end']?.filter((name) => name !== 'estimates') ?? []
-    expect(onNames).toEqual(offNames)
+    expect(fieldNamesByType(on.events)).toEqual(fieldNamesByType(off.events))
   })
 
   test('profile off: profile fields are null or absent and generic capture is populated', async () => {
@@ -95,8 +90,12 @@ describe('profile on/off parity', () => {
     expect(ofType(events, 'session.compact')).toHaveLength(1)
     expect(ofType(events, 'turn.complete')[0]).toMatchObject({ usage: { input: 10, output: 20, cacheRead: 30, cacheCreation: 40, model: 'm' } })
     expect(ofType(events, 'reconciliation')).toHaveLength(1)
-    expect(ofType(events, 'session.end')[0]).not.toHaveProperty('estimates')
     for (const event of events) expect(event.branch).toBe('feature/x')
+  })
+
+  test('a non-boolean harnessProfile value counts as off', async () => {
+    const { events } = await runSession({ harnessProfile: 'true' })
+    expect(ofType(events, 'session.start')[0]).toMatchObject({ harnessProfile: false })
   })
 
   test('profile on: profile fields are populated', async () => {
@@ -105,6 +104,5 @@ describe('profile on/off parity', () => {
     expect(ofType(events, 'agent.spawn')[0]).toMatchObject({ skillsInjected: ['/skills/alpha/SKILL.md', '/skills/beta/SKILL.md'] })
     expect(ofType(events, 'agent.report')[0]).toMatchObject({ engineStatus: 'completed', status: 'DONE', parserVersion: 1 })
     expect(ofType(events, 'tool.verdict')[0]).toMatchObject({ guard: 'infra-agent-bash-guard' })
-    expect(ofType(events, 'session.end')[0]).toMatchObject({ estimates: { bashPromptHook: { label: 'estimated', calls: 2 } } })
   })
 })

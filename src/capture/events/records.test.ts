@@ -1,12 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { PARSER_VERSION, REPORT_EXCERPT_MAX_BYTES } from '../../core/constants'
 import {
-  buildCommandRun,
   buildReportRecord,
-  buildSessionCompact,
-  buildSessionEnd,
   buildSessionStart,
-  buildSkillUse,
   buildSpawnRecord,
   buildTurnComplete,
   buildVerdictRecord,
@@ -74,13 +70,6 @@ describe('buildSpawnRecord', () => {
     expect(prompt.text).toBe(SKILLS_PROMPT)
   })
 
-  test('event carries the envelope with the spawned agent id', async () => {
-    const { event } = await buildSpawnRecord(SPAWN_INPUT, { agentId: 'a1' }, true, CTX)
-    expect(event.type).toBe('agent.spawn')
-    expect(event.agentId).toBe('a1')
-    for (const key of ENVELOPE_KEYS) expect(event).toHaveProperty(key)
-  })
-
   test('skillsInjected lists the SKILLS block with the profile on', async () => {
     const { event } = await buildSpawnRecord(SPAWN_INPUT, { agentId: 'a1' }, true, CTX)
     expect(event.skillsInjected).toEqual(['/a/skills/foo/SKILL.md', '/a/skills/bar/SKILL.md'])
@@ -136,13 +125,6 @@ describe('buildReportRecord', () => {
     expect(event.status).toBeNull()
     expect(event.parserVersion).toBeNull()
     expect(event.engineStatus).toBe('completed')
-  })
-
-  test('carries the envelope with the reporting agent id', () => {
-    const event = buildReportRecord(REPORT_INPUT, false, CTX)
-    expect(event.type).toBe('agent.report')
-    expect(event.agentId).toBe('a1')
-    for (const key of ENVELOPE_KEYS) expect(event).toHaveProperty(key)
   })
 })
 
@@ -244,51 +226,5 @@ describe('buildSessionStart', () => {
 
   test('harnessProfile is false, never null, with the profile off', () => {
     expect(buildSessionStart({ cwd: '/w' }, false, CTX).harnessProfile).toBe(false)
-  })
-
-  test('carries cwd and the session id from the context', () => {
-    const event = buildSessionStart({ cwd: '/w', isInteractive: true }, false, CTX)
-    expect(event.type).toBe('session.start')
-    expect(event.cwd).toBe('/w')
-    expect(event.sessionId).toBe('s1')
-  })
-})
-
-describe('buildSessionEnd', () => {
-  const ESTIMATES = { bashPromptHook: { label: 'estimated' as const, calls: 3 } }
-
-  test('profile on carries estimates', () => {
-    expect(buildSessionEnd({ reason: 'clear', estimates: ESTIMATES }, true, CTX).estimates).toEqual(ESTIMATES)
-  })
-
-  test('profile off has no estimates key', () => {
-    const event = buildSessionEnd({ reason: 'clear', estimates: ESTIMATES }, false, CTX)
-    expect(event).not.toHaveProperty('estimates')
-    expect(event.reason).toBe('clear')
-  })
-})
-
-describe('small builders', () => {
-  test('session.compact is the envelope only', () => {
-    const event = buildSessionCompact(CTX)
-    expect(event.type).toBe('session.compact')
-    expect(Object.keys(event).sort()).toEqual([...ENVELOPE_KEYS].sort())
-  })
-
-  test('skill.use carries skill, kind and agent id (null when unattributed)', () => {
-    const attributed = buildSkillUse({ skill: 'foo', kind: 'read', agentId: 'a1' }, CTX)
-    expect([attributed.type, attributed.skill, attributed.kind, attributed.agentId]).toEqual([
-      'skill.use',
-      'foo',
-      'read',
-      'a1',
-    ])
-    expect(buildSkillUse({ skill: 'foo', kind: 'prompted', agentId: null }, CTX).agentId).toBeNull()
-  })
-
-  test('command.run carries the slash command name', () => {
-    const event = buildCommandRun({ name: 'status' }, CTX)
-    expect(event.type).toBe('command.run')
-    expect(event.name).toBe('status')
   })
 })

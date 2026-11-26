@@ -75,12 +75,12 @@ describe('loadHistory rollups', () => {
 
 describe('loadHistory open and live sessions', () => {
   test('computes a running session live and never writes a rollup', async () => {
-    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart(), verdict('t1', 'deny')]), mtimeMs: FRESH_MTIME_MS } }
+    const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl([sessionStart()]), mtimeMs: FRESH_MTIME_MS } }
 
     const { recorder, result } = load(files)
     const history = await result
 
-    expect(history.sessions[0]).toMatchObject({ state: 'open', denies: 1 })
+    expect(history.sessions[0]).toMatchObject({ state: 'open' })
     expect(recorder.writes).toEqual([])
   })
 
@@ -90,19 +90,19 @@ describe('loadHistory open and live sessions', () => {
     const stored = summarizeSession({ events: closedEvents('s1'), snapshots: [] }, CTX)
     files['rollup/s1.json'] = { content: JSON.stringify(buildRollup(stored, Object.fromEntries(['events/s1.jsonl', 'snapshots/s1a.json'].map((path) => [path, probe.statOf(path)])), 1)) }
 
-    const { fake, recorder, result } = load(files, { pendingEvents: { s1: [verdict('t9', 'deny', { sessionId: 's1' })] } })
+    const { fake, recorder, result } = load(files, { pendingEvents: { s1: [verdict('t9', 'allow', { sessionId: 's1', mcpServer: 'srv' })] } })
     const history = await result
 
     expect(fake.readPaths()).toContain('events/s1.jsonl')
-    expect(history.sessions[0]?.denies).toBe(1)
+    expect(history.sessions[0]?.tools.mcp.srv).toBeDefined()
     expect(recorder.writes).toEqual([])
   })
 
   test('a session with pending events and no events file is included when named in sessionIds', async () => {
-    const { recorder, result } = load({}, { sessionIds: ['s9'], pendingEvents: { s9: [sessionStart({ sessionId: 's9' }), verdict('t1', 'deny', { sessionId: 's9' })] } })
+    const { recorder, result } = load({}, { sessionIds: ['s9'], pendingEvents: { s9: [sessionStart({ sessionId: 's9' }), verdict('t1', 'allow', { sessionId: 's9', mcpServer: 'srv' })] } })
     const history = await result
 
-    expect(history.sessions).toMatchObject([{ sessionId: 's9', denies: 1 }])
+    expect(history.sessions).toMatchObject([{ sessionId: 's9', tools: { mcp: { srv: { Bash: 1 } } } }])
     expect(recorder.writes).toEqual([])
   })
 
@@ -171,22 +171,23 @@ describe('loadHistory fail-open', () => {
     expect(history.warnings).toBe(1)
   })
 
-  test('counts a newer-schema record as skipped coverage', async () => {
+  test('a record with a newer schema is skipped without a warning', async () => {
     const files: FakeFiles = {
       'events/s1.jsonl': { content: jsonl([sessionStart(), { schema: 2, id: 'x', type: 'future' }, sessionEnd()]), mtimeMs: STALE_MTIME_MS },
     }
 
     const history = await load(files).result
 
-    expect(history.sessions[0]?.coverage.skippedNewerSchema).toBe(1)
+    expect(history.sessions[0]?.state).toBe('closed')
+    expect(history.warnings).toBe(0)
   })
 
-  test('an agent without a snapshot file is counted as coverage, not a warning', async () => {
+  test('an agent without a snapshot file keeps its row and is not a warning', async () => {
     const files: FakeFiles = { 'events/s1.jsonl': { content: jsonl(closedEvents('s1')), mtimeMs: STALE_MTIME_MS } }
 
     const history = await load(files).result
 
-    expect(history.sessions[0]?.coverage.agentsWithoutSnapshot).toBe(1)
+    expect(history.sessions[0]?.agents).toHaveLength(1)
     expect(history.warnings).toBe(0)
   })
 
@@ -196,7 +197,6 @@ describe('loadHistory fail-open', () => {
     const history = await load(files).result
 
     expect(history.sessions.map((session) => session.sessionId)).toEqual(['s1'])
-    expect(history.sessions[0]?.coverage.agentsWithoutSnapshot).toBe(1)
     expect(history.warnings).toBe(0)
   })
 })
