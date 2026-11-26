@@ -1,5 +1,6 @@
 import { HISTORY_WINDOW_MS } from '../core/constants'
-import type { EventRecord, LiveAgent, SessionFigures } from '../core/figures'
+import type { LiveAgent, SessionFigures } from '../core/figures'
+import type { ObsEvent } from '../core/schema'
 import { mapUsage, type HostUsage } from '../core/usage'
 import { combineSessions, mergeLiveEvents, summarizeSession, type SessionInput } from '../report/analysis'
 import type { LoadHistoryOptions } from '../report/load-history'
@@ -51,13 +52,11 @@ export function createSources(loaders: { loadSession: SessionLoader; loadHistory
 /** One `$.agent.list()` row, as the host returns it (snake_case usage). */
 export type LiveAgentRow = { id: string; usage?: HostUsage[]; cost?: { usd: number; hasUnknownPrice?: true } }
 
-export type LoadSessionsOptions = LoadHistoryOptions
-
 export type LiveLoaderDeps = {
   now: () => number
   /** `loadHistory` of the store, bound to the file system only by the caller. */
-  loadSessions: (options: LoadSessionsOptions) => Promise<SessionFigures[]>
-  pendingEvents: (sessionId: string) => readonly EventRecord[]
+  loadSessions: (options: LoadHistoryOptions) => Promise<SessionFigures[]>
+  pendingEvents: (sessionId: string) => readonly ObsEvent[]
   listAgents: () => Promise<readonly LiveAgentRow[]>
   readMainAgent: () => Promise<string | null>
 }

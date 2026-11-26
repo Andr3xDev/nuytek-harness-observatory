@@ -1,6 +1,5 @@
 import type {
   AgentReportEvent,
-  AgentSnapshot,
   AgentSpawnEvent,
   CommandRunEvent,
   Envelope,
@@ -12,8 +11,9 @@ import type {
   TurnCompleteEvent,
   UsageRecord,
 } from '../../core/schema'
+import { SESSION_ID } from '../../core/test-fixtures'
 
-export const SESSION_ID = 's1'
+export { SESSION_ID }
 export const NOW = 1_000_000_000_000
 export const HOUR_MS = 60 * 60 * 1000
 
@@ -100,26 +100,4 @@ export const skillUse = (skill: string, kind: SkillUseEvent['kind'], agentId: st
 
 export const commandRun = (name: string): CommandRunEvent => ({ ...envelope('command.run', {}), name })
 
-export const snapshot = (agentId: string, overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => ({
-  schema: 1,
-  sessionId: SESSION_ID,
-  agentId,
-  parentAgentId: null,
-  subagentType: 'builder',
-  model: 'm1',
-  branch: null,
-  startedAt: 1,
-  updatedAt: 2,
-  usage: [],
-  costUsd: 0,
-  tokenCount: 0,
-  hasUnknownPrice: false,
-  taskStatus: null,
-  closed: false,
-  closedReason: null,
-  ...overrides,
-})
-
-/** The main-loop snapshot is `snapshots/main-<sessionId>.json` with `agentId: "main"`. */
-export const mainSnapshot = (overrides: Partial<AgentSnapshot> = {}): AgentSnapshot =>
-  snapshot('main', { subagentType: 'main', ...overrides })
+export { mainSnapshot, snapshot } from '../../core/test-fixtures'

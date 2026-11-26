@@ -1,5 +1,6 @@
 import type { On } from 'claude-code'
-import type { AgentFigures, AggregateFigures, Figure, SessionFigures, ToolFigures } from '../../report/analysis'
+import type { AgentFigures, Figure, SessionFigures, ToolFigures } from '../../core/figures'
+import type { AggregateFigures } from '../../report/analysis'
 import type { HistoryAtom, PanelTab, SessionAtom } from '../../../types'
 import { STATE_SHAPES } from '../state'
 import type { TabContext } from './common'

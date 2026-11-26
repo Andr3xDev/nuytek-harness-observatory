@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { createBatcher, type BatchSink } from '../store/write/batcher'
 import { createCapture, type HostApi, type Runtime, type SnapshotLister } from './handlers'
 import type { AgentSnapshot, ObsEvent } from '../core/schema'
-import { snapshot } from '../report/analysis/test-fixtures'
+import { snapshot } from '../core/test-fixtures'
 import type { SnapshotAgent } from './session/snapshots'
 
 const SESSION_ID = 's1'
@@ -279,7 +279,6 @@ describe('agents and turns', () => {
     await runtime.batcher.flush()
     expect(runtime.batcher.pendingEvents(SESSION_ID)).toEqual([])
   })
-
 })
 
 describe('turn model', () => {

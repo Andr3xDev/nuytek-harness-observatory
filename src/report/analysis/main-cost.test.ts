@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { summarizeSession } from './session'
-import type { EventRecord } from './types'
+import type { ObsEvent } from '../../core/schema'
 import { mainSnapshot, sessionMeasure, sessionStart, turn, usage } from './test-fixtures'
 
 const TEN_TOKENS = usage(10, 0, 0, 0)
@@ -36,7 +36,7 @@ describe('lastEventAt', () => {
 
   test('survives a very large event log', () => {
     const count = 100_000
-    const events = Array.from({ length: count }, (_, index) => ({ id: `e${index}`, ts: index }) as unknown as EventRecord)
+    const events = Array.from({ length: count }, (_, index) => ({ id: `e${index}`, ts: index }) as unknown as ObsEvent)
     const figures = summarizeSession({ events, snapshots: [] })
 
     expect(figures.lastEventAt).toBe(count - 1)

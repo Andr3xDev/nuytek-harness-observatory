@@ -1,11 +1,8 @@
-import { RESUME_SWEEP_WINDOW_MS } from '../../core/constants'
 import { totalTokens } from '../../core/figures'
-import { SCHEMA_VERSION, type AgentSnapshot, type ClosedReason, type UsageRecord } from '../../core/schema'
+import { MAIN_AGENT_ID, SCHEMA_VERSION, type AgentSnapshot, type ClosedReason, type UsageRecord } from '../../core/schema'
 import { mapUsage, type HostUsage } from '../../core/usage'
 import { agentSnapshotFileOf, mainSnapshotFileOf } from '../../store/layout'
 import type { StoredSnapshot } from '../../store/read/snapshot-store'
-
-const MAIN_AGENT_ID = 'main'
 
 /** The `$.agent.list()` fields a snapshot needs. */
 export type SnapshotAgent = {
@@ -163,12 +160,12 @@ export const createSnapshotTracker = (sessionId: string): SnapshotTracker => {
   }
 }
 
-/** Closes open snapshots of this session written within the resume window: their usage predates this process. */
+/** Closes open snapshots of this session: their usage predates this process. `files` is already limited to the resume window. */
 export const sweepStaleSnapshots = (
   sessionId: string,
   files: readonly StoredSnapshot[],
   now: number,
 ): SnapshotWrite[] =>
   files
-    .filter((file) => file.snapshot.sessionId === sessionId && !file.snapshot.closed && now - file.mtimeMs <= RESUME_SWEEP_WINDOW_MS)
-    .map((file) => ({ file: file.name, snapshot: { ...file.snapshot, closed: true, closedReason: 'reset' } }))
+    .filter((file) => file.snapshot.sessionId === sessionId && !file.snapshot.closed)
+    .map((file) => ({ file: file.name, snapshot: closeSnapshot(file.snapshot, 'reset', now) }))

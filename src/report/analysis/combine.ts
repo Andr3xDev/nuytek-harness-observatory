@@ -1,6 +1,7 @@
 import { RECENT_AGENTS_CAP } from '../../core/constants'
 import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, zeroTokens } from '../../core/figures'
-import type { AggregateFigures, ProfileFigures, RecentAgent, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from './types'
+import type { ProfileFigures, SessionFigures, SkillFigures, TokenCounts, ToolFigures, TypeFigures } from '../../core/figures'
+import type { AggregateFigures, RecentAgent } from './types'
 
 type Counts = Record<string, number>
 

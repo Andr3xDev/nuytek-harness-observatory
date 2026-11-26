@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { RESUME_SWEEP_WINDOW_MS } from '../../core/constants'
 import { SCHEMA_VERSION, type AgentSnapshot, type UsageRecord } from '../../core/schema'
 import {
   createSnapshotTracker,
@@ -251,16 +250,11 @@ describe('resume sweep', () => {
     },
   })
 
-  test('closes only open same-session snapshots within the window', () => {
-    const now = 10 * RESUME_SWEEP_WINDOW_MS
-    const files = [
-      stored('s1', false, 1_000, now),
-      stored('s2', false, 1_000, now),
-      stored('s1', true, 1_000, now),
-      stored('s1', false, RESUME_SWEEP_WINDOW_MS + 1, now),
-    ]
+  test('closes only open same-session snapshots', () => {
+    const now = 100_000
+    const files = [stored('s1', false, 1_000, now), stored('s2', false, 1_000, now), stored('s1', true, 1_000, now)]
     const writes = sweepStaleSnapshots('s1', files, now)
     expect(writes.map((w) => w.file)).toEqual([files[0]?.name])
-    expect(writes[0]?.snapshot).toMatchObject({ closed: true, closedReason: 'reset' })
+    expect(writes[0]?.snapshot).toMatchObject({ closed: true, closedReason: 'reset', updatedAt: now })
   })
 })

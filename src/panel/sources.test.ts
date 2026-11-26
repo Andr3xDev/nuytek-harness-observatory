@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { HISTORY_WINDOW_MS } from '../core/constants'
-import type { EventRecord, SessionFigures } from '../core/figures'
+import type { SessionFigures } from '../core/figures'
+import type { ObsEvent } from '../core/schema'
 import { summarizeSession } from '../report/analysis'
 import { NOW, sessionStart, spawn } from '../report/analysis/test-fixtures'
 import { createLiveLoaders, createSources, liveAgentsOf, type LiveLoaderDeps } from './sources'
 
 const figures = { agents: [] } as unknown as SessionFigures
 
-// No `$.fs` or store writer rule is not testable here: a plugin test module may import only relative files and "claude-code".
+// Tests cannot touch fs or process, so the fs seam is faked.
 describe('sources failure wrapper', () => {
   test('ready results pass the loader payload through', async () => {
     const sources = createSources({
@@ -112,7 +113,7 @@ describe('live session overlay', () => {
   const first = spawn('a1')
   const second = spawn('a2')
 
-  const seeded = (storedEvents: EventRecord[], pendingNow: () => EventRecord[]) => {
+  const seeded = (storedEvents: ObsEvent[], pendingNow: () => ObsEvent[]) => {
     return createLiveLoaders({
       now: () => NOW,
       loadSessions: async (options) => {
@@ -134,7 +135,7 @@ describe('live session overlay', () => {
   })
 
   test('counts new pending events without a store read and dedupes ids seen in both', async () => {
-    let pending: EventRecord[] = []
+    let pending: ObsEvent[] = []
     const loaders = seeded([start, first], () => pending)
     await loaders.loadSession('s1')
     expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(1)
@@ -145,7 +146,7 @@ describe('live session overlay', () => {
   })
 
   test('keeps events that left the pending list after a flush', async () => {
-    let pending: EventRecord[] = [second]
+    let pending: ObsEvent[] = [second]
     const loaders = seeded([start, first], () => pending)
     await loaders.loadSession('s1')
     expect(loaders.liveSession('s1')?.sessionFigures.agents).toHaveLength(2)
@@ -155,7 +156,7 @@ describe('live session overlay', () => {
   })
 
   test('a new store read resets the accumulated events', async () => {
-    let pending: EventRecord[] = []
+    let pending: ObsEvent[] = []
     const loaders = seeded([start], () => pending)
     await loaders.loadSession('s1')
     pending = [first]

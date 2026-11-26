@@ -1,18 +1,23 @@
-import { addFigure, addTokens, createRecord, emptyFigure, getOrInit, totalTokens, zeroTokens } from '../../core/figures'
-import type { AgentReportEvent, AgentSpawnEvent, TurnCompleteEvent, UsageRecord } from '../../core/schema'
-import { mergeLiveEvents } from './live'
-import { modelOf } from './model'
 import {
+  addFigure,
+  addTokens,
+  createRecord,
+  emptyFigure,
+  getOrInit,
+  totalTokens,
+  zeroTokens,
   type AgentFigures,
-  type EventRecord,
   type Figure,
   type ProfileFigures,
   type SessionFigures,
-  type SessionInput,
   type SkillFigures,
   type ToolFigures,
   type TypeFigures,
-} from './types'
+} from '../../core/figures'
+import { MAIN_AGENT_ID, type AgentReportEvent, type AgentSpawnEvent, type ObsEvent, type TurnCompleteEvent, type UsageRecord } from '../../core/schema'
+import { mergeLiveEvents } from './live'
+import { modelOf } from './model'
+import type { SessionInput } from './types'
 
 const MAIN_AGENT_TYPE = 'main'
 const UNKNOWN_KEY = 'unknown'
@@ -34,7 +39,7 @@ const bump = (record: Record<string, number>, key: string): void => {
   record[key] = (record[key] ?? 0) + 1
 }
 
-const collectAgents = (events: readonly EventRecord[]): Map<string, AgentRecord> => {
+const collectAgents = (events: readonly ObsEvent[]): Map<string, AgentRecord> => {
   const agents = new Map<string, AgentRecord>()
   for (const event of events) {
     if (event.type === 'agent.spawn' && event.agentId !== null && !agents.has(event.agentId)) {
@@ -54,7 +59,7 @@ const engineStatusOf = (report: AgentReportEvent | null): AgentFigures['engineSt
   return status !== null && FINAL_ENGINE_STATUSES.includes(status) ? (status as AgentFigures['engineStatus']) : 'unknown'
 }
 
-const summarizeTools = (events: readonly EventRecord[], agentTypeOf: (agentId: string | null) => string): ToolFigures => {
+const summarizeTools = (events: readonly ObsEvent[], agentTypeOf: (agentId: string | null) => string): ToolFigures => {
   const tools: ToolFigures = { skills: createRecord(), mcp: createRecord(), commands: createRecord() }
   const seenCalls = new Set<string>()
 
@@ -90,8 +95,8 @@ export function summarizeSession(input: SessionInput): SessionFigures {
   const liveById = new Map((input.liveAgents ?? []).map((agent) => [agent.agentId, agent]))
   const events = mergeLiveEvents(input.events, pending)
   const agents = collectAgents(events)
-  const mainSnapshot = input.snapshots.find((snapshot) => snapshot.agentId === 'main')
-  const snapshotById = new Map(input.snapshots.filter((snapshot) => snapshot.agentId !== 'main').map((snapshot) => [snapshot.agentId, snapshot]))
+  const mainSnapshot = input.snapshots.find((snapshot) => snapshot.agentId === MAIN_AGENT_ID)
+  const snapshotById = new Map(input.snapshots.filter((snapshot) => snapshot.agentId !== MAIN_AGENT_ID).map((snapshot) => [snapshot.agentId, snapshot]))
   const sessionStart = events.find((event) => event.type === 'session.start')
   const agentTypeOf = (agentId: string | null): string =>
     agentId === null ? MAIN_AGENT_TYPE : (agents.get(agentId)?.spawn.subagentType ?? UNKNOWN_KEY)

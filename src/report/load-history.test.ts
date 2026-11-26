@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import type { EventRecord } from '../core/figures'
+import type { ObsEvent } from '../core/schema'
 import { createFakeFs, jsonl, type FakeFiles } from '../store/read/test-fs'
 import { HOUR_MS, NOW, sessionEnd, sessionStart, snapshot, spawn, usage, verdict } from './analysis/test-fixtures'
 import { loadHistory, type EventsCache } from './load-history'
@@ -7,7 +7,7 @@ import { loadHistory, type EventsCache } from './load-history'
 const FRESH_MTIME_MS = NOW - 60_000
 const STALE_MTIME_MS = NOW - 7 * HOUR_MS
 
-const closedEvents = (id: string): EventRecord[] => [sessionStart({ sessionId: id }), spawn(`${id}a`, { sessionId: id }), sessionEnd({ sessionId: id })]
+const closedEvents = (id: string): ObsEvent[] => [sessionStart({ sessionId: id }), spawn(`${id}a`, { sessionId: id }), sessionEnd({ sessionId: id })]
 const agentSnapshotFile = (id: string) => JSON.stringify(snapshot(`${id}a`, { sessionId: id, usage: [usage(10, 0, 0, 0)], costUsd: 0.5 }))
 
 const closedSession = (id: string, mtimeMs = STALE_MTIME_MS): FakeFiles => ({
@@ -43,7 +43,7 @@ describe('loadHistory live sessions', () => {
     const malformedTurn = { schema: 1, id: 'x', type: 'turn.complete', ts: 5, sessionId: 's2', agentId: null, branch: null, durationMs: 1 }
     const files: FakeFiles = {
       ...closedSession('s1'),
-      'events/s2.jsonl': { content: jsonl([sessionStart({ sessionId: 's2' }), malformedTurn as unknown as EventRecord]), mtimeMs: STALE_MTIME_MS },
+      'events/s2.jsonl': { content: jsonl([sessionStart({ sessionId: 's2' }), malformedTurn as unknown as ObsEvent]), mtimeMs: STALE_MTIME_MS },
     }
 
     const history = await load(files).result

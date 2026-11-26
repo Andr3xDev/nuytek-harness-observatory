@@ -3,8 +3,7 @@ import { RECENT_AGENTS_CAP } from '../../core/constants'
 import { combineSessions } from './combine'
 import { summarizeSession } from './session'
 import { commandRun, sessionEnd, sessionStart, snapshot, spawn, report, skillUse, usage } from './test-fixtures'
-import type { AgentSnapshot } from '../../core/schema'
-import type { EventRecord } from './types'
+import type { AgentSnapshot, ObsEvent } from '../../core/schema'
 
 const agentSnapshot = (agentId: string, sessionId: string, overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => {
   const tokens = overrides.usage?.[0]?.input ?? 0
@@ -14,7 +13,7 @@ const agentSnapshot = (agentId: string, sessionId: string, overrides: Partial<Ag
 const tokensSnapshot = (agentId: string, sessionId: string, tokens: number, subagentType = 'builder', overrides: Partial<AgentSnapshot> = {}) =>
   agentSnapshot(agentId, sessionId, { subagentType, usage: [usage(tokens, 0, 0, 0)], ...overrides })
 
-const summarize = (events: EventRecord[], snapshots: AgentSnapshot[] = []) => summarizeSession({ events, snapshots })
+const summarize = (events: ObsEvent[], snapshots: AgentSnapshot[] = []) => summarizeSession({ events, snapshots })
 
 describe('combineSessions by type', () => {
   test('sums spawns and tokens per agent type across sessions', () => {
@@ -134,8 +133,8 @@ describe('combineSessions merging', () => {
 })
 
 describe('combineSessions profile figures', () => {
-  const profileOn = (sessionId: string, ...rest: EventRecord[]) => summarize([sessionStart({ sessionId, harnessProfile: true }), ...rest])
-  const profileOff = (sessionId: string, ...rest: EventRecord[]) => summarize([sessionStart({ sessionId, harnessProfile: false }), ...rest])
+  const profileOn = (sessionId: string, ...rest: ObsEvent[]) => summarize([sessionStart({ sessionId, harnessProfile: true }), ...rest])
+  const profileOff = (sessionId: string, ...rest: ObsEvent[]) => summarize([sessionStart({ sessionId, harnessProfile: false }), ...rest])
 
   test('sums injected skills over profile-on sessions only', () => {
     const on = profileOn('s1', spawn('r1', { sessionId: 's1', skillsInjected: ['alpha'] }))

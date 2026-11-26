@@ -1,14 +1,5 @@
-import type {
-  EventRecord,
-  Figure,
-  LiveAgent,
-  ProfileFigures,
-  SnapshotRecord,
-  TokenCounts,
-  ToolFigures,
-  TypeFigures,
-} from '../../core/figures'
-import { SCHEMA_VERSION } from '../../core/schema'
+import type { Figure, LiveAgent, ProfileFigures, TokenCounts, ToolFigures, TypeFigures } from '../../core/figures'
+import { SCHEMA_VERSION, type AgentSnapshot, type ObsEvent } from '../../core/schema'
 
 export type RecentAgent = Pick<Figure, keyof TokenCounts | 'tokens' | 'costUsd' | 'hasUnknownPrice'> & {
   type: string
@@ -17,26 +8,13 @@ export type RecentAgent = Pick<Figure, keyof TokenCounts | 'tokens' | 'costUsd' 
   startedAt: number
 }
 
-export type {
-  AgentFigures,
-  EventRecord,
-  Figure,
-  LiveAgent,
-  ProfileFigures,
-  SessionFigures,
-  SkillFigures,
-  TokenCounts,
-  ToolFigures,
-  TypeFigures,
-} from '../../core/figures'
-
 /** The reader accepts every record up to the schema this build writes. */
 export const SUPPORTED_SCHEMA = SCHEMA_VERSION
 
 export type SessionInput = {
-  events: EventRecord[]
-  snapshots: SnapshotRecord[]
-  pendingEvents?: readonly EventRecord[]
+  events: ObsEvent[]
+  snapshots: AgentSnapshot[]
+  pendingEvents?: readonly ObsEvent[]
   liveAgents?: readonly LiveAgent[]
 }
 

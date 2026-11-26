@@ -1,5 +1,6 @@
 import { isSnapshotShape, tryParseJson } from '../core/guards'
-import type { EventRecord, LiveAgent, SessionFigures, SnapshotRecord, SourceListing } from '../core/figures'
+import type { LiveAgent, SessionFigures, SourceListing } from '../core/figures'
+import type { AgentSnapshot, ObsEvent } from '../core/schema'
 import type { HistoryFs } from '../store/read/history-fs'
 import { listSources, readLines } from '../store/read/reader'
 import { agentSnapshotPathOf, eventsPathOf, mainSnapshotPathOf, sessionIdOfEventsPath } from '../store/layout'
@@ -9,7 +10,7 @@ import type { SessionInput } from './analysis/types'
 
 export const READ_CONCURRENCY = 8
 
-export type EventsCache = Map<string, { size: number; mtimeMs: number; events: EventRecord[] }>
+export type EventsCache = Map<string, { size: number; mtimeMs: number; events: ObsEvent[] }>
 export type HistoryDeps = {
   fs: HistoryFs
   /** Events parsed per session id, valid while the file's size and mtime are unchanged. Used only when `sessionIds` is set. */
@@ -19,7 +20,7 @@ export type LoadHistoryOptions = {
   sessionIds?: readonly string[]
   /** Skips sessions whose events file was last modified before this time, without opening them. */
   modifiedSince?: number
-  pendingEvents?: Readonly<Record<string, readonly EventRecord[]>>
+  pendingEvents?: Readonly<Record<string, readonly ObsEvent[]>>
   liveAgents?: Readonly<Record<string, readonly LiveAgent[]>>
   /** Sees the exact input a session was summarized from; the live panel keeps it to extend in memory. */
   onSessionInput?: (sessionId: string, input: SessionInput) => void
@@ -39,7 +40,7 @@ async function mapWithLimit<T, R>(items: readonly T[], limit: number, task: (ite
 }
 
 /** A snapshot that cannot be read is dropped; the session keeps its other figures. */
-const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing): Promise<SnapshotRecord | null> => {
+const readSnapshot = async (fs: HistoryFs, path: string, listing: SourceListing): Promise<AgentSnapshot | null> => {
   if (!Object.hasOwn(listing, path)) return null
   const snapshot = await fs.readText(path).then(tryParseJson, () => undefined)
   return isSnapshotShape(snapshot) ? snapshot : null
@@ -78,8 +79,9 @@ export async function loadHistory({ fs, eventsCache }: HistoryDeps, options: Loa
 
     if (!isLive && !stat) return null
 
-    let events: EventRecord[] = []
+    let events: ObsEvent[] = []
     if (stat) {
+      // Hits only when the file is unchanged (closed sessions); a live session re-reads on each refresh.
       const hit = cache?.get(sessionId)
       if (hit && hit.size === stat.size && hit.mtimeMs === stat.mtimeMs) {
         events = [...hit.events]

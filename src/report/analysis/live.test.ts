@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { mergeLiveEvents } from './live'
 import { summarizeSession } from './session'
-import type { LiveAgent } from './types'
+import type { LiveAgent } from '../../core/figures'
 import { report, sessionStart, snapshot, spawn, turn, usage } from './test-fixtures'
 
 const SNAPSHOT_USAGE = usage(10, 0, 0, 0)

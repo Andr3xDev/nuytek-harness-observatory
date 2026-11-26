@@ -2,6 +2,9 @@ export const SCHEMA_VERSION = 1
 
 export type Schema = typeof SCHEMA_VERSION
 
+/** `AgentSnapshot.agentId` of the main loop's snapshot. */
+export const MAIN_AGENT_ID = 'main'
+
 /** Token counts of one turn, camelCase on disk (the host reports snake_case). */
 export type UsageRecord = {
   input: number
@@ -139,6 +142,7 @@ export type AgentSnapshot = {
   /** The effort set for the agent, a level or a budget as written; absent when it takes the session's. */
   effort?: string | number
   branch: string | null
+  /** `startedAt` of the session's usage (the reset detector), not the time this agent started. */
   startedAt: number
   updatedAt: number
   usage: UsageRecord[]

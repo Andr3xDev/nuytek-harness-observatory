@@ -1,10 +1,7 @@
-import type { AgentSnapshot, ObsEvent, UsageRecord } from './schema'
-
-export type EventRecord = ObsEvent
-export type SnapshotRecord = AgentSnapshot
+import type { UsageRecord } from './schema'
 
 export type TokenCounts = { input: number; output: number; cacheRead: number; cacheCreation: number }
-type Money ={ costUsd: number; hasUnknownPrice: boolean }
+type Money = { costUsd: number; hasUnknownPrice: boolean }
 export type Figure = TokenCounts & Money & { tokens: number }
 
 /** A fresh zeroed figure each call: callers accumulate into it. */
@@ -14,7 +11,7 @@ export const zeroTokens = (): TokenCounts => ({ input: 0, output: 0, cacheRead: 
 
 export const totalTokens = (counts: TokenCounts): number => counts.input + counts.output + counts.cacheRead + counts.cacheCreation
 
-export const addTokens =(target: TokenCounts, part: TokenCounts): void => {
+export const addTokens = (target: TokenCounts, part: TokenCounts): void => {
   target.input += part.input
   target.output += part.output
   target.cacheRead += part.cacheRead
@@ -77,6 +74,6 @@ export type SessionFigures = {
   profile: ProfileFigures | null
 }
 
-type SourceStat ={ size: number; mtimeMs: number }
+type SourceStat = { size: number; mtimeMs: number }
 /** Current files by store-relative path (`events/<id>.jsonl`, `snapshots/<id>.json`). */
 export type SourceListing = Readonly<Record<string, SourceStat>>
